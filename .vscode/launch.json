@@ -1,0 +1,33 @@
+{
+    "compounds": [],
+    "configurations": [
+        {
+            "name"       : "Containers: Attach to Node",
+            "type"       : "node",
+            "request"    : "attach",
+            "remoteRoot" : "/usr/src/app",
+        },
+        {
+            "name"       : "Attach to Chrome",
+            "port"       : 9222,
+            "request"    : "attach",
+            "type"       : "chrome",
+            "webRoot"    : "${workspaceFolder}",
+        },
+        {
+            "name"       : "Docker: Build",
+            "type"       : "dockerfile",
+            "request"    : "launch",
+            "dockerfile" : "Dockerfile",
+            "contextPath": "${workspaceFolder}",
+        },
+        {
+            "name"       : "run",
+            "type"       : "node",
+            "request"    : "launch",
+            "program"    : "${workspaceFolder}/${relativeFile}",
+            "envFile"    : "${workspaceFolder}/.env",
+            "cwd"        : "${workspaceFolder}",
+        },
+    ]
+}

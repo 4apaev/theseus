@@ -1,0 +1,79 @@
+{
+    "version": "2.0.0",
+    "type": "shell",
+    "problemMatcher": [],
+    "presentation": {
+        "focus": true,
+        "close": false,
+        "panel": "dedicated",
+        "reveal": "always",
+    },
+
+    "options": {
+        "cwd"  : "${workspaceFolder}",
+        "env": {
+            "APP": "Google Chrome"
+        }
+    },
+
+    "tasks": [
+        {   "label"   : "file invoke",
+            "command" : "node",
+            "args"    : [ "--env-file=${workspaceFolder}/.env", "${file}" ],
+            "icon"    : { "id"  : "snake", "color": "terminal.ansiGreen"  }},
+
+        {   "label"   : "test all with coverage",
+            "group"   : "test",
+            "command" : "node",
+            "args"    : [ "--env-file=${workspaceFolder}/.env", "--experimental-test-coverage", "${workspaceFolder}/**/*.spec.js" ],
+            "icon"    : { "id"  : "coffee", "color": "terminal.ansiYellow"                                                        }},
+
+        {   "label"   : "test single file",
+            "group"   : "test",
+            "command" : "node",
+            "args"    : [ "--env-file=${workspaceFolder}/.env", "--test", "${file}" ],
+            "icon"    : { "id"  : "beaker", "color": "terminal.ansiGreen"                                               }},
+
+        {   "label"   : "test single file with reporter",
+            "group"   : "test",
+            "command" : "node",
+            "args"    : [ "--env-file=${workspaceFolder}/.env", "--test", "--test-reporter=${input:reporter}", "${file}" ],
+            "icon"    : { "id"  : "beaker", "color": "terminal.ansiYellow"                                               }},
+
+        {   "label"   : "open with app",
+            "command"      : "open",
+            "args"         : [ "-a", "${input:apps}", "${input:vars}"         ],
+            "icon"         : { "id": "file-add", "color": "terminal.ansiBlue" },
+            "presentation" : { "reveal": "never"                              }},
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        {   "label"   : "show vars",
+            "command" : "echo",
+            "args"    : [ "${input:vars}"                                    ],
+            "icon"    : { "id": "megaphone", "color": "terminal.ansiMagenta" }},
+    ],
+
+    "inputs": [
+        { "id": "reporter", "type": "pickString", "default": "spec"  , "description": "select test reporter", "options": [ "tap"   , "spec", "dot" , "junit", "lcov" ]},
+        { "id": "apps"    , "type": "pickString", "description": "apps to open with   ", "options": [ "Finder", "Sublime Text", "Google Chrome" ]},
+        { "id": "vars"    , "type": "pickString", "description": "VSCode env variables", "options": [
+            "${file}",
+            "${relativeFile}",
+            "${relativeFileDirname}",
+            "${fileDirnameBasename}",
+            "${fileDirname}",
+            "${fileBasename}",
+            "${fileBasenameNoExtension}",
+            "${fileExtname}",
+            "${fileWorkspaceFolder}",
+            "${workspaceFolder}",
+            "${workspaceFolderBasename}",
+            "${cwd}",
+            "${execPath}",
+            "${userHome}",
+            "${lineNumber}",
+            "${selectedText}",
+        ]},
+    ],
+
+}

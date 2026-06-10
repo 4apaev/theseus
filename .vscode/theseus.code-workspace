@@ -1,0 +1,16 @@
+{
+    "folders": [
+        {
+            "path": "../",
+            "name": "🚀 theseus"
+        }
+    ],
+
+    "settings": {
+        "files.exclude": {
+            ".git": true,
+            // "node_modules": true,
+        }
+    },
+}
+
