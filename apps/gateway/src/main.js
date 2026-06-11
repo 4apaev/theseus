@@ -1,3 +1,5 @@
+import { bootService, isMain } from '../../../packages/config/src/index.js'
+
 export const serviceName = 'gateway'
 
 export function describeService() {
@@ -7,3 +9,6 @@ export function describeService() {
         owns   : [],
     }
 }
+
+if (isMain(import.meta.url))
+    bootService(describeService())

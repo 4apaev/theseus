@@ -10,8 +10,14 @@
         "packages/*"
     ],
     "scripts": {
-        "test": "node --test ./test/*.spec.js",
-        "lint": "eslint ."
+        "test"        : "node --test ./test/*.spec.js",
+        "lint"        : "eslint .",
+        "infra:up"    : "docker compose -f infra/docker-compose.yml up -d",
+        "infra:down"  : "docker compose -f infra/docker-compose.yml down",
+        "infra:logs"  : "docker compose -f infra/docker-compose.yml logs -f",
+        "infra:ps"    : "docker compose -f infra/docker-compose.yml ps",
+        "infra:health": "node scripts/infra-health.js",
+        "services:check": "node scripts/services-check.js"
     },
     "dependencies": {
         "garage": "../garage"
