@@ -7,6 +7,7 @@ export const commandTopics = Object.freeze({
 })
 
 export const eventTopics = Object.freeze({
+    all   : 'events.all',
     cargo : 'events.cargo',
     market: 'events.market',
     player: 'events.player',

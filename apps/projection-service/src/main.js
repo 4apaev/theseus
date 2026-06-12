@@ -1,4 +1,4 @@
-import { bootService, isMain } from '../../../packages/config/src/index.js'
+import { bootService, isMain } from '@theseus/config'
 
 export const serviceName = 'projection-service'
 

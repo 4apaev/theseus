@@ -1,31 +1,37 @@
 {
-    "name"       : "theseus",
-    "version"    : "0.0.0",
+    "name": "theseus",
+    "version": "0.0.0",
     "description": "interstellar trade game",
-    "repository" : "github:4apaev/theseus",
-    "type"       : "module",
-    "private"    : true,
-    "workspaces" : [
+    "repository": "github:4apaev/theseus",
+    "type": "module",
+    "private": true,
+    "workspaces": [
         "apps/*",
         "packages/*"
     ],
+    "imports": {
+        "#apps/*": "./apps/*",
+        "#packages/*": "./packages/*"
+    },
     "scripts": {
-        "test"        : "node --test ./test/*.spec.js",
-        "lint"        : "eslint .",
-        "infra:up"    : "docker compose -f infra/docker-compose.yml up -d",
-        "infra:down"  : "docker compose -f infra/docker-compose.yml down",
-        "infra:logs"  : "docker compose -f infra/docker-compose.yml logs -f",
-        "infra:ps"    : "docker compose -f infra/docker-compose.yml ps",
+        "test": "node --test ./test/*.spec.js",
+        "lint": "eslint .",
+        "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+        "infra:down": "docker compose -f infra/docker-compose.yml down",
+        "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
+        "infra:ps": "docker compose -f infra/docker-compose.yml ps",
         "infra:health": "node scripts/infra-health.js",
-        "services:check": "node scripts/services-check.js"
+        "services:check": "node scripts/services-check.js",
+        "typecheck": "tsc --noEmit"
     },
     "dependencies": {
         "garage": "../garage"
     },
     "devDependencies": {
-        "@eslint/js" : "^10.0.1",
+        "@eslint/js": "^10.0.1",
         "@types/node": "^25.9.2",
-        "eslint"     : "^10.4.1",
-        "globals"    : "^17.6.0"
+        "eslint": "^10.4.1",
+        "globals": "^17.6.0",
+        "typescript": "^6.0.3"
     }
 }

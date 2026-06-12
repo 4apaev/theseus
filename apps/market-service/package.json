@@ -3,5 +3,11 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
-    "exports": "./src/main.js"
+    "types": "./src/main.d.ts",
+    "exports": {
+        ".": {
+            "types": "./src/main.d.ts",
+            "default": "./src/main.js"
+        }
+    }
 }

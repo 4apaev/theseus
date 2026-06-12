@@ -1,6 +1,6 @@
 import net from 'node:net'
 
-import { readEnv } from '../packages/config/src/index.js'
+import { readEnv } from '#packages/config/src/index.js'
 
 const timeout = +readEnv('THESEUS_HEALTH_timeout_MS', '1500')
 const checks = [

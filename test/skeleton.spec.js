@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import test   from 'node:test'
 
-import { serviceName as gatewayServiceName             } from '../apps/gateway/src/main.js'
-import { commandTopics, createCommandEnvelope          } from '../packages/contracts/src/index.js'
-import { capitalCost, commonFrameYears, shipFrameYears } from '../packages/domain/src/index.js'
-import { createTopicRecord, decodeJson                 } from '../packages/kafka/src/index.js'
+import { serviceName as gatewayServiceName             } from '#apps/gateway/src/main.js'
+import { commandTopics, createCommandEnvelope          } from '#packages/contracts/src/index.js'
+import { capitalCost, commonFrameYears, shipFrameYears } from '#packages/domain/src/index.js'
+import { createTopicRecord, decodeJson                 } from '#packages/kafka/src/index.js'
 
 test('repo skeleton exposes service entrypoints', () => {
     assert.equal(gatewayServiceName, 'gateway')
@@ -16,7 +16,10 @@ test('contracts can create command envelopes', () => {
         command_type: 'ship.travel.requested.v1',
         requested_by: 'player_test',
         payload     : {
-            ship_id: 'ship_test',
+            from_station_id: 'sol.outpost',
+            player_id      : 'player_test',
+            ship_id        : 'ship_test',
+            to_station_id  : 'alpha.exchange',
         },
     })
 

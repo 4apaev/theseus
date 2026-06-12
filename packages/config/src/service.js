@@ -8,6 +8,6 @@ export function bootService(description) {
     }))
 }
 
-export function isMain(importMetaUrl) {
-    return importMetaUrl === new URL(process.argv[ 1 ], 'file:').href
+export function isMain(url) {
+    return url === new URL(process.argv[ 1 ], 'file:').href
 }

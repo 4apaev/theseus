@@ -1,17 +1,25 @@
-export function readEnv(name, fallback = undefined) {
-    const value = process.env[ name ]
+import { Fail } from 'garage/util'
+// import { STATUS } from 'garage/constants'
 
-    if (value == null || value == '')
-        return fallback
-
-    return value
+export function readEnv(key, fallback = undefined) {
+    const val = format(process.env[ key ])
+    return val ?? fallback
 }
 
-export function requireEnv(name) {
-    const value = readEnv(name)
+export function requireEnv(key) {
+    const val = readEnv(key)
+    val ?? Fail.raise(416, `missing required env var: ${ key }`) // RANGE NOT SATISFIABLE
+    return val
+}
 
-    if (value == null)
-        throw new Error(`missing required env var: ${ name }`)
+export function format(val) {
+    if (val == null || val == '')
+        return void 0
 
-    return value
+    let x = String(val).toLowerCase()
+    if (x == 'true') return true
+    if (x == 'false') return false
+    return isNaN(+x)
+        ? val
+        : +x
 }
