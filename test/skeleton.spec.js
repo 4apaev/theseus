@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test   from 'node:test'
 
-import { serviceName as gatewayServiceName             } from '#apps/gateway/src/main.js'
+import { service as gatewayServiceName             } from '#apps/gateway/src/main.js'
 import { commandTopics, createCommandEnvelope          } from '#packages/contracts/src/index.js'
 import { capitalCost, commonFrameYears, shipFrameYears } from '#packages/domain/src/index.js'
 import { createTopicRecord, decodeJson                 } from '#packages/kafka/src/index.js'
