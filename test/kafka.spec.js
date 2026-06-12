@@ -1,22 +1,19 @@
 import assert from 'node:assert/strict'
-import test   from 'node:test'
+import test from 'node:test'
 
-import { createEventEnvelope, eventTopics, eventTypes } from '#packages/contracts/src/index.js'
-import {
-    createConsumer,
-    createProducer,
-} from '#packages/kafka/src/index.js'
 import { createFakeKafka } from '#packages/testing/src/index.js'
+import { createConsumer, createProducer } from '#packages/kafka/src/index.js'
+import { createEventEnvelope, eventTopics, eventTypes } from '#packages/contracts/src/index.js'
 
 test('fake kafka publishes and consumes typed events', async () => {
-    const kafka = createFakeKafka()
     const seen = []
+    const kafka = createFakeKafka()
     const consumer = createConsumer({
         client : kafka,
-        groupId: 'test-projection',
         topics : [ eventTopics.ship ],
-        handler(message) {
-            seen.push(message.value)
+        groupId: 'test-projection',
+        handler(msg) {
+            seen.push(msg.value)
         },
     })
     const producer = createProducer({ client: kafka })
@@ -33,14 +30,14 @@ test('fake kafka publishes and consumes typed events', async () => {
 })
 
 test('consumer detects duplicate event ids', async () => {
-    const kafka = createFakeKafka()
     const seen = []
+    const kafka = createFakeKafka()
     const consumer = createConsumer({
         client : kafka,
-        groupId: 'test-projection',
         topics : [ eventTopics.ship ],
-        handler(message) {
-            seen.push(message.value.event_id)
+        groupId: 'test-projection',
+        handler(msg) {
+            seen.push(msg.value.event_id)
         },
     })
     const producer = createProducer({ client: kafka })
@@ -56,20 +53,20 @@ test('consumer detects duplicate event ids', async () => {
     })
 })
 
-function shipCreatedEvent(eventId) {
+function shipCreatedEvent(eid) {
     return createEventEnvelope({
         aggregate_id     : 'ship_test',
         aggregate_type   : 'ship',
         aggregate_version: 1,
-        event_id         : eventId,
+        event_id         : eid,
         event_type       : eventTypes.ship_created_v1,
         producer         : 'ship-service',
         payload          : {
-            cargo_capacity: 20,
             name          : 'courier',
-            player_id     : 'player_test',
             ship_id       : 'ship_test',
+            player_id     : 'player_test',
             station_id    : 'sol.outpost',
+            cargo_capacity: 20,
             velocity_c    : 0.6,
         },
     })
