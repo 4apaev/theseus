@@ -1,4 +1,4 @@
 import type { ServiceDescription } from '@theseus/config'
 
-export const serviceName: 'ship-service'
+export const service: 'ship-service'
 export function describeService(): ServiceDescription
