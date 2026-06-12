@@ -3,10 +3,10 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
-    "types": "./src/main.d.ts",
+    "types": "./types/main.d.ts",
     "exports": {
         ".": {
-            "types": "./src/main.d.ts",
+            "types": "./types/main.d.ts",
             "default": "./src/main.js"
         }
     }
