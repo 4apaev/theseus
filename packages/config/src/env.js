@@ -1,15 +1,14 @@
 import { Fail } from 'garage/util'
-// import { STATUS } from 'garage/constants'
 
-export function readEnv(key, fallback = undefined) {
-    const val = format(process.env[ key ])
-    return val ?? fallback
+process.loadEnvFile()
+
+export function readEnv(key, fallback) {
+    return format(process.env[ key ]) ?? fallback ?? void 0
 }
 
 export function requireEnv(key) {
-    const val = readEnv(key)
-    val ?? Fail.raise(416, `missing required env var: ${ key }`) // RANGE NOT SATISFIABLE
-    return val
+    return readEnv(key)
+    ?? Fail.raise(416, `missing required env var: ${ key }`) // RANGE NOT SATISFIABLE
 }
 
 export function format(val) {
