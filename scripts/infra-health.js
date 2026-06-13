@@ -2,22 +2,23 @@ import net from 'node:net'
 
 import { readEnv } from '#packages/config/src/index.js'
 
-const timeout = +readEnv('THESEUS_HEALTH_timeout_MS', '1500')
+const timeout = readEnv('HEALTH_TIMEOUT', 1500)
+
 const checks = [
     {
         name: 'kafka',
-        host: readEnv('THESEUS_KAFKA_HOST', '127.0.0.1'),
-        port: +readEnv('THESEUS_KAFKA_PORT', '9092'),
+        host: readEnv('KAFKA_HOST', '127.0.0.1'),
+        port: readEnv('KAFKA_PORT', 9092),
     },
     {
         name: 'postgres',
-        host: readEnv('THESEUS_POSTGRES_HOST', '127.0.0.1'),
-        port: +readEnv('THESEUS_POSTGRES_PORT', '5432'),
+        host: readEnv('PG_HOST', '127.0.0.1'),
+        port: readEnv('PG_PORT', 5432),
     },
     {
         name: 'kafka-ui',
-        host: readEnv('THESEUS_KAFKA_UI_HOST', '127.0.0.1'),
-        port: +readEnv('THESEUS_KAFKA_UI_PORT', '8080'),
+        host: readEnv('KAFKA_UI_HOST', '127.0.0.1'),
+        port: readEnv('KAFKA_UI_PORT', 8080),
     },
 ]
 
