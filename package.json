@@ -29,7 +29,7 @@
         "typecheck"     : "tsc --noEmit"
     },
     "dependencies": {
-        "garage": "../garage"
+        "garage": "github:4apaev/garage"
     },
     "devDependencies": {
         "@eslint/js" : "^10.0.1",
