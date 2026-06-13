@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: theseus
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: theseus
+
+      - uses: actions/checkout@v4
+        with:
+          repository: 4apaev/garage
+          path: garage
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: theseus/package-lock.json
+
+      - run: npm ci
+      - run: cp .env.example .env
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
