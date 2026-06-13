@@ -16,7 +16,9 @@
         "#packages/*": "./packages/*"
     },
     "scripts": {
-        "test"          : "node --test ./test/*.spec.js",
+        "prepare"       : "git config core.hooksPath .githooks",
+        "env:update"    : "bash .githooks/pre-push",
+        "test"          : ". ./scripts/test.sh",
         "lint"          : "eslint .",
         "infra:up"      : "docker compose -f infra/docker-compose.yml up -d",
         "infra:down"    : "docker compose -f infra/docker-compose.yml down",
