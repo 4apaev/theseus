@@ -10,21 +10,20 @@ import type {
 } from './events.js'
 
 export type CommandEnvelopeInput<T extends CommandType> = {
-    command_id: string
+    cmd: string
     command_type: T
-    requested_at?: string
+    requested?: string
     requested_by?: string
     correlation_id?: string
     payload: CommandPayloads[T]
 }
 
 export type EventEnvelopeInput<T extends EventType> = {
-    event_id: string
+    eid: string
     event_type: T
     aggregate_type: string
     aggregate_id: string
     aggregate_version: number
-    occurred_at?: string
     occurred?: string
     causation_id?: string
     correlation_id?: string

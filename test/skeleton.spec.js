@@ -12,18 +12,18 @@ test('repo skeleton exposes service entrypoints', () => {
 
 test('contracts can create command envelopes', () => {
     const command = createCommandEnvelope({
-        command_id  : 'cmd_test',
+        cmd         : 'cmd_test',
         command_type: 'ship.travel.requested.v1',
         requested_by: 'player_test',
         payload     : {
-            from_station_id: 'sol.outpost',
-            player_id      : 'player_test',
-            ship_id        : 'ship_test',
-            to_station_id  : 'alpha.exchange',
+            from_station: 'sol.outpost',
+            pid         : 'player_test',
+            sid         : 'ship_test',
+            to_station  : 'alpha.exchange',
         },
     })
 
-    assert.equal(command.command_id, 'cmd_test')
+    assert.equal(command.cmd, 'cmd_test')
     assert.equal(command.correlation_id, 'cmd_test')
     assert.equal(commandTopics.ship, 'commands.ship')
 })

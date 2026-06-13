@@ -21,6 +21,6 @@ export function createMemoryMessageStore() {
 
 export function messageIdentity(value) {
     return Is.o(value)
-        ? value.event_id ?? value.command_id
+        ? value.eid ?? value.cmd
         : void 0
 }

@@ -5,7 +5,7 @@ export type TradeSide = 'buy' | 'sell'
 export interface EventPayloads {
     'player.created.v1': {
         handle: string
-        player_id: string
+        pid: string
     }
     'player.registration.rejected.v1': {
         handle: string
@@ -13,106 +13,106 @@ export interface EventPayloads {
     }
     'wallet.created.v1': {
         balance: number
-        player_id: string
+        pid: string
     }
     'wallet.debited.v1': WalletTransactionPayload
     'wallet.credited.v1': WalletTransactionPayload
     'wallet.transaction.rejected.v1': {
         amount: number
-        player_id: string
+        pid: string
         reason: string
         reference_id: string
     }
     'ship.created.v1': {
-        cargo_capacity: number
+        capacity: number
         name: string
-        player_id: string
-        ship_id: string
-        station_id: string
-        velocity_c: number
+        pid: string
+        sid: string
+        stid: string
+        velocity: number
     }
     'ship.departed.v1': {
-        arrives_at: string
+        arrives: string
         common_frame_years: number
-        departed_at: string
-        from_station_id: string
-        player_id: string
+        departed: string
+        from_station: string
+        pid: string
         ship_frame_years: number
-        ship_id: string
-        to_station_id: string
+        sid: string
+        to_station: string
     }
     'ship.arrived.v1': {
-        arrived_at: string
-        player_id: string
-        ship_id: string
-        station_id: string
+        arrived: string
+        pid: string
+        sid: string
+        stid: string
     }
     'ship.travel.rejected.v1': {
-        player_id: string
+        pid: string
         reason: string
-        ship_id: string
+        sid: string
     }
     'cargo.loaded.v1': CargoPayload
     'cargo.unloaded.v1': CargoPayload
     'cargo.operation.rejected.v1': {
-        good_id?: string
-        player_id: string
+        gid?: string
+        pid: string
         quantity?: number
         reason: string
-        ship_id: string
+        sid: string
     }
     'trade.executed.v1': {
-        good_id: string
-        player_id: string
+        gid: string
+        pid: string
         quantity: number
-        ship_id: string
+        sid: string
         side: TradeSide
-        station_id: string
+        stid: string
         total_price: number
         trade_id: string
         unit_price: number
     }
     'trade.rejected.v1': {
-        good_id: string
-        player_id: string
+        gid: string
+        pid: string
         quantity: number
         reason: string
-        ship_id: string
+        sid: string
         side: TradeSide
-        station_id: string
+        stid: string
     }
     'market.price.changed.v1': {
         buy_price: number
-        good_id: string
+        gid: string
         sell_price: number
-        station_id: string
+        stid: string
     }
 }
 
 export interface CargoPayload {
-    good_id: string
-    player_id: string
+    gid: string
+    pid: string
     quantity: number
-    ship_id: string
-    station_id: string
+    sid: string
+    stid: string
 }
 
 export interface WalletTransactionPayload {
     amount: number
     balance: number
-    player_id: string
+    pid: string
     reference_id: string
 }
 
 export type EventType = keyof EventPayloads
 
 export interface EventEnvelope<T extends EventType = EventType> {
-    event_id: string
+    eid: string
     event_type: T
     aggregate_type: string
     aggregate_id: string
     aggregate_version: number
-    occurred_at: string
+    occurred: string
     causation_id?: string
     correlation_id: string
     producer: string

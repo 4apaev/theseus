@@ -8,43 +8,43 @@ export interface CommandPayloads {
     'wallet.debit.requested.v1': WalletTransactionRequestPayload
     'wallet.credit.requested.v1': WalletTransactionRequestPayload
     'ship.travel.requested.v1': {
-        from_station_id: string
-        player_id: string
-        ship_id: string
-        to_station_id: string
+        from_station: string
+        pid: string
+        sid: string
+        to_station: string
     }
     'cargo.load.requested.v1': CargoCommandPayload
     'cargo.unload.requested.v1': CargoCommandPayload
     'market.buy.requested.v1': {
-        good_id: string
+        gid: string
         max_unit_price: number
-        player_id: string
+        pid: string
         quantity: number
-        ship_id: string
-        station_id: string
+        sid: string
+        stid: string
     }
     'market.sell.requested.v1': {
-        good_id: string
+        gid: string
         min_unit_price: number
-        player_id: string
+        pid: string
         quantity: number
-        ship_id: string
-        station_id: string
+        sid: string
+        stid: string
     }
 }
 
 export interface CargoCommandPayload {
-    good_id: string
-    player_id: string
+    gid: string
+    pid: string
     quantity: number
     reference_id: string
-    ship_id: string
-    station_id: string
+    sid: string
+    stid: string
 }
 
 export interface WalletTransactionRequestPayload {
     amount: number
-    player_id: string
+    pid: string
     reason: string
     reference_id: string
 }
@@ -52,9 +52,9 @@ export interface WalletTransactionRequestPayload {
 export type CommandType = keyof CommandPayloads
 
 export interface CommandEnvelope<T extends CommandType = CommandType> {
-    command_id: string
+    cmd: string
     command_type: T
-    requested_at: string
+    requested: string
     requested_by: string
     correlation_id: string
     payload: CommandPayloads[T]
