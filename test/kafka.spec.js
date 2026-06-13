@@ -118,7 +118,7 @@ test('tombstone message does not crash consumer', async () => {
 
     await kafka.publish({
         topic   : eventTopics.ship,
-        messages: [ { key: 'ship_1', value: null } ],
+        messages: [{ key: 'ship_1', value: null }],
     })
 
     assert.equal(seen.length, 1)
