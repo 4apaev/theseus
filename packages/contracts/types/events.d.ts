@@ -21,7 +21,7 @@ export interface EventPayloads {
         amount: number
         pid: string
         reason: string
-        reference_id: string
+        rfid: string
     }
     'ship.created.v1': {
         capacity: number
@@ -33,13 +33,13 @@ export interface EventPayloads {
     }
     'ship.departed.v1': {
         arrives: string
-        common_frame_years: number
         departed: string
         from_station: string
         pid: string
-        ship_frame_years: number
         sid: string
         to_station: string
+        years_abs: number
+        years_rel: number
     }
     'ship.arrived.v1': {
         arrived: string
@@ -64,13 +64,13 @@ export interface EventPayloads {
     'trade.executed.v1': {
         gid: string
         pid: string
+        price_total: number
+        price_unit: number
         quantity: number
         sid: string
         side: TradeSide
         stid: string
-        total_price: number
-        trade_id: string
-        unit_price: number
+        tid: string
     }
     'trade.rejected.v1': {
         gid: string
@@ -82,9 +82,9 @@ export interface EventPayloads {
         stid: string
     }
     'market.price.changed.v1': {
-        buy_price: number
         gid: string
-        sell_price: number
+        price_buy: number
+        price_sell: number
         stid: string
     }
 }
@@ -101,7 +101,7 @@ export interface WalletTransactionPayload {
     amount: number
     balance: number
     pid: string
-    reference_id: string
+    rfid: string
 }
 
 export type EventType = keyof EventPayloads

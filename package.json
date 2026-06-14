@@ -20,13 +20,14 @@
         "env:update"    : "bash .githooks/pre-push",
         "test"          : ". ./scripts/test.sh",
         "lint"          : "eslint .",
+        "tsc"           : "tsc --noEmit",
+        "check"         : "npm run test && npm run lint && npm run tsc",
         "infra:up"      : "docker compose -f infra/docker-compose.yml up -d",
         "infra:down"    : "docker compose -f infra/docker-compose.yml down",
         "infra:logs"    : "docker compose -f infra/docker-compose.yml logs -f",
         "infra:ps"      : "docker compose -f infra/docker-compose.yml ps",
         "infra:health"  : "node scripts/infra-health.js",
-        "services:check": "node scripts/services-check.js",
-        "typecheck"     : "tsc --noEmit"
+        "services:check": "node scripts/services-check.js"
     },
     "dependencies": {
         "garage": "github:4apaev/garage"

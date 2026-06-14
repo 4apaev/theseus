@@ -26,7 +26,7 @@ test('command catalog maps commands to topics', () => {
 
 test('event catalog maps events to topics', () => {
     assert.equal(eventTopic(eventTypes.ship_departed_v1) , eventTopics.ship)
-    assert.equal(eventTopic(eventTypes.trade_executed_v1), eventTopics.market)
+    assert.equal(eventTopic(eventTypes.market_trade_executed_v1), eventTopics.market)
     assert.equal(eventTopic(eventTypes.player_created_v1), eventTopics.player)
     assert.equal(eventTopic(eventTypes.cargo_loaded_v1)  , eventTopics.cargo)
     assert.equal(eventTopics.all, 'events.all')
@@ -75,7 +75,7 @@ test('command envelope rejects invalid payload field', () => {
         requested_by: 'player_test',
         payload     : {
             gid           : 'water',
-            max_unit_price: 10,
+            price_unit_max: 10,
             pid           : 'player_test',
             quantity      : 0,
             sid           : 'ship_test',

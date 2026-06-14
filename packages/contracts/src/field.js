@@ -5,9 +5,11 @@ const CODE = 417 // EXPECTATION FAILED
 export const keyBy = A.prop
 
 export const field = Object.freeze({
+    property      : A.prop,
     nonEmpty      : isNonEmpty,
     nonEmptyString: isNonEmptyString,
     oneOf(a)                   { return x => a.includes(x) },
+    has(...a)                  { return field.oneOf(a) },
     isoTime(x)                 { return isNonEmptyString(x) && Is.n(Date.parse(x)) },
     optionalNonEmptyString(x)  { return x == null || isNonEmptyString(x) },
     optionalPositiveInteger(x) { return x == null || field.positiveInteger(x) },
@@ -17,15 +19,16 @@ export const field = Object.freeze({
     velocity(x)                { return Is.n(x) && x > 0 && x < 1 },
 })
 
-export function freezeDefinitions(items) {
-    return O.freeze(O.from(items.map(item => [
-        item.type,
-        O.freeze(item),
-    ])))
-}
+export function freeze(items, key = 'type') {
+    let defs = O.o
+    let vals = O.o
 
-export function freezeMap(pairs) {
-    return O.freeze(O.from(pairs))
+    for (let item of items) {
+        let k = item[ key ]
+        defs[ k ] = O.freeze(O.ƒ(item))
+        vals[ k.replaceAll('.', '_') ] = k
+    }
+    return [ defs, vals ].map(O.freeze)
 }
 
 export function assertKnownDefinition(definitions, type, label) {
@@ -61,6 +64,11 @@ export function validatePayload(def, payload) {
     return payload
 }
 
+export function requireField(envelope, key, validator) {
+    validator(envelope[ key ])
+        || Fail.raise(CODE, `envelope.${ key } is invalid`)
+}
+
 function assertPlainObject(x, key) {
     Is.T('Object', x)
         || Fail.raise(CODE, `${ key } must be an object`)
@@ -69,11 +77,7 @@ function assertPlainObject(x, key) {
 function isNonEmptyString(x) {
     return Is.s(x) && x.length > 0
 }
+
 function isNonEmpty(x) {
     return x != null && x != ''
-}
-
-export function requireField(envelope, key, validator) {
-    validator(envelope[ key ])
-        || Fail.raise(CODE, `envelope.${ key } is invalid`)
 }
