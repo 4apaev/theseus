@@ -1,59 +1,51 @@
 export {
+    type Consumer,
+    type ConsumerInput,
+    type ConsumerStats,
+    type KafkaConsumerClient,
+    type KafkaSubscribeInput,
+    type KafkaSubscription,
+
     createConsumer,
 } from './consumer.js'
 
-export type {
-    Consumer,
-    ConsumerInput,
-    ConsumerStats,
-    KafkaConsumerClient,
-    KafkaSubscribeInput,
-    KafkaSubscription,
-} from './consumer.js'
-
 export {
-    createMemoryMessageStore,
-    messageIdentity,
-} from './idempotency.js'
+    type TopicRecord,
+    type RawTopicMessage,
+    type TopicRecordInput,
+    type TopicRecordMessage,
+    type DecodedTopicMessage,
 
-export type {
-    MemoryMessageStore,
-} from './idempotency.js'
-
-export {
-    createMemoryKafka,
-} from './memory.js'
-
-export type {
-    MemoryKafka,
-    PublishResult,
-} from './memory.js'
-
-export {
-    createProducer,
-} from './producer.js'
-
-export type {
-    Producer,
-    ProducerInput,
-} from './producer.js'
-
-export {
     createCommandRecord,
     createEventRecords,
     createTopicRecord,
     decodeTopicMessage,
 } from './records.js'
 
-export type {
-    DecodedTopicMessage,
-    RawTopicMessage,
-    TopicRecord,
-    TopicRecordInput,
-    TopicRecordMessage,
-} from './records.js'
+export {
+    type MemoryKafka,
+    type PublishResult,
+
+    createMemoryKafka,
+} from './memory.js'
+
+export {
+    type Producer,
+    type ProducerInput,
+
+    createProducer,
+} from './producer.js'
+
+export {
+    messageIdentity,
+    createMemoryMessageStore,
+
+    type default as MemoryMessageStore,
+} from './idempotency.js'
 
 export {
     decodeJson,
     encodeJson,
+
+    type default as Codec,
 } from './codec.js'

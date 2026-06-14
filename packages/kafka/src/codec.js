@@ -12,3 +12,8 @@ export function decodeJson(value) {
             : value,
     )
 }
+
+export default {
+    encode: encodeJson,
+    decode: decodeJson,
+}

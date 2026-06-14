@@ -1,12 +1,9 @@
-import {
-    messageIdentity,
-    createMemoryMessageStore,
-} from './idempotency.js'
+import Store from './idempotency.js'
 
 import { decodeTopicMessage } from './records.js'
 
 export function createConsumer(input) {
-    const store = input.store ?? createMemoryMessageStore()
+    const store = input.store ?? new Store
     const stats = {
         duplicates: 0,
         handled   : 0,
@@ -31,7 +28,7 @@ export function createConsumer(input) {
 
 async function consumeRecord(input) {
     const msg = decodeTopicMessage(input.record)
-    const id = messageIdentity(msg.value)
+    const id = Store.identity(msg.value)
 
     if (id && input.store.has(id)) {
         input.stats.duplicates += 1

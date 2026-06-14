@@ -1,8 +1,6 @@
-export interface MemoryMessageStore {
-    has(id: string): boolean
+export default interface MemoryMessageStore extends Set<string> {
     mark(id: string): true
-    size(): number
 }
 
 export function createMemoryMessageStore(): MemoryMessageStore
-export function messageIdentity(value: unknown): string | undefined
+export function messageIdentity(msg: unknown): string | undefined
