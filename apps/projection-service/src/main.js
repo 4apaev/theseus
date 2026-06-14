@@ -1,8 +1,12 @@
 import { fileURLToPath                    } from 'node:url'
 import { bootService, isMain              } from '@theseus/config'
-import { createPool, migrate, createInbox } from '@theseus/db'
 import { createConsumer                   } from '@theseus/kafka'
 import { eventTopics as ET                } from '@theseus/contracts'
+import {
+    DB,
+    Inbox,
+    migrate,
+} from '@theseus/db'
 
 import { createHandlers                   } from './handlers.js'
 
@@ -19,12 +23,12 @@ export function describeService() {
 }
 
 export async function start(kafka) {
-    const pool = createPool()
+    const pool = DB.create()
     await migrate(pool)
     await migrate(pool, MIGRATIONS)
 
     const dispatch = createHandlers(pool)
-    const store    = createInbox(pool)
+    const store    = Inbox.create(pool)
 
     return createConsumer({
         client : kafka,
