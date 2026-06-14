@@ -31,6 +31,7 @@
     },
     "dependencies": {
         "garage": "github:4apaev/garage"
+
     },
     "devDependencies": {
         "@eslint/js" : "^10.0.1",
