@@ -10,7 +10,4 @@ export {
     decodeTopicMessage,
 } from './records.js'
 
-export {
-    decodeJson,
-    encodeJson,
-} from './codec.js'
+export { decodeJson, encodeJson, Codec } from '@theseus/util'
