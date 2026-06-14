@@ -16,10 +16,10 @@ test('contracts can create command envelopes', () => {
         command_type: 'ship.travel.requested.v1',
         requested_by: 'player_test',
         payload     : {
-            from_station: 'sol.outpost',
-            pid         : 'player_test',
-            sid         : 'ship_test',
-            to_station  : 'alpha.exchange',
+            from: 'sol.outpost',
+            pid : 'player_test',
+            sid : 'ship_test',
+            to  : 'alpha.exchange',
         },
     })
 

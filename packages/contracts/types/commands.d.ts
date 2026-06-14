@@ -17,7 +17,7 @@ export interface CommandPayloads {
     'cargo.unload.requested.v1': CargoCommandPayload
     'market.buy.requested.v1': {
         gid: string
-        max_unit_price: number
+        price_unit_max: number
         pid: string
         quantity: number
         sid: string
@@ -25,7 +25,7 @@ export interface CommandPayloads {
     }
     'market.sell.requested.v1': {
         gid: string
-        min_unit_price: number
+        price_unit_min: number
         pid: string
         quantity: number
         sid: string
@@ -37,7 +37,7 @@ export interface CargoCommandPayload {
     gid: string
     pid: string
     quantity: number
-    reference_id: string
+    rfid: string
     sid: string
     stid: string
 }
@@ -46,7 +46,7 @@ export interface WalletTransactionRequestPayload {
     amount: number
     pid: string
     reason: string
-    reference_id: string
+    rfid: string
 }
 
 export type CommandType = keyof CommandPayloads

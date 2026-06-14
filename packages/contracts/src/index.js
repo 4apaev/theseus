@@ -1,9 +1,5 @@
 export {
     commandTopics,
-    eventTopics,
-} from './topics.js'
-
-export {
     commandDefinition,
     commandDefinitions,
     commandKey,
@@ -18,6 +14,7 @@ export {
 } from './envelope.js'
 
 export {
+    eventTopics,
     eventDefinition,
     eventDefinitions,
     eventKey,

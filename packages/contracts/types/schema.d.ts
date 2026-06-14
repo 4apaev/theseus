@@ -1,10 +1,12 @@
 export type Validator = (value: unknown) => boolean
 
 export declare const field: Readonly<{
+    property: typeof keyBy
     isoTime: Validator
     nonEmptyString: Validator
     nonNegativeNumber: Validator
-    oneOf(values: readonly unknown[]): Validator
+    oneOf(a: readonly unknown[]): Validator
+    has(...a: readonly unknown[]): Validator
     optionalNonEmptyString: Validator
     optionalPositiveInteger: Validator
     positiveInteger: Validator
