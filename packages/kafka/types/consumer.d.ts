@@ -1,4 +1,4 @@
-import type { MemoryMessageStore } from './idempotency.js'
+import type MemoryMessageStore from './idempotency.js'
 import type {
     RawTopicMessage,
     DecodedTopicMessage,

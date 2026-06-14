@@ -1,26 +1,24 @@
-import { Is } from 'garage/util'
+export default class Store extends Set {
+    name = 'Store'
 
-export function createMemoryMessageStore() {
-    const seen = new Set
+    mark(id) {
+        this.add(id)
+        return true
+    }
 
-    return {
-        has(id) {
-            return seen.has(id)
-        },
+    get [ Symbol.toStringTag ]() {
+        return this.name
+    }
 
-        mark(id) {
-            seen.add(id)
-            return true
-        },
+    static identity(msg) {
+        return msg?.eid ?? msg?.cmd ?? void 0
+    }
 
-        size() {
-            return seen.size
-        },
+    static of() {
+        return Reflect.construct(this, arguments)
     }
 }
 
-export function messageIdentity(value) {
-    return Is.o(value)
-        ? value.eid ?? value.cmd
-        : void 0
-}
+export { Store as MemoryMessageStore }
+export const messageIdentity = Store.identity
+export const createMemoryMessageStore = Store.of

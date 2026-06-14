@@ -8,17 +8,14 @@ import {
     commandKey,
 } from '@theseus/contracts'
 
-import {
-    encodeJson,
-    decodeJson,
-} from './codec.js'
+import Codec from './codec.js'
 
 export function createTopicRecord({ key, topic, value }) {
     return {
         topic,
         messages: [{
             key,
-            value: encodeJson(value),
+            value: Codec.encode(value),
         }],
     }
 }
@@ -67,6 +64,6 @@ export function decodeTopicMessage({
         offset,
         partition,
         topic,
-        value: decodeJson(value),
+        value: Codec.decode(value),
     }
 }
