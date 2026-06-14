@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test   from 'node:test'
 
-import { withClient, poll } from '#packages/util/src/index.js'
+import {
+    withClient, poll,
+    Query, where, selectWhere,
+    formatTime, camel2snake,
+} from '#packages/util/src/index.js'
 
 console.log('── PKG/UTIL', '─'.repeat(64))
 // ── withClient ────────────────────────────────────────────────────────────────
@@ -81,4 +85,97 @@ test('poll stop during fx prevents next tick', async () => {
     p.stop()
     await sleep(60)
     assert.equal(calls, 1)
+})
+
+// ── formatTime ────────────────────────────────────────────────────────────────
+
+test('formatTime passes numbers through unchanged', () => {
+    assert.equal(formatTime(5000), 5000)
+})
+
+test('formatTime parses bare number string as ms', () => {
+    assert.equal(formatTime('100'), 100)
+})
+
+test('formatTime parses seconds', () => {
+    assert.equal(formatTime('1s'), 1000)
+    assert.equal(formatTime('30s'), 30000)
+})
+
+test('formatTime parses minutes', () => {
+    assert.equal(formatTime('1m'), 60000)
+    assert.equal(formatTime('5m'), 300000)
+})
+
+test('formatTime parses hours', () => {
+    assert.equal(formatTime('2h'), 7200000)
+})
+
+// ── camel2snake ───────────────────────────────────────────────────────────────
+
+test('camel2snake converts camelCase to snake_case', () => {
+    assert.equal(camel2snake('playerCreated'), 'player_created')
+    assert.equal(camel2snake('shipDeparted'),  'ship_departed')
+    assert.equal(camel2snake('priceChanged'),  'price_changed')
+    assert.equal(camel2snake('marketTradeExecuted', 'v1'),  'market_trade_executed_v1')
+})
+
+// ── Query ─────────────────────────────────────────────────────────────────────
+
+const fakePool = { query: (text, vals) => ({ text, vals }) }
+
+test('Query builds parameterized sql from tagged template', () => {
+    const sql = Query(fakePool)
+    const { text, vals } = sql`select * from players where pid = ${ 'abc' }`
+    assert.equal(text, 'select * from players where pid = $1')
+    assert.deepEqual(vals, [ 'abc' ])
+})
+
+test('Query deduplicates identical values', () => {
+    const sql = Query(fakePool)
+    const { text, vals } = sql`insert into foo values (${ 'x' }, ${ 'x' })`
+    assert.equal(text, 'insert into foo values ($1, $1)')
+    assert.deepEqual(vals, [ 'x' ])
+})
+
+test('Query handles multiple distinct params', () => {
+    const sql = Query(fakePool)
+    const { text, vals } = sql`update t set a = ${ 1 }, b = ${ 2 } where id = ${ 3 }`
+    assert.equal(text, 'update t set a = $1, b = $2 where id = $3')
+    assert.deepEqual(vals, [ 1, 2, 3 ])
+})
+
+// ── where ─────────────────────────────────────────────────────────────────────
+
+test('where builds clause with table prefix', () => {
+    const sid = 'abc', status = 'transit'
+    const [ text, vals ] = where('ships', { sid, status })
+    assert.match(text, /\n +where +ships.sid += +\$1\n +and +ships\.status += +\$2/)
+    assert.deepEqual(vals, [ sid, status ])
+})
+
+test('where omits prefix when called without table', () => {
+    const [ text, vals ] = where({ pid: 'xyz' })
+    assert.match(text, /\n +where +pid += +\$1/)
+    assert.deepEqual(vals, [ 'xyz' ])
+})
+
+test('where uses where/and keywords correctly', () => {
+    const [ text, vals ] = where({ a: 1, b: 2, c: 3 })
+    assert.match(text, /\n +where +a += +\$1\n +and +b += +\$2\n +and +c += +\$3/)
+    assert.deepEqual(vals, [ 1,2,3 ])
+})
+
+// ── selectWhere ───────────────────────────────────────────────────────────────
+
+test('selectWhere builds full select query', () => {
+    const [ text, vals ] = selectWhere('players', { pid: 'abc' }, 'pid', 'handle')
+    assert.match(text, /select +pid, +handle +from +players +\n +where +players\.pid += +\$1/)
+    assert.deepEqual(vals, [ 'abc' ])
+})
+
+test('selectWhere defaults to select *', () => {
+    const [ text, vals ] = selectWhere('players', { pid: 'abc' })
+    assert.match(text, /select +\* +from +players +\n +where +players\.pid += +\$1/)
+    assert.deepEqual(vals, [ 'abc' ])
 })
