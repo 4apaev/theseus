@@ -27,3 +27,8 @@ export function withTransaction(pool, fn) {
         }
     })
 }
+
+export default {
+    create  : createPool,
+    transact: withTransaction,
+}

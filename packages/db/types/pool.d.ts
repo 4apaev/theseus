@@ -5,3 +5,9 @@ export function withTransaction<T>(
     pool: Pool,
     fn: (client: PoolClient) => Promise<T>
 ): Promise<T>
+
+declare const DB: {
+    create: typeof createPool
+    transact: typeof withTransaction
+}
+export default DB

@@ -16,8 +16,8 @@ export function pollOutbox(
     opts?: { interval?: number, batch?: number },
 ): OutboxPoller
 
-declare const _default: {
+declare const Outbox: {
     write: typeof writeOutbox
-    poll : typeof pollOutbox
+    poll: typeof pollOutbox
 }
-export default _default
+export default Outbox
