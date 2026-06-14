@@ -8,7 +8,7 @@ import {
     commandKey,
 } from '@theseus/contracts'
 
-import Codec from './codec.js'
+import { Codec } from '@theseus/util'
 
 export function createTopicRecord({ key, topic, value }) {
     return {

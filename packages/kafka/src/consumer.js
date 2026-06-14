@@ -30,14 +30,14 @@ async function consumeRecord(input) {
     const msg = decodeTopicMessage(input.record)
     const id = Store.identity(msg.value)
 
-    if (id && input.store.has(id)) {
+    if (id && await input.store.has(id)) {
         input.stats.duplicates += 1
         return { id, message: msg, status: 'duplicate' }
     }
 
     await input.handler(msg)
 
-    id && input.store.mark(id)
+    id && await input.store.mark(id)
     input.stats.handled += 1
 
     return { id, message: msg, status: 'handled' }

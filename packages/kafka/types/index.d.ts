@@ -43,9 +43,4 @@ export {
     type default as MemoryMessageStore,
 } from './idempotency.js'
 
-export {
-    decodeJson,
-    encodeJson,
-
-    type default as Codec,
-} from './codec.js'
+export { decodeJson, encodeJson, Codec } from '@theseus/util'
