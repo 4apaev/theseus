@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { withClient } from '@theseus/util'
 import { readEnv, requireEnv } from '@theseus/config'
 
 export function createPool() {
@@ -12,19 +13,17 @@ export function createPool() {
     })
 }
 
-export async function withTransaction(pool, fn) {
-    const client = await pool.connect()
-    try {
+export function withTransaction(pool, fn) {
+    return withClient(pool, async client => {
         await client.query('begin')
-        const result = await fn(client)
-        await client.query('commit')
-        return result
-    }
-    catch (e) {
-        await client.query('rollback')
-        throw e
-    }
-    finally {
-        client.release()
-    }
+        try {
+            const result = await fn(client)
+            await client.query('commit')
+            return result
+        }
+        catch (e) {
+            await client.query('rollback')
+            throw e
+        }
+    })
 }
