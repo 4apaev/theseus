@@ -9,5 +9,11 @@
             "types": "./types/index.d.ts",
             "default": "./src/index.js"
         }
+    },
+    "dependencies": {
+        "garage": "github:4apaev/garage"
+    },
+    "devDependencies": {
+        "@types/pg": "^8.20.0"
     }
 }
