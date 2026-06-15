@@ -15,4 +15,9 @@ export async function verify(pass, stored) {
     return buf.toString('hex') === hex
 }
 
-export default { hash, verify }
+export default {
+    hash,
+    verify,
+    bytes(n) { return Crypto.randomBytes(n) },
+    get guid() { return Crypto.randomUUID() },
+}
