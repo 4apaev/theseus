@@ -74,6 +74,17 @@ function toRecord(envelope) {
     }
 }
 
+async function claimRfid(client, { pid, rfid, amount }, type) {
+    const { rows } = await client.query(`
+        insert into wallet_transactions (rfid, pid, amount, type)
+            values ($1, $2, $3, $4)
+            on conflict do nothing
+            returning rfid
+        `, [ rfid, pid, amount, type ],
+    )
+    return rows.length > 0
+}
+
 async function updateWallet(opr, client, pid, amount) {
     const rs = await client.query(`
         update wallets
@@ -190,6 +201,8 @@ export function createHandlers(pool, transact) {
 
     async function debitWallet(cmd) {
         await transact(pool, async client => {
+            if (!await claimRfid(client, cmd.payload, 'debit')) return
+
             const { rows: [ wallet ] } = await client.query(
                 'select balance, version from wallets where pid = $1 for update',
                 [ cmd.payload.pid ],
@@ -203,6 +216,7 @@ export function createHandlers(pool, transact) {
 
     async function creditWallet(cmd) {
         await transact(pool, async client => {
+            if (!await claimRfid(client, cmd.payload, 'credit')) return
             await walletTx(client, ET.wallet_credited_v1, cmd)
         })
     }

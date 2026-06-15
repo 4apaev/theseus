@@ -138,8 +138,11 @@ test('registerPlayer rethrows non-23505 errors', async () => {
 
 // ── debitWallet ───────────────────────────────────────────────────────────────
 
+const claimedRfid = { wallet_transactions: () => ({ rows: [{ rfid: 'r1' }]}) }
+
 test('debitWallet emits wallet.debited with updated balance', async () => {
     const client = fakeClient({
+        ...claimedRfid,
         'select balance': () => ({ rows: [{ balance: 500, version: 2 }]}),
         'update wallets': () => ({ rows: [{ balance: 400, version: 3 }]}),
     })
@@ -158,6 +161,7 @@ test('debitWallet emits wallet.debited with updated balance', async () => {
 
 test('debitWallet emits transaction.rejected on insufficient funds', async () => {
     const client = fakeClient({
+        ...claimedRfid,
         'select balance': () => ({ rows: [{ balance: 50, version: 1 }]}),
     })
     const handlers = createHandlers({}, fakeTransact(client))
@@ -173,7 +177,10 @@ test('debitWallet emits transaction.rejected on insufficient funds', async () =>
 })
 
 test('debitWallet emits transaction.rejected when wallet not found', async () => {
-    const client   = fakeClient({ 'select balance': () => ({ rows: []}) })
+    const client = fakeClient({
+        ...claimedRfid,
+        'select balance': () => ({ rows: []}),
+    })
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.debit.requested.v1' ](
@@ -185,10 +192,23 @@ test('debitWallet emits transaction.rejected when wallet not found', async () =>
     assert.equal(events[ 0 ].payload.reason, 'wallet not found')
 })
 
+test('debitWallet skips silently on duplicate rfid', async () => {
+    const client   = fakeClient({ wallet_transactions: () => ({ rows: []}) })
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'wallet.debit.requested.v1' ](
+        makeCmd({ pid: 'p1', rfid: 'r1', amount: 100 }),
+    )
+
+    assert.equal(outboxEvents(client).length, 0)
+    assert.ok(!client.log.find(({ sql }) => sql.includes('select balance')))
+})
+
 // ── creditWallet ──────────────────────────────────────────────────────────────
 
 test('creditWallet emits wallet.credited with updated balance', async () => {
     const client = fakeClient({
+        ...claimedRfid,
         'update wallets': () => ({ rows: [{ balance: 600, version: 2 }]}),
     })
     const handlers = createHandlers({}, fakeTransact(client))
@@ -206,6 +226,7 @@ test('creditWallet emits wallet.credited with updated balance', async () => {
 
 test('creditWallet sets causation_id from cmd', async () => {
     const client = fakeClient({
+        ...claimedRfid,
         'update wallets': () => ({ rows: [{ balance: 600, version: 2 }]}),
     })
     const handlers = createHandlers({}, fakeTransact(client))
@@ -216,6 +237,18 @@ test('creditWallet sets causation_id from cmd', async () => {
 
     const [ event ] = outboxEvents(client)
     assert.equal(event.causation_id, 'cmd-test')
+})
+
+test('creditWallet skips silently on duplicate rfid', async () => {
+    const client   = fakeClient({ wallet_transactions: () => ({ rows: []}) })
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'wallet.credit.requested.v1' ](
+        makeCmd({ pid: 'p1', rfid: 'r1', amount: 100 }),
+    )
+
+    assert.equal(outboxEvents(client).length, 0)
+    assert.ok(!client.log.find(({ sql }) => sql.includes('update wallets')))
 })
 
 // ── crypto ────────────────────────────────────────────────────────────────────
