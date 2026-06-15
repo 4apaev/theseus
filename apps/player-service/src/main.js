@@ -19,25 +19,25 @@ export function describeService() {
     }
 }
 
-export async function start(kafka) {
+export async function start(client) {
     const pool = DB.create()
     await migrate(pool)
     await migrate(pool, MIGRATIONS)
 
-    const producer = createProducer({ client: kafka })
+    const producer = createProducer({ client })
     const dispatch = createHandlers(pool, DB.transact)
     const store    = Inbox.create(pool)
 
     Outbox.poll(pool, producer.publish)
 
     return createConsumer({
-        client : kafka,
+        store,
+        client,
         groupId: service,
         topics : [ commandTopics.player, commandTopics.wallet ],
-        store,
         async handler(msg) {
-            const fn = dispatch[ msg.value?.command_type ]
-            fn && await fn(msg.value)
+            const fx = dispatch[ msg.value?.command_type ]
+            fx && await fx(msg.value)
         },
     })
 }
