@@ -1,7 +1,6 @@
 {
     "name"   : "@theseus/projection-service",
     "version": "0.0.0",
-    "private": true,
     "type"   : "module",
     "types"  : "./types/main.d.ts",
     "exports": {
