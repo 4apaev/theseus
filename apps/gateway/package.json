@@ -1,12 +1,11 @@
 {
-    "name": "@theseus/gateway",
+    "name"   : "@theseus/gateway",
     "version": "0.0.0",
-    "private": true,
-    "type": "module",
-    "types": "./types/main.d.ts",
+    "type"   : "module",
+    "types"  : "./types/main.d.ts",
     "exports": {
         ".": {
-            "types": "./types/main.d.ts",
+            "types"  : "./types/main.d.ts",
             "default": "./src/main.js"
         }
     }

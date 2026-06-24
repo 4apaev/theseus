@@ -1,9 +1,8 @@
 {
-    "name": "@theseus/db",
+    "name"   : "@theseus/db",
     "version": "0.0.0",
-    "private": true,
-    "type": "module",
-    "types": "./types/index.d.ts",
+    "type"   : "module",
+    "types"  : "./types/index.d.ts",
     "exports": {
         ".": {
             "types": "./types/index.d.ts",
@@ -12,7 +11,7 @@
     },
     "dependencies": {
         "@theseus/util": "*",
-        "pg": "^8.21.0"
+        "pg"           : "^8.22.0"
     },
     "devDependencies": {
         "@types/pg": "^8.20.0"
