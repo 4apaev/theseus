@@ -22,7 +22,7 @@ export function describeService() {
     }
 }
 
-export async function start(kafka) {
+export async function start(client) {
     const pool = DB.create()
     await migrate(pool)
     await migrate(pool, MIGRATIONS)
@@ -31,7 +31,7 @@ export async function start(kafka) {
     const store    = Inbox.create(pool)
 
     return createConsumer({
-        client : kafka,
+        client,
         groupId: service,
         topics : [ ET.all ],
         store,
