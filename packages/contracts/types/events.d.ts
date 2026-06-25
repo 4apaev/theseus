@@ -1,4 +1,13 @@
-import type { EventTopic } from './topics.js'
+export declare const eventTopics: Readonly<{
+    all   : 'events.all'
+    cargo : 'events.cargo'
+    market: 'events.market'
+    player: 'events.player'
+    ship  : 'events.ship'
+    wallet: 'events.wallet'
+}>
+
+export type EventTopic = typeof eventTopics[keyof typeof eventTopics]
 
 export type TradeSide = 'buy' | 'sell'
 

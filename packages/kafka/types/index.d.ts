@@ -40,6 +40,7 @@ export {
     messageIdentity,
     createMemoryMessageStore,
 
+    type default as Store,
     type default as MemoryMessageStore,
 } from './idempotency.js'
 

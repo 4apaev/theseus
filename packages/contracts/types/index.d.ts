@@ -1,14 +1,5 @@
 export {
     commandTopics,
-    eventTopics,
-} from './topics.js'
-
-export type {
-    CommandTopic,
-    EventTopic,
-} from './topics.js'
-
-export {
     commandDefinition,
     commandDefinitions,
     commandKey,
@@ -23,6 +14,7 @@ export type {
     CommandDefinition,
     CommandEnvelope,
     CommandPayloads,
+    CommandTopic,
     CommandType,
     WalletTransactionRequestPayload,
 } from './commands.js'
@@ -38,6 +30,7 @@ export type {
 } from './envelope.js'
 
 export {
+    eventTopics,
     eventDefinition,
     eventDefinitions,
     eventKey,
@@ -52,6 +45,7 @@ export type {
     EventDefinition,
     EventEnvelope,
     EventPayloads,
+    EventTopic,
     EventType,
     TradeSide,
     WalletTransactionPayload,
