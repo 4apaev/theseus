@@ -31,6 +31,6 @@ jobs:
 
       - run: npm ci
       - run: cp .env.example .env
-      - run: npm test
       - run: npm run lint
       - run: npm run tsc
+      - run: npm test
