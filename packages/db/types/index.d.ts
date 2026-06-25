@@ -1,6 +1,6 @@
 export {
     type IInbox,
-    type MemoryInbox,
+    type Inbox as TInbox,
 
     createInbox,
     createMemoryInbox,

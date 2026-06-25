@@ -1,4 +1,12 @@
-import type { CommandTopic } from './topics.js'
+export declare const commandTopics: Readonly<{
+    cargo : 'commands.cargo'
+    market: 'commands.market'
+    player: 'commands.player'
+    ship  : 'commands.ship'
+    wallet: 'commands.wallet'
+}>
+
+export type CommandTopic = typeof commandTopics[keyof typeof commandTopics]
 
 export interface CommandPayloads {
     'player.register.requested.v1': {
