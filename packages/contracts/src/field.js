@@ -19,14 +19,13 @@ export const field = Object.freeze({
     velocity(x)                { return Is.n(x) && x > 0 && x < 1 },
 })
 
-export function freeze(items, key = 'type') {
+export function freeze(items) {
     let defs = O.o
     let vals = O.o
 
     for (let item of items) {
-        let k = item[ key ]
-        defs[ k ] = O.freeze(O.ƒ(item))
-        vals[ k.replaceAll('.', '_') ] = k
+        defs[ item.slug ] = O.freeze(O.ƒ(item))
+        vals[ item.prop ] = item.slug
     }
     return [ defs, vals ].map(O.freeze)
 }
