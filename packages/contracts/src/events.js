@@ -1,4 +1,3 @@
-import { O } from 'garage/util'
 import {
     field,
     freeze,
@@ -46,7 +45,7 @@ const definitions = [
     marketPriceChanged,
 ]
 
-export const eventTopics = O.freeze({
+export const eventTopics = Object.freeze({
     all   : 'events.all',
     cargo : 'events.cargo',
     market: 'events.market',
@@ -58,7 +57,7 @@ export const eventTopics = O.freeze({
 export const [
     eventDefinitions,
     eventTypes,
-] = freeze(definitions, 'slug')
+] = freeze(definitions)
 
 export function eventDefinition(etype) {
     return assertKnownDefinition(eventDefinitions, etype, 'event')
