@@ -6,7 +6,7 @@ set -euo pipefail
 
 sed \
     -e 's/#.*//g'         \
-    -e 's/=.*/=🦄/g'      \
+    -e 's/=.*/=/g'      \
     -e '/^[[:space:]]*$/d' \
     .env > .env.example
 
