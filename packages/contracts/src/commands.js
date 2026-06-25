@@ -1,4 +1,3 @@
-import { O } from 'garage/util'
 import {
     freeze,
     validatePayload,
@@ -28,7 +27,7 @@ const definitions = [
     marketSellRequested,
 ]
 
-export const commandTopics = O.freeze({
+export const commandTopics = Object.freeze({
     cargo : 'commands.cargo',
     market: 'commands.market',
     player: 'commands.player',
@@ -39,7 +38,7 @@ export const commandTopics = O.freeze({
 export const [
     commandDefinitions,
     commandTypes,
-] = freeze(definitions, 'slug')
+] = freeze(definitions)
 
 export function commandDefinition(cmdType) {
     return assertKnownDefinition(commandDefinitions, cmdType, 'command')
