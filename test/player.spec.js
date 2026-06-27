@@ -1,8 +1,8 @@
-import assert from 'node:assert/strict'
 import test   from 'node:test'
+import assert from 'node:assert/strict'
 
-import { createHandlers       } from '#apps/player-service/src/handlers.js'
-import { hash, verify } from '#apps/player-service/src/crypto.js'
+import { createHandlers } from '#apps/player-service/src/handlers.js'
+import { hash, verify   } from '#apps/player-service/src/crypto.js'
 
 console.log('\n── APP/PLAYER %s\n', '─'.repeat(64))
 
@@ -259,8 +259,10 @@ test('hash returns salt:hex string', async () => {
 })
 
 test('hash produces different output each call (unique salt)', async () => {
-    const [ a, b ] = await Promise.all([ hash('secret'), hash('secret') ])
-    assert.notEqual(a, b)
+    assert.notEqual(
+        await hash('secret'),
+        await hash('secret'),
+    )
 })
 
 test('verify returns true for correct password', async () => {
