@@ -16,7 +16,7 @@
     },
     "scripts": {
         "prepare"       : "git config core.hooksPath .githooks",
-        "env:update"    : "bash .githooks/pre-push",
+        "env:update"    : ". ./.githooks/pre-push",
         "test"          : ". ./scripts/test.sh",
         "lint"          : "eslint .",
         "tsc"           : "tsc --noEmit",
@@ -30,13 +30,12 @@
     },
     "dependencies": {
         "garage": "github:4apaev/garage"
-
     },
     "devDependencies": {
-        "@eslint/js" : "^10.0.1",
-        "@types/node": "^25.9.4",
-        "eslint"     : "^10.5.0",
+        "typescript" : "^6.0.3",
         "globals"    : "^17.7.0",
-        "typescript" : "^6.0.3"
+        "eslint"     : "^10.6.0",
+        "@eslint/js" : "^10.0.1",
+        "@types/node": "^26.0.1"
     }
 }
