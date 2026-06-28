@@ -1,13 +1,46 @@
 export declare const eventTopics: Readonly<{
-    all   : 'events.all'
-    cargo : 'events.cargo'
+    all: 'events.all'
+    cargo: 'events.cargo'
     market: 'events.market'
     player: 'events.player'
-    ship  : 'events.ship'
+    ship: 'events.ship'
     wallet: 'events.wallet'
 }>
 
-export type EventTopic = typeof eventTopics[keyof typeof eventTopics]
+export declare const tree: Readonly<{
+    player: {
+        created: 'player.created.v1',
+        registration: { rejected: 'player.registration.rejected.v1' },
+    },
+    wallet: {
+        created: 'wallet.created.v1',
+        debited: 'wallet.debited.v1',
+        credited: 'wallet.credited.v1',
+        transaction: { rejected: 'wallet.transaction.rejected.v1' },
+    },
+    ship: {
+        created: 'ship.created.v1',
+        departed: 'ship.departed.v1',
+        arrived: 'ship.arrived.v1',
+        travel: { rejected: 'ship.travel.rejected.v1' },
+    },
+    cargo: {
+        loaded: 'cargo.loaded.v1',
+        unloaded: 'cargo.unloaded.v1',
+        operation: { rejected: 'cargo.operation.rejected.v1' },
+    },
+    market: {
+        price: {
+            changed: 'market.price.changed.v1',
+        },
+    },
+    trade: {
+        executed: 'trade.executed.v1',
+        rejected: 'trade.rejected.v1',
+    },
+}>
+
+export type EventTopic = typeof eventTopics[ keyof typeof eventTopics ]
 
 export type TradeSide = 'buy' | 'sell'
 
@@ -125,22 +158,22 @@ export interface EventEnvelope<T extends EventType = EventType> {
     causation_id?: string
     correlation_id: string
     producer: string
-    payload: EventPayloads[T]
+    payload: EventPayloads[ T ]
 }
 
 export type AnyEventEnvelope = {
-    [T in EventType]: EventEnvelope<T>
-}[EventType]
+    [ T in EventType ]: EventEnvelope<T>
+}[ EventType ]
 
 export interface EventDefinition<T extends EventType = EventType> {
     type: T
     topic: EventTopic
-    key(payload: EventPayloads[T]): string
+    key(payload: EventPayloads[ T ]): string
     payload: Record<string, (value: unknown) => boolean>
 }
 
 export declare const eventDefinitions: Readonly<{
-    [T in EventType]: Readonly<EventDefinition<T>>
+    [ T in EventType ]: Readonly<EventDefinition<T>>
 }>
 
 export declare const eventTypes: Readonly<{
