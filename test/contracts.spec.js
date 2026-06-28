@@ -14,6 +14,8 @@ import {
     eventTypes,
 } from '#packages/contracts/src/index.js'
 
+console.log('\n── PKG/CONTRACTS %s\n', '─'.repeat(64))
+
 // ── catalog ────────────────────────────────────────────────────────────────
 
 test('command catalog maps commands to topics', () => {

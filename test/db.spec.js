@@ -15,7 +15,7 @@ import outbox, {
 import migrate from '#packages/db/src/migrate.js'
 import { encodeJson } from '#packages/util/src/index.js'
 
-console.log('── PKG/DB', '─'.repeat(64))
+console.log('\n── PKG/DB %s\n', '─'.repeat(64))
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
