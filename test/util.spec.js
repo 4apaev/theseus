@@ -7,7 +7,8 @@ import {
     formatTime, camel2snake,
 } from '#packages/util/src/index.js'
 
-console.log('── PKG/UTIL', '─'.repeat(64))
+console.log('\n── PKG/UTIL %s\n', '─'.repeat(64))
+
 // ── withClient ────────────────────────────────────────────────────────────────
 
 test('withClient passes client to fn and releases it', async () => {

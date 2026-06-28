@@ -5,6 +5,8 @@ import { createFakeKafka } from '#packages/testing/src/index.js'
 import { createConsumer, createProducer } from '#packages/kafka/src/index.js'
 import { createEventEnvelope, eventTopics, eventTypes } from '#packages/contracts/src/index.js'
 
+console.log('\n── PKG/KAFKA %s\n', '─'.repeat(64))
+
 // ── basic publish / consume ─────────────────────────────────────────────────
 
 test('fake kafka publishes and consumes typed events', async () => {

@@ -3,6 +3,8 @@ import test   from 'node:test'
 
 import { format, readEnv, requireEnv } from '#packages/config/src/env.js'
 
+console.log('\n── PKG/CONFIG %s\n', '─'.repeat(64))
+
 // ── format ──────────────────────────────────────────────────────────────────
 
 test('format returns undefined for null, undefined, empty string', () => {
