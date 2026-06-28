@@ -1,14 +1,10 @@
-import { fileURLToPath                    } from 'node:url'
-import { bootService, isMain              } from '@theseus/config'
-import { createConsumer                   } from '@theseus/kafka'
-import { eventTopics as ET                } from '@theseus/contracts'
-import {
-    DB,
-    Inbox,
-    migrate,
-} from '@theseus/db'
+import { fileURLToPath       } from 'node:url'
+import { bootService, isMain } from '@theseus/config'
+import { createConsumer      } from '@theseus/kafka'
+import { eventTopics         } from '@theseus/contracts'
+import { DB, Inbox, migrate  } from '@theseus/db'
 
-import { createHandlers                   } from './handlers.js'
+import { createHandlers } from './handlers.js'
 
 export const service = 'projection-service'
 
@@ -30,16 +26,21 @@ export async function start(client) {
     const dispatch = createHandlers(pool)
     const store    = Inbox.create(pool)
 
-    return createConsumer({
+    const consumer = createConsumer({
+        store,
         client,
         groupId: service,
-        topics : [ ET.all ],
-        store,
+        topics : [ eventTopics.all ],
         async handler(msg) {
             const fx = dispatch[ msg.value?.event_type ]
             fx && await fx(msg.value)
         },
     })
+
+    return {
+        stats() { return consumer.stats() },
+        stop()  { consumer.stop(); pool.end() },
+    }
 }
 
 // ── BOOT ─────────────────────────────────────────────────────
