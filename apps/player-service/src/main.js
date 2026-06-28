@@ -28,9 +28,8 @@ export async function start(client) {
     const dispatch = createHandlers(pool, DB.transact)
     const store    = Inbox.create(pool)
 
-    Outbox.poll(pool, producer.publish)
-
-    return createConsumer({
+    const outbox   = Outbox.poll(pool, producer.publish)
+    const consumer = createConsumer({
         store,
         client,
         groupId: service,
@@ -40,6 +39,11 @@ export async function start(client) {
             fx && await fx(msg.value)
         },
     })
+
+    return {
+        stats: () => consumer.stats(),
+        stop()  { consumer.stop(); outbox.stop(); pool.end() },
+    }
 }
 
 // ── BOOT ─────────────────────────────────────────────────────

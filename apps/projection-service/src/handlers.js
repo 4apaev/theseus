@@ -1,23 +1,23 @@
 /* eslint-disable camelcase */
 
-import { eventTypes as ET } from '@theseus/contracts'
+import { eventTree as EVT } from '@theseus/contracts'
 import { O, Query } from '@theseus/util'
 
 export function createHandlers(pool) {
     const sql = Query(pool)
 
     return O.ƒ({
-        [ ET.player_created_v1         ]: playerCreated,
-        [ ET.wallet_created_v1         ]: walletCreated,
-        [ ET.wallet_debited_v1         ]: walletBalance,
-        [ ET.wallet_credited_v1        ]: walletBalance,
-        [ ET.ship_created_v1           ]: shipCreated,
-        [ ET.ship_departed_v1          ]: shipDeparted,
-        [ ET.ship_arrived_v1           ]: shipArrived,
-        [ ET.cargo_loaded_v1           ]: cargoLoaded,
-        [ ET.cargo_unloaded_v1         ]: cargoUnloaded,
-        [ ET.market_trade_executed_v1  ]: tradeExecuted,
-        [ ET.market_price_changed_v1   ]: priceChanged,
+        [ EVT.player.created        ]: playerCreated,
+        [ EVT.wallet.created        ]: walletCreated,
+        [ EVT.wallet.debited        ]: walletBalance,
+        [ EVT.wallet.credited       ]: walletBalance,
+        [ EVT.ship.created          ]: shipCreated,
+        [ EVT.ship.departed         ]: shipDeparted,
+        [ EVT.ship.arrived          ]: shipArrived,
+        [ EVT.cargo.loaded          ]: cargoLoaded,
+        [ EVT.cargo.unloaded        ]: cargoUnloaded,
+        [ EVT.trade.executed        ]: tradeExecuted,
+        [ EVT.market.price.changed  ]: priceChanged,
     })
 
     function playerCreated({ payload: { pid, handle }}) {
