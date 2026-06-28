@@ -8,8 +8,8 @@ import Crypt       from './crypto.js'
 import {
     eventKey,
     eventTopic,
-    eventTypes as ET,
-    commandTypes as CT,
+    eventTree as EVT,
+    commandTree as CMD,
     createEventEnvelope,
 } from '@theseus/contracts'
 
@@ -93,12 +93,13 @@ async function updateWallet(opr, client, pid, amount) {
          where pid = $1
         returning balance, version
     `, [ pid, amount ])
-    return rs.rows?.[ 0 ]
+    const row = rs.rows?.[ 0 ]
+    return row ? { balance: +row.balance, version: row.version } : void 0
 }
 
 async function walletTx(client, evtp, { cmd: causation_id, correlation_id, payload: p }) {
     const { balance, version } = await updateWallet(
-        evtp === ET.wallet_debited_v1
+        evtp === EVT.wallet.debited
             ? '-'
             : '+',
         client,
@@ -120,7 +121,7 @@ async function walletTx(client, evtp, { cmd: causation_id, correlation_id, paylo
 
 async function rejectWallet(client, wallet, { cmd: causation_id, correlation_id, payload: p }) {
     await Outbox.write(client, [
-        toRecord(emit(ET.wallet_transaction_rejected_v1, {
+        toRecord(emit(EVT.wallet.transaction.rejected, {
             correlation_id,
             causation_id,
             aggregate_id     : p.pid,
@@ -141,9 +142,9 @@ async function rejectWallet(client, wallet, { cmd: causation_id, correlation_id,
 export function createHandlers(pool, transact) {
 
     return {
-        [ CT.player_register_requested_v1 ]: registerPlayer,
-        [ CT.wallet_debit_requested_v1    ]: debitWallet,
-        [ CT.wallet_credit_requested_v1   ]: creditWallet,
+        [ CMD.player.register.requested ]: registerPlayer,
+        [ CMD.wallet.debit.requested    ]: debitWallet,
+        [ CMD.wallet.credit.requested   ]: creditWallet,
     }
 
     async function registerPlayer({ cmd: causation_id, correlation_id, payload: p }) {
@@ -157,7 +158,7 @@ export function createHandlers(pool, transact) {
 
                 await Outbox.write(client, [
 
-                    toRecord(emit(ET.player_created_v1, {
+                    toRecord(emit(EVT.player.created, {
                         correlation_id,
                         causation_id,
                         aggregate_id     : pid,
@@ -167,7 +168,7 @@ export function createHandlers(pool, transact) {
                         payload: { pid, handle: p.handle },
                     })),
 
-                    toRecord(emit(ET.wallet_created_v1, {
+                    toRecord(emit(EVT.wallet.created, {
                         correlation_id,
                         causation_id,
                         aggregate_id     : pid,
@@ -185,7 +186,7 @@ export function createHandlers(pool, transact) {
 
             await transact(pool, async client => {
                 await Outbox.write(client, [
-                    toRecord(emit(ET.player_registration_rejected_v1, {
+                    toRecord(emit(EVT.player.registration.rejected, {
                         correlation_id,
                         causation_id,
                         aggregate_id     : p.handle,
@@ -210,14 +211,14 @@ export function createHandlers(pool, transact) {
 
             if (!wallet || wallet.balance < cmd.payload.amount)
                 return rejectWallet(client, wallet, cmd)
-            await walletTx(client, ET.wallet_debited_v1, cmd)
+            await walletTx(client, EVT.wallet.debited, cmd)
         })
     }
 
     async function creditWallet(cmd) {
         await transact(pool, async client => {
             if (!await claimRfid(client, cmd.payload, 'credit')) return
-            await walletTx(client, ET.wallet_credited_v1, cmd)
+            await walletTx(client, EVT.wallet.credited, cmd)
         })
     }
 }
