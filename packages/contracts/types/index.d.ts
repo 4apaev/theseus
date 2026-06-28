@@ -1,4 +1,15 @@
 export {
+    type AnyCommandEnvelope,
+    type CargoCommandPayload,
+    type CommandDefinition,
+    type CommandEnvelope,
+    type CommandPayloads,
+    type CommandTopic,
+    type CommandType,
+    type WalletTransactionRequestPayload,
+
+    tree as commandTree,
+
     commandTopics,
     commandDefinition,
     commandDefinitions,
@@ -8,28 +19,27 @@ export {
     validateCommand,
 } from './commands.js'
 
-export type {
-    AnyCommandEnvelope,
-    CargoCommandPayload,
-    CommandDefinition,
-    CommandEnvelope,
-    CommandPayloads,
-    CommandTopic,
-    CommandType,
-    WalletTransactionRequestPayload,
-} from './commands.js'
-
 export {
+    type CommandEnvelopeInput,
+    type EventEnvelopeInput,
+
     createCommandEnvelope,
     createEventEnvelope,
 } from './envelope.js'
 
-export type {
-    CommandEnvelopeInput,
-    EventEnvelopeInput,
-} from './envelope.js'
-
 export {
+    type AnyEventEnvelope,
+    type CargoPayload,
+    type EventDefinition,
+    type EventEnvelope,
+    type EventPayloads,
+    type EventTopic,
+    type EventType,
+    type TradeSide,
+    type WalletTransactionPayload,
+
+    tree as eventTree,
+
     eventTopics,
     eventDefinition,
     eventDefinitions,
@@ -39,14 +49,3 @@ export {
     validateEvent,
 } from './events.js'
 
-export type {
-    AnyEventEnvelope,
-    CargoPayload,
-    EventDefinition,
-    EventEnvelope,
-    EventPayloads,
-    EventTopic,
-    EventType,
-    TradeSide,
-    WalletTransactionPayload,
-} from './events.js'

@@ -1,4 +1,5 @@
 export {
+    tree as commandTree,
     commandTopics,
     commandDefinition,
     commandDefinitions,
@@ -14,6 +15,7 @@ export {
 } from './envelope.js'
 
 export {
+    tree as eventTree,
     eventTopics,
     eventDefinition,
     eventDefinitions,

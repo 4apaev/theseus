@@ -1,5 +1,6 @@
 import {
     freeze,
+    freezer,
     validatePayload,
     validateEnvelope,
     assertKnownDefinition,
@@ -33,6 +34,22 @@ export const commandTopics = Object.freeze({
     player: 'commands.player',
     ship  : 'commands.ship',
     wallet: 'commands.wallet',
+})
+
+export const tree = freezer({
+    player: {
+        register: { requested: playerRegisterRequested.slug }},
+    wallet: {
+        debit : { requested: walletDebitRequested.slug },
+        credit: { requested: walletCreditRequested.slug }},
+    ship: {
+        travel: { requested: shipTravelRequested.slug }},
+    cargo: {
+        load  : { requested: cargoLoadRequested.slug },
+        unload: { requested: cargoUnloadRequested.slug }},
+    market: {
+        buy : { requested: marketBuyRequested.slug },
+        sell: { requested: marketSellRequested.slug }},
 })
 
 export const [

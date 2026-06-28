@@ -1,12 +1,33 @@
 export declare const commandTopics: Readonly<{
-    cargo : 'commands.cargo'
+    cargo: 'commands.cargo'
     market: 'commands.market'
     player: 'commands.player'
-    ship  : 'commands.ship'
+    ship: 'commands.ship'
     wallet: 'commands.wallet'
 }>
 
-export type CommandTopic = typeof commandTopics[keyof typeof commandTopics]
+export declare const tree: Readonly<{
+    player: {
+        register: { requested: 'player.register.requested.v1' }
+    },
+    wallet: {
+        debit: { requested: 'wallet.debit.requested.v1' },
+        credit: { requested: 'wallet.credit.requested.v1' }
+    },
+    ship: {
+        travel: { requested: 'ship.travel.requested.v1' }
+    },
+    cargo: {
+        load: { requested: 'cargo.load.requested.v1' },
+        unload: { requested: 'cargo.unload.requested.v1' }
+    },
+    market: {
+        buy: { requested: 'market.buy.requested.v1' },
+        sell: { requested: 'market.sell.requested.v1' }
+    },
+}>
+
+export type CommandTopic = typeof commandTopics[ keyof typeof commandTopics ]
 
 export interface CommandPayloads {
     'player.register.requested.v1': {
@@ -65,22 +86,22 @@ export interface CommandEnvelope<T extends CommandType = CommandType> {
     requested: string
     requested_by: string
     correlation_id: string
-    payload: CommandPayloads[T]
+    payload: CommandPayloads[ T ]
 }
 
 export type AnyCommandEnvelope = {
-    [T in CommandType]: CommandEnvelope<T>
-}[CommandType]
+    [ T in CommandType ]: CommandEnvelope<T>
+}[ CommandType ]
 
 export interface CommandDefinition<T extends CommandType = CommandType> {
     type: T
     topic: CommandTopic
-    key(payload: CommandPayloads[T]): string
+    key(payload: CommandPayloads[ T ]): string
     payload: Record<string, (value: unknown) => boolean>
 }
 
 export declare const commandDefinitions: Readonly<{
-    [T in CommandType]: Readonly<CommandDefinition<T>>
+    [ T in CommandType ]: Readonly<CommandDefinition<T>>
 }>
 
 export declare const commandTypes: Readonly<{

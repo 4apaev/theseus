@@ -1,6 +1,7 @@
 import {
     field,
     freeze,
+    freezer,
     requireField,
     validatePayload,
     validateEnvelope,
@@ -52,6 +53,39 @@ export const eventTopics = Object.freeze({
     player: 'events.player',
     ship  : 'events.ship',
     wallet: 'events.wallet',
+})
+
+export const tree = freezer({
+    player: {
+        created     : playerCreated.slug,
+        registration: { rejected: playerRegistrationRejected.slug },
+    },
+    wallet: {
+        created    : walletCreated.slug,
+        debited    : walletDebited.slug,
+        credited   : walletCredited.slug,
+        transaction: { rejected: walletTransactionRejected.slug },
+    },
+    ship: {
+        created : shipCreated.slug,
+        departed: shipDeparted.slug,
+        arrived : shipArrived.slug,
+        travel  : { rejected: shipTravelRejected.slug },
+    },
+    cargo: {
+        loaded   : cargoLoaded.slug,
+        unloaded : cargoUnloaded.slug,
+        operation: { rejected: cargoOperationRejected.slug },
+    },
+    market: {
+        price: {
+            changed: marketPriceChanged.slug,
+        },
+    },
+    trade: {
+        executed: tradeExecuted.slug,
+        rejected: tradeRejected.slug,
+    },
 })
 
 export const [
