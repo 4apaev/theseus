@@ -19,6 +19,12 @@ export const field = Object.freeze({
     velocity(x)                { return Is.n(x) && x > 0 && x < 1 },
 })
 
+export function freezer(x) {
+    return Is.x(x)
+        ? each(x, (k, v) => freezer(v), O.freeze(O.setPrototypeOf(x, null)))
+        : x
+}
+
 export function freeze(items) {
     let defs = O.o
     let vals = O.o
