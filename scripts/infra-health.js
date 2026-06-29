@@ -1,56 +1,30 @@
 import net from 'node:net'
-
-import { readEnv } from '#packages/config/src/index.js'
+import { readEnv } from '@theseus/config'
 
 const timeout = readEnv('HEALTH_TIMEOUT', 1500)
 
-const checks = [
-    {
-        name: 'kafka',
-        host: readEnv('KAFKA_HOST', '127.0.0.1'),
-        port: readEnv('KAFKA_PORT', 9092),
-    },
-    {
-        name: 'postgres',
-        host: readEnv('PG_HOST', '127.0.0.1'),
-        port: readEnv('PG_PORT', 5432),
-    },
-    {
-        name: 'kafka-ui',
-        host: readEnv('KAFKA_UI_HOST', '127.0.0.1'),
-        port: readEnv('KAFKA_UI_PORT', 8080),
-    },
-]
+const checks = await Promise.all([
+    check('kafka'   , readEnv('KAFKA_HOST'   , '127.0.0.1'), readEnv('KAFKA_PORT'   , 9092)),
+    check('postgres', readEnv('PG_HOST'      , '127.0.0.1'), readEnv('PG_PORT'      , 5432)),
+    // check('kafka-ui', readEnv('KAFKA_UI_HOST', '127.0.0.1'), readEnv('KAFKA_UI_PORT', 8080)),
+])
 
-const results = await Promise.all(checks.map(checkPort))
-results.forEach(log)
+for (let x of checks) {
+    console.table(x)
+    x.ok || process.exit(1)
+}
 
-if (!results.every(r => r.ok))
-    process.exitCode = 1
-
-function checkPort(check) {
-    return new Promise(resolve => {
-
-        const soc = net.createConnection({
-            host: check.host,
-            port: check.port,
-        })
-
-        const done = ok => {
+function check(name, host, port) {
+    return new Promise(done => {
+        const soc = net.createConnection({ host, port })
+        const end = ok => {
             soc.destroy()
-            resolve({ ...check, ok })
+            done({ ok, name, host, port })
         }
 
         soc.setTimeout(timeout)
-        soc.once('connect', () => done(true))
-        soc.once('error'  , () => done(false))
-        soc.once('timeout', () => done(false))
+        soc.once('connect', () => end(true))
+        soc.once('error'  , () => end(false))
+        soc.once('timeout', () => end(false))
     })
-}
-
-function log({ ok, name, host, port }) {
-    const status = ok
-        ? 'ok'
-        : 'down'
-    console.log(name, status, host, port)
 }
