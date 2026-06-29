@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-if   [[ "$1" == "int"* ]]; then SPECS=test/*.integration.spec.js # starts with `int`
-elif [[ -n "$1" ]];        then SPECS=test/*.$1.spec.js          # not empty
-else                            SPECS=test/*.spec.js             # all
+shopt -s extglob
+
+if   [[ "$1" == "int"* ]]; then SPECS=test/*.int*.spec.js       # integrations, starts with `.int`
+elif [[ -n "$1" ]];        then SPECS=test/*.$1.spec.js         # not empty, other tags
+else                            SPECS=test/!(*.int*).spec.js    # all except integration, ignore starts with `.int`
 fi
 
 echo $SPECS
