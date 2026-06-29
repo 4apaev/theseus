@@ -34,3 +34,52 @@ jobs:
       - run: npm run lint
       - run: npm run tsc
       - run: npm test
+
+  integration:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: theseus
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: theseus
+          POSTGRES_USER: theseus
+          POSTGRES_PASSWORD: theseus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: theseus
+
+      - uses: actions/checkout@v4
+        with:
+          repository: 4apaev/garage
+          path: garage
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: theseus/package-lock.json
+
+      - run: npm ci
+      - run: cp .env.example .env
+      - name: run integration tests
+        run: npm test integration
+        env:
+          PG_HOST: 127.0.0.1
+          PG_PORT: 5432
+          PG_USER: theseus
+          PG_PASS: theseus
+          PG_DB: theseus
