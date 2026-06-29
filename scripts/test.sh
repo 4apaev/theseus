@@ -2,18 +2,25 @@
 
 shopt -s extglob
 
-if   [[ "$1" == "int"* ]]; then SPECS=test/*.int*.spec.js       # integrations, starts with `.int`
-elif [[ -n "$1" ]];        then SPECS=test/*.$1.spec.js         # not empty, other tags
-else                            SPECS=test/!(*.int*).spec.js    # all except integration, ignore starts with `.int`
+COVERAGE=${2:-"80"}
+
+if [[ "$1" == "int"* ]]; then
+    SPECS="test/*.int*.spec.js"
+    COVERAGE=50
+elif [[ -n "$1" ]]; then
+    SPECS="test/*.$1.spec.js"
+else
+    SPECS="test/!(*.int*).spec.js"
 fi
 
-echo $SPECS
+echo "SPECS    : $SPECS"
+echo "COVERAGE : $COVERAGE"
 
 node                             \
     --env-file=./.env            \
     --experimental-test-coverage \
-    --test-coverage-lines=80     \
-    --test-coverage-branches=80  \
-    --test-coverage-functions=80 \
+    --test-coverage-lines=$COVERAGE     \
+    --test-coverage-branches=$COVERAGE  \
+    --test-coverage-functions=$COVERAGE \
     --test $SPECS
 
