@@ -15,9 +15,9 @@
         "#packages/*": "./packages/*"
     },
     "scripts": {
-        "prepare"       : "git config core.hooksPath .githooks",
-        "env:update"    : "bash ./.githooks/pre-push",
-        "test"          : "bash ./scripts/test.sh",
+        "prepare"       : "git config core.hooksPath scripts/hooks",
+        "env:update"    : "bash scripts/hooks/pre-push",
+        "test"          : "bash scripts/test.sh",
         "lint"          : "eslint .",
         "tsc"           : "tsc --noEmit",
         "check"         : "npm run test && npm run lint && npm run tsc",
