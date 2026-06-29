@@ -11,20 +11,20 @@ export default function dump(it, tab = 4) {
 
         if (Is.x(next)) {
             if (seen.has(next)) {
-                prev.push(`${ prfx }<Circular:${ key } = ${ seen.get(next) }>`)
+                prev.push(`${ prfx + key }<♻️:${ seen.get(next) }>`)
             }
             else {
                 seen.set(next, path.join('.'))
-                prev.push(prfx + key),
+                prev.push(prfx + key)
                 each(next, Is(next, Array, Set)
                     ? (k, v) => inner(prev, v, path.concat(k), '- ')
                     : (k, v) => inner(prev, v, path.concat(k), k + ': '))
             }
-
         }
         else {
             prev.push(prfx + key + next)
         }
+        return prev
     }
     console.info(inner([], it, [], '').join('\n'))
 }
