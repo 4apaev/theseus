@@ -16,8 +16,8 @@
     },
     "scripts": {
         "prepare"       : "git config core.hooksPath .githooks",
-        "env:update"    : ". ./.githooks/pre-push",
-        "test"          : ". ./scripts/test.sh",
+        "env:update"    : "bash ./.githooks/pre-push",
+        "test"          : "bash ./scripts/test.sh",
         "lint"          : "eslint .",
         "tsc"           : "tsc --noEmit",
         "check"         : "npm run test && npm run lint && npm run tsc",
