@@ -5,7 +5,7 @@ export class Schema {
     name = 'Schema'
 
     constructor({ topic, type, key, payload, version = 1 }) {
-        this.kind    = this.constructor.kind
+        this.kind    = new.target.kind
         this.topic   = topic
         this.type    = type
         this.version = version
