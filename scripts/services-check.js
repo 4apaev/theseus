@@ -1,8 +1,8 @@
-import * as Gateway    from '#apps/gateway/src/main.js'
-import * as Market     from '#apps/market-service/src/main.js'
-import * as Player     from '#apps/player-service/src/main.js'
-import * as Projection from '#apps/projection-service/src/main.js'
-import * as Ship       from '#apps/ship-service/src/main.js'
+import * as Gateway    from '@theseus/gateway'
+import * as Projection from '@theseus/projection-service'
+import * as Player     from '@theseus/player-service'
+import * as Ship       from '@theseus/ship-service'
+import * as Market     from '@theseus/market-service'
 
 log(Gateway)
 log(Player)
