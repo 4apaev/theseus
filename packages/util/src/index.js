@@ -55,13 +55,17 @@ export function camel2snake(s, ...a) { return s.match(/[A-Z]?[a-z]+/g).map(low).
 export function formatTime(x) {
     if (Is.not.s(x)) return x
 
-    let [ , n, t ] = x.match(/(?<n>\d+)(?<t>s|m|h|d)?/) ?? []
-    /**/ x = (0 | n)
-    /**/ if (t == 's') x *= 1000
-    else if (t == 'm') x *= 1000 * 60
-    else if (t == 'h') x *= 1000 * 60 * 60
-    else if (t == 'd') x *= 1000 * 60 * 60 * 24
-    return x
+    let [ , n, t ] = x.trim().toLowerCase().match(/^([\d.]+) *(s|m|h|d|w)?/) ?? []
+    isNaN(n = +n) && Fail.raise(`invalid time string "${ x }"`, x)
+
+    switch (t) {
+        case 's': return n * 1000
+        case 'm': return n * 1000 * 60
+        case 'h': return n * 1000 * 60 * 60
+        case 'd': return n * 1000 * 60 * 60 * 24
+        case 'w': return n * 1000 * 60 * 60 * 24 * 7
+        default : return n
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
