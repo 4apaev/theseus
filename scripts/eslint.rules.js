@@ -29,7 +29,7 @@ export default {
         }
     }],
 
-    'no-unused-vars'        : [ 2, {
+    'no-unused-vars'        : [ 0, {
         args             : 'after-used',
         caughtErrors     : 'none',
         argsIgnorePattern: '^-',

@@ -8,5 +8,12 @@
             "types"  : "./types/main.d.ts",
             "default": "./src/main.js"
         }
+    },
+    "dependencies": {
+        "@theseus/config"   : "*",
+        "@theseus/contracts": "*",
+        "@theseus/db"       : "*",
+        "@theseus/kafka"    : "*",
+        "@theseus/util"     : "*"
     }
 }
