@@ -1,34 +1,53 @@
-🚀 theseus 📺 projection-service
-================================================================
+📺 projection-service
+================================
 
-
-first running service.
-----------------------------------------------------------------
-- disposable read models - read models can be rebuilt from scratch by replaying events.
-- builds read models from all events.
+- first running service
+- disposable read models - can be rebuilt from scratch by replaying events
+- builds read models from all events (`events.*`)
 - gives live visibility
-- validates the event structure early.
+- validates the event structure early
+- consume only - inbox for dedup, no outbox
 
 
-event ordering
-----------------------------------------------------------------
-events are processed in order, but there can be race conditions
-or out of order delivery. if we have `FK` constraints, a `wallet.created`
-might arrive before `player.created` (unlikely but possible),
-which would cause a `FK` violation. even though the data is logically consistent.
+### deps:
+- `@theseus/db`
+- `@theseus/kafka`
+- `@theseus/contracts`
+- `@theseus/config`
+- `@theseus/util`
 
-rebuild / replay
-----------------------------------------------------------------
-when truncate and replay events, `fk` constraints
-force careful  table ordering during truncation.
 
-source of truth is the write side.
-----------------------------------------------------------------
-referential integrity is enforced there (can't create a wallet
-for a non-existent player at command time).
+### exports
+- `src/main.js`     - pool → migrate → inbox → consumer(`events.all`)
+- `src/handlers.js` - dispatch map: one upsert per event type
 
-rebuild resilience
-----------------------------------------------------------------
-the projection just mirrors what already passed validation.
-query time guarantees (e.g. JOIN safety), indexes on the reference
-columns (pid, sid, stid) are enough without the constraint overhead.
+------------------------------------------------------------------------------------------------
+
+### migrations
+- `001_players.sql`       : pid pk, handle, created
+- `002_wallets.sql`       : pid pk, balance, updated
+- `003_ships.sql`         : sid pk, pid, stid, status, from/to, years_abs/years_rel, timestamps
+- `004_cargo.sql`         : (sid, gid) pk, quantity, updated
+- `005_market_prices.sql` : (stid, gid) pk, price_buy, price_sell, updated
+- `006_trade_history.sql` : tid pk, gid, pid, sid, stid, quantity, price_*, side, created
+
+full column detail in [docs/schema.md](../../docs/schema.md)
+
+------------------------------------------------------------------------------------------------
+
+### notes
+
+- **event ordering** - events are processed in order, but out of order delivery is possible.
+  with FKs, a `wallet.created` arriving before `player.created` would violate a constraint
+  even though the data is logically consistent.
+- **rebuild / replay** - truncate + replay would force careful table ordering during truncation.
+- **source of truth is the write side** - referential integrity is enforced there
+  (can't create a wallet for a non-existent player at command time).
+- the projection just mirrors what already passed validation.
+  indexes on reference columns (`pid`, `sid`, `stid`) are enough without the constraint overhead.
+
+------------------------------------------------------------------------------------------------
+
+### tests
+- [ ] unit: handlers upsert per event type
+- [ ] integration: projection rebuild - truncate + replay (step 9)
