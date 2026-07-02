@@ -1,9 +1,9 @@
 {
     "folders": [
-        {
-            "path": "../",
-            "name": "🚀 theseus"
-        }
+        { "name": "🚀 theseus"   , "path": "../" },
+        { "name": "📺 projection", "path": "../apps/projection-service/migrations" },
+        { "name": "🎮 player"    , "path": "../apps/player-service/migrations" },
+        { "name": "🛸 ship"      , "path": "../apps/ship-service/migrations" },
     ],
 
     "settings": {
@@ -14,3 +14,19 @@
     },
 }
 
+/*
+    service
+        ⛩️ gateway
+        🎰 market
+        📺 projection
+        🎮 player
+        🛸 ship
+    package
+        📇 db
+        📬 kafka
+        📜 contracts
+        🧮 domain
+        🎛️ config
+        🪏 util
+        🧪 testing
+*/
