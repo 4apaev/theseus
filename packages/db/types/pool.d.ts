@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from 'pg'
 
-export function createPool(): Pool
+export function createPool(opts?: { schema?: string }): Pool
 export function withTransaction<T>(
     pool: Pool,
     fn: (client: PoolClient) => Promise<T>

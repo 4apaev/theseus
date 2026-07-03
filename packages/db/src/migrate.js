@@ -7,6 +7,9 @@ const DEFAULT_DIR = fileURLToPath(new URL('../migrations', import.meta.url))
 
 export default function migrate(pool, dir = DEFAULT_DIR) {
     return withClient(pool, async client => {
+        pool.schema
+        && await client.query(`create schema if not exists "${ pool.schema }"`)
+
         await bootstrap(client)
 
         const applied = await appliedMigrations(client)

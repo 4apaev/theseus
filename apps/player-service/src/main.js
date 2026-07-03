@@ -20,7 +20,7 @@ export function describeService() {
 }
 
 export async function start(client) {
-    const pool = DB.create()
+    const pool = DB.create({ schema: 'player' })
     await migrate(pool)
     await migrate(pool, MIGRATIONS)
 
