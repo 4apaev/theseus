@@ -1,7 +1,9 @@
 import { Is, Fail } from 'garage/util'
 
 export function createMemoryKafka() {
+
     let offset = 0
+
     const subs = []
     const log = []
 
@@ -11,11 +13,10 @@ export function createMemoryKafka() {
         },
 
         async publish({ topic, messages }) {
-            Fail.ok(
-                Is.s(topic)
-                && Is.a(messages),
-                'kafka record must have topic and messages',
-            )
+
+            Is.s(topic)
+            && Is.a(messages)
+            || Fail.raise('kafka record must have topic and messages', { topic, messages })
 
             let count = 0
             for (let { key, value } of messages) {
