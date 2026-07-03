@@ -1,10 +1,11 @@
 🛸 ship-service
 ================================
 
-- owns `ships` write model
+- owns `ships` write model in pg schema `ship`
 - handles 1 command
 - emits 3 event types
 - travel timer is in-process `setTimeout` - doesn't survive restarts, acceptable for now
+- step 4 done - scaffold, handler, migrations, tests all in place
 
 
 ### deps:
@@ -18,7 +19,7 @@
 ### exports
 - `src/main.js`     - pool → migrate → inbox → consumer(`commands.ship`) + `pollOutbox`
 - `src/handlers.js` - dispatch map + travelRequested / arrive / reject
-- `src/travel.js`   - distance/time math
+- `src/travel.js`   - distance/time math, `Route` class, `travel` default export
 
 ------------------------------------------------------------------------------------------------
 
@@ -46,7 +47,8 @@
 ------------------------------------------------------------------------------------------------
 
 ### travel math
-- station distance map - hardcoded from constants
+- station distance map - hardcoded from constants, keys normalized to sorted
+  order at init so routes can be listed either way
 - years `years_abs = distance / velocity`
 - years `years_rel = years_abs * sqrt(1 - velocity²)` - relativistic proper time
 - `ms = abs * TIME_SCALE * 1000` - game milliseconds
