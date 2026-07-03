@@ -61,7 +61,7 @@
 - calculate travel time → `{ ms, arrives, years_abs, years_rel }`
 - update ship: `status = 'transit'`, `departs = now`, `from`, `to`, `arrives`
 - write to outbox → `ship.departed.v1` `{ sid, pid, from, to, departed, arrives, years_abs, years_rel }`
-- `setTimeout(ms)` → transact:
+- `setTimeout(ms)` scheduled after commit (a rollback must not dock the ship) → transact:
   - update ship: `status='docked'`, `stid=to`, `arrived=now`
   - outbox → `ship.arrived.v1` `{ sid, pid, stid, arrived }`
 
@@ -73,15 +73,12 @@
 ------------------------------------------------------------------------------------------------
 
 ### tests
-- [ ] unit: travel math (`distance`, `years_abs`, `years_rel`, `ms`)
-- [ ] unit: handler - travel rejected (not found, not docked, wrong station, same station)
-- [ ] unit: handler - departed event emitted with correct payload
-- [ ] unit: handler - arrived event emitted after timeout
-- [ ] integration: full travel flow - departed → wait → arrived in DB
+- [x] unit: `test/ship.spec.js` - travel math, 4 rejections, departed payload, arrived after timeout (mock timers)
+- [x] integration: `test/ship.integration.spec.js` - full travel flow, memory kafka + real postgres, `TIME_SCALE=0.1`
 
 ------------------------------------------------------------------------------------------------
 
 ### done when ship travels:
 
-- `sol.outpost` → `alpha.exchange` in `86s` game time
+- `sol.outpost` → `alpha.exchange` in `~143s` game time (4.3 ly / 0.6c × 20 s/year)
 - `departed` + `arrived` events flow through outbox.
