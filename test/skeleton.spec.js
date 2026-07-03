@@ -6,7 +6,7 @@ import { commandTopics, createCommandEnvelope          } from '#packages/contrac
 import { capitalCost, commonFrameYears, shipFrameYears } from '#packages/domain/src/index.js'
 import { createTopicRecord, decodeJson                 } from '#packages/kafka/src/index.js'
 
-console.log('\n── SKELETON %s\n', '─'.repeat(64))
+import '#packages/testing/src/index.js?title=🧪 🚀 SKELETON'
 
 test('repo skeleton exposes service entrypoints', () => {
     assert.equal(gatewayServiceName, 'gateway')

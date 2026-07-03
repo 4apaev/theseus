@@ -7,7 +7,7 @@ import {
     formatTime, camel2snake,
 } from '#packages/util/src/index.js'
 
-console.log('\n── PKG/UTIL %s\n', '─'.repeat(64))
+import '#packages/testing/src/index.js?title=🧪 🪏 UTIL'
 
 // ── withClient ────────────────────────────────────────────────────────────────
 
