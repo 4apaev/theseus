@@ -15,32 +15,10 @@ import outbox, {
 import migrate from '#packages/db/src/migrate.js'
 import { encodeJson } from '#packages/util/src/index.js'
 
-console.log('\n── PKG/DB %s\n', '─'.repeat(64))
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-function fakeClient(overrides = {}) {
-    const log = []
-    return {
-        log,
-        release() {},
-        query(sql, params) {
-            log.push({ sql, params })
-            for (const [ match, fn ] of Object.entries(overrides))
-                if (sql.includes(match)) return Promise.resolve(fn(params))
-            return Promise.resolve({ rows: []})
-        },
-    }
-}
-
-function fakePool(overrides = {}) {
-    const client = fakeClient(overrides)
-    return {
-        client,
-        connect: () => Promise.resolve(client),
-        query  : (...a) => client.query(...a),
-    }
-}
+import {
+    fakePool,
+    fakeClient,
+} from '#packages/testing/src/index.js?title=🧪 📇 DB'
 
 // ── Inbox (memory) ────────────────────────────────────────────────────────────
 

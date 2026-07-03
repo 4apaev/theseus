@@ -3,71 +3,39 @@ import assert from 'node:assert/strict'
 import Crypto from 'node:crypto'
 import { setTimeout } from 'node:timers/promises'
 
-import { DB }                                       from '@theseus/db'
-import { Query }                                    from '@theseus/util'
-import { Codec, createProducer, createMemoryKafka } from '@theseus/kafka'
+import { DB }                                from '@theseus/db'
+import { Query }                             from '@theseus/util'
+import { createProducer, createMemoryKafka } from '@theseus/kafka'
+
+import {
+    guid,
+    waitFor,
+    collectEvents,
+    createPublisher,
+} from '#packages/testing/src/index.js?title=🧪 INTEGRATION 🎮 PLAYER'
 
 import {
     eventTree as EVT,
     commandTree as CMD,
-    createCommandEnvelope,
 } from '@theseus/contracts'
 
-import startPlayer from '#apps/player-service/src/main.js'
+// import startPlayer from '#apps/player-service/src/main.js'
+import startPlayer from '@theseus/player-service'
 
+const PRFX = 'itg_player_'
 // ─────────────────────────────────────────────────────────────────────────────
 
-console.log('\n── INTEGRATION/PLAYER %s\n', '─'.repeat(60))
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-async function waitFor(fx, ms = 5000, interval = 50) {
-    const deadline = Date.now() + ms
-    while (Date.now() < deadline) {
-        const rs = await fx()
-        if (rs) return rs
-        await setTimeout(interval)
-    }
-    throw new Error('waitFor timed out')
-}
-
-function publish(type, payload) {
-    return producer.publishCommand(createCommandEnvelope({
-        cmd         : Crypto.randomUUID(),
-        command_type: type,
-        requested_by: 'integration-test',
-        payload,
-    }))
-}
-
-function collectEvents(kafka, topics) {
-    const events = []
-    const sub = kafka.subscribe({
-        topics,
-        groupId: 'test-' + Crypto.randomUUID(),
-        handler(msg) {
-            return events.push(Codec.decode(msg.value))
-        },
-    })
-    return {
-        events,
-        stop() { return sub.stop() },
-    }
-}
-
-function guid() {
-    return 'itg_' + Crypto.randomUUID().slice(0, 8)
-}
+// console.log('\n── INTEGRATION/PLAYER %s\n', '─'.repeat(60))
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
-let kafka, service, producer, pool, sql
+let kafka, service, pool, sql, publish
 
 test.before(async () => {
-    kafka    = createMemoryKafka()
-    pool     = DB.create()
-    producer = createProducer({ client: kafka })
-    service  = await startPlayer(kafka)
+    kafka   = createMemoryKafka()
+    pool    = DB.create({ schema: 'player' })
+    publish = createPublisher(createProducer({ client: kafka }))
+    service = await startPlayer(kafka)
     sql = (...a) => Query(pool)(...a).then(r => r.rows[ 0 ])
 })
 
@@ -79,7 +47,7 @@ test.after(() => {
 // ── tests ────────────────────────────────────────────────────────────────────
 
 test('registerPlayer - creates player & wallet, emits player.created & wallet.created', async () => {
-    const handle = guid()
+    const handle = guid(PRFX)
     const { events, stop } = collectEvents(kafka, [ 'events.player', 'events.wallet' ])
 
     await publish(CMD.player.register.requested, { handle, password: 'secret' })
@@ -107,7 +75,7 @@ test('registerPlayer - creates player & wallet, emits player.created & wallet.cr
 })
 
 test('registerPlayer - duplicate handle emits registration.rejected', async () => {
-    const handle = guid()
+    const handle = guid(PRFX)
 
     await publish(CMD.player.register.requested, { handle, password: 'x' })
 
@@ -124,7 +92,7 @@ test('registerPlayer - duplicate handle emits registration.rejected', async () =
 })
 
 test('debitWallet - updates balance, emits wallet.debited', async () => {
-    const handle = guid()
+    const handle = guid(PRFX)
     await publish(CMD.player.register.requested, { handle, password: 'x' })
 
     // DB write is synchronous with publishCommand (memory kafka)
@@ -151,7 +119,7 @@ test('debitWallet - updates balance, emits wallet.debited', async () => {
 })
 
 test('debitWallet - insufficient funds emits transaction.rejected', async () => {
-    const handle = guid()
+    const handle = guid(PRFX)
 
     await publish(CMD.player.register.requested, { handle, password: 'x' })
     const { pid } = await sql`select pid from players where handle = ${ handle }`
@@ -177,7 +145,7 @@ test('debitWallet - insufficient funds emits transaction.rejected', async () => 
 })
 
 test('creditWallet - updates balance, emits wallet.credited', async () => {
-    const handle = guid()
+    const handle = guid(PRFX)
     await publish(CMD.player.register.requested, { handle, password: 'x' })
 
     const credited = e => e.event_type === EVT.wallet.credited
@@ -203,7 +171,7 @@ test('creditWallet - updates balance, emits wallet.credited', async () => {
 })
 
 test('debitWallet - duplicate rfid is silently ignored', async () => {
-    const handle = guid()
+    const handle = guid(PRFX)
     await publish(CMD.player.register.requested, { handle, password: 'x' })
 
     const { pid } = await sql`select pid from players where handle = ${ handle }`

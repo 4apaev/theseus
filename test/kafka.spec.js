@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createFakeKafka } from '#packages/testing/src/index.js'
-import { createConsumer, createProducer } from '#packages/kafka/src/index.js'
-import { createEventEnvelope, eventTopics, eventTypes } from '#packages/contracts/src/index.js'
+import { createFakeKafka                              } from '#packages/testing/src/index.js?title=🧪 📬 KAFKA'
+import { createConsumer, createProducer               } from '@theseus/kafka'
+import { createEventEnvelope, eventTopics, eventTypes } from '@theseus/contracts'
 
-console.log('\n── PKG/KAFKA %s\n', '─'.repeat(64))
+// console.log('\n── PKG/KAFKA %s\n', '─'.repeat(64))
 
 // ── basic publish / consume ─────────────────────────────────────────────────
 

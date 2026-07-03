@@ -4,45 +4,12 @@ import assert from 'node:assert/strict'
 import { createHandlers } from '#apps/player-service/src/handlers.js'
 import { hash, verify   } from '#apps/player-service/src/crypto.js'
 
-console.log('\n── APP/PLAYER %s\n', '─'.repeat(64))
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-function fakeClient(overrides = {}) {
-    const log = []
-    return {
-        log,
-        release() {},
-        async query(sql, params) {
-
-            log.push({
-                sql: sql.trim(),
-                params,
-            })
-
-            for (const [ match, fx ] of Object.entries(overrides))
-                if (sql.includes(match)) return fx(params)
-            return { rows: []}
-        },
-    }
-}
-
-const fakeTransact = client => (pool, fn) => fn(client)
-
-function outboxEvents(client) {
-    return client.log
-        .filter(({ sql }) => sql.includes('insert into outbox'))
-        .map(({ params }) => JSON.parse(params[ 3 ]))
-}
-
-function makeCmd(payload, extra = {}) {
-    return {
-        cmd           : 'cmd-test',
-        correlation_id: 'corr-test',
-        payload,
-        ...extra,
-    }
-}
+import {
+    makeCmd,
+    fakeClient,
+    fakeTransact,
+    outboxEvents,
+} from '#packages/testing/src/index.js?title=🧪 🎮 PLAYER'
 
 // ── registerPlayer ───────────────────────────────────────────────────────────
 
