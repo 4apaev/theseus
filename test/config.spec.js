@@ -3,7 +3,7 @@ import test   from 'node:test'
 
 import { format, readEnv, requireEnv } from '#packages/config/src/env.js'
 
-console.log('\n── PKG/CONFIG %s\n', '─'.repeat(64))
+import '#packages/testing/src/index.js?title=🧪 🎛️  CONFIG'
 
 // ── format ──────────────────────────────────────────────────────────────────
 

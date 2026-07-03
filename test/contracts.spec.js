@@ -13,8 +13,7 @@ import {
     eventTopics,
     eventTypes,
 } from '#packages/contracts/src/index.js'
-
-console.log('\n── PKG/CONTRACTS %s\n', '─'.repeat(64))
+import '#packages/testing/src/index.js?title=🧪 📜 CONTRACTS'
 
 // ── catalog ────────────────────────────────────────────────────────────────
 

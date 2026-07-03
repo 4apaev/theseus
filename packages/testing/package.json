@@ -8,5 +8,9 @@
             "types"  : "./types/index.d.ts",
             "default": "./src/index.js"
         }
+    },
+    "dependencies": {
+        "@theseus/contracts": "*",
+        "@theseus/kafka"    : "*"
     }
 }
