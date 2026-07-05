@@ -155,3 +155,32 @@ test('travelRequested schedules no arrival on rejection', async t => {
     const events = outboxEvents(client)
     assert.equal(events.length, 1, 'only the rejection, no arrival')
 })
+
+// ── player.created - starter ship saga ────────────────────────────────────────
+
+test('playerCreated seeds the starter ship and emits ship.created', async () => {
+    const client   = fakeClient()
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'player.created.v1' ]({
+        eid           : 'evt-test',
+        correlation_id: 'corr-test',
+        payload       : { pid: 'p1', handle: 'alice' },
+    })
+
+    const insert = client.log.find(({ sql }) => sql.includes('insert into ships'))
+    assert.ok(insert, 'ship inserted')
+    assert.equal(insert.params[ 1 ], 'p1')
+    assert.equal(insert.params[ 2 ], 'sol.outpost')
+
+    const [ e ] = outboxEvents(client)
+    assert.equal(e.event_type, 'ship.created.v1')
+    assert.equal(e.causation_id, 'evt-test')
+    assert.equal(e.correlation_id, 'corr-test')
+    assert.match(e.payload.sid, /^ship_/)
+    assert.equal(e.payload.pid, 'p1')
+    assert.equal(e.payload.stid, 'sol.outpost')
+    assert.equal(e.payload.name, 'far treasure')
+    assert.equal(e.payload.capacity, 20)
+    assert.equal(e.payload.velocity, 0.6)
+})

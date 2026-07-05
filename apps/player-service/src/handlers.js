@@ -4,75 +4,16 @@ import Crypto from 'node:crypto'
 
 import { readEnv } from '@theseus/config'
 import { Outbox  } from '@theseus/db'
+import { createEmitter } from '@theseus/kafka'
 import Crypt       from './crypto.js'
 import {
-    eventKey,
-    eventTopic,
     eventTree as EVT,
     commandTree as CMD,
-    createEventEnvelope,
 } from '@theseus/contracts'
 
-const PRODUCER        = 'player-service'
 const STARTER_CREDITS = readEnv('STARTER_CREDITS', 1000)
 
-/*
-
-    player/src/
-        handlers
-
-    kafka/src/
-        records
-
-    contracts/src/
-        envelope
-        events
-
-        types/
-            envelope
-            events
-    test/
-        kafka.spec
-        contracts.spec
-
-    event_type          evtp
-    aggregate_type      agtp
-    aggregate_id        agid
-    aggregate_version   aggv
-    causation_id        caid cause
-    correlation_id      coid crid
-*/
-
-function emit(evtp, {
-    aggregate_type,
-    aggregate_id,
-    aggregate_version,
-    causation_id,
-    correlation_id,
-    payload,
-}) {
-    return createEventEnvelope({
-        eid       : Crypto.randomUUID(),
-        event_type: evtp,
-        aggregate_id,
-        aggregate_type,
-        aggregate_version,
-        correlation_id,
-        causation_id,
-        producer  : PRODUCER,
-        payload,
-    })
-}
-
-function toRecord(envelope) {
-    return {
-        topic   : eventTopic(envelope.event_type),
-        messages: [{
-            key  : eventKey(envelope),
-            value: envelope,
-        }],
-    }
-}
+const emit = createEmitter('player-service')
 
 async function claimRfid(client, { pid, rfid, amount }, type) {
     const { rows } = await client.query(`
@@ -108,20 +49,20 @@ async function walletTx(client, evtp, { cmd: causation_id, correlation_id, paylo
     )
 
     await Outbox.write(client, [
-        toRecord(emit(evtp, {
+        emit(evtp, {
             correlation_id,
             causation_id,
             aggregate_id     : p.pid,
             aggregate_type   : 'wallet',
             aggregate_version: version,
             payload          : { pid: p.pid, rfid: p.rfid, amount: p.amount, balance },
-        })),
+        }),
     ])
 }
 
 async function rejectWallet(client, wallet, { cmd: causation_id, correlation_id, payload: p }) {
     await Outbox.write(client, [
-        toRecord(emit(EVT.wallet.transaction.rejected, {
+        emit(EVT.wallet.transaction.rejected, {
             correlation_id,
             causation_id,
             aggregate_id     : p.pid,
@@ -133,7 +74,7 @@ async function rejectWallet(client, wallet, { cmd: causation_id, correlation_id,
                 amount: p.amount,
                 reason: wallet ? 'insufficient funds' : 'wallet not found',
             },
-        })),
+        }),
     ])
 }
 
@@ -158,7 +99,7 @@ export function createHandlers(pool, transact) {
 
                 await Outbox.write(client, [
 
-                    toRecord(emit(EVT.player.created, {
+                    emit(EVT.player.created, {
                         correlation_id,
                         causation_id,
                         aggregate_id     : pid,
@@ -166,9 +107,9 @@ export function createHandlers(pool, transact) {
                         aggregate_version: 1,
 
                         payload: { pid, handle: p.handle },
-                    })),
+                    }),
 
-                    toRecord(emit(EVT.wallet.created, {
+                    emit(EVT.wallet.created, {
                         correlation_id,
                         causation_id,
                         aggregate_id     : pid,
@@ -176,7 +117,7 @@ export function createHandlers(pool, transact) {
                         aggregate_version: 1,
 
                         payload: { pid, balance: STARTER_CREDITS },
-                    })),
+                    }),
                 ])
             })
         }
@@ -186,7 +127,7 @@ export function createHandlers(pool, transact) {
 
             await transact(pool, async client => {
                 await Outbox.write(client, [
-                    toRecord(emit(EVT.player.registration.rejected, {
+                    emit(EVT.player.registration.rejected, {
                         correlation_id,
                         causation_id,
                         aggregate_id     : p.handle,
@@ -194,7 +135,7 @@ export function createHandlers(pool, transact) {
                         aggregate_version: 1,
 
                         payload: { handle: p.handle, reason: 'handle taken' },
-                    })),
+                    }),
                 ])
             })
         }

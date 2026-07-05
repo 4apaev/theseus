@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { commandTopics } from '@theseus/contracts'
+import { commandTopics, eventTopics } from '@theseus/contracts'
 
 import {
     isMain,
@@ -47,10 +47,10 @@ export async function start(client) {
         store,
         client,
         groupId: service,
-        topics : [ commandTopics.ship ],
+        topics : [ commandTopics.ship, eventTopics.player ],
         async handler(msg) {
-            const fx = dispatch[ msg.value?.command_type ]
-            fx && await fx(msg.value)
+            const emit = dispatch[ msg.value?.command_type ?? msg.value?.event_type ]
+            emit && await emit(msg.value)
         },
     })
 
