@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test   from 'node:test'
 
-import { service as gatewayServiceName             } from '#apps/gateway/src/main.js'
+import {
+    service as gatewayServiceName,
+    describeService as describeGateway,
+} from '#apps/gateway/src/main.js'
 import { commandTopics, createCommandEnvelope          } from '#packages/contracts/src/index.js'
 import { capitalCost, commonFrameYears, shipFrameYears } from '#packages/domain/src/index.js'
 import { createTopicRecord, decodeJson                 } from '#packages/kafka/src/index.js'
@@ -51,4 +54,11 @@ test('kafka record helper round-trips json payloads', () => {
     const decoded = decodeJson(record.messages[ 0 ].value)
 
     assert.deepEqual(decoded, { ok: true })
+})
+
+test('gateway describes its role and owns nothing yet', () => {
+    const d = describeGateway()
+    assert.equal(d.service, 'gateway')
+    assert.match(d.role, /gateway/)
+    assert.deepEqual(d.owns, [])
 })

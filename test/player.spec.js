@@ -2,7 +2,7 @@ import test   from 'node:test'
 import assert from 'node:assert/strict'
 
 import { createHandlers } from '#apps/player-service/src/handlers.js'
-import { hash, verify   } from '#apps/player-service/src/crypto.js'
+import Crypt, { hash, verify } from '#apps/player-service/src/crypto.js'
 
 import {
     makeCmd,
@@ -241,4 +241,10 @@ test('verify returns true for correct password', async () => {
 test('verify returns false for wrong password', async () => {
     const h = await hash('correct')
     assert.equal(await verify('wrong', h), false)
+})
+
+test('Crypt groups hash/verify with bytes and guid helpers', () => {
+    assert.equal(Crypt.hash, hash)
+    assert.equal(Crypt.bytes(8).length, 8)
+    assert.match(Crypt.guid, /^[0-9a-f-]{36}$/)
 })
