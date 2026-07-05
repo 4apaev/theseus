@@ -5,6 +5,7 @@ import {
     withClient, poll,
     Query, where, selectWhere,
     formatTime, camel2snake,
+    Raw, up, low, trim,
 } from '#packages/util/src/index.js'
 
 import '#packages/testing/src/index.js?title=🧪 🪏 UTIL'
@@ -179,4 +180,20 @@ test('selectWhere defaults to select *', () => {
     const [ text, vals ] = selectWhere('players', { pid: 'abc' })
     assert.match(text, /select +\* +from +players +\n +where +players\.pid += +\$1/)
     assert.deepEqual(vals, [ 'abc' ])
+})
+
+// ── string helpers ────────────────────────────────────────────────────────────
+
+test('Raw works as a tagged template', () => {
+    assert.equal(Raw`a${ 1 }b${ 2 }`, 'a1b2')
+})
+
+test('Raw concatenates when called as a plain function', () => {
+    assert.equal(Raw('x', [ 1, 2 ]), 'x12')
+})
+
+test('up / low / trim', () => {
+    assert.equal(up('abc'), 'ABC')
+    assert.equal(low('ABC'), 'abc')
+    assert.equal(trim('  x  '), 'x')
 })
