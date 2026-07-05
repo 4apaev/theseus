@@ -15,6 +15,7 @@
 - `src/idempotency.js` - `Store` - tracks processed message ids, backs consumer dedup
 - `src/memory.js`      - `createMemoryKafka()` → `{ publish, subscribe, messages }` - subscribers called synchronously within `publish`
 - `src/records.js`     - `createCommandRecord`, `createEventRecords`, `createTopicRecord`, `decodeTopicMessage`
+    - `createEmitter(producer)` - `(event_type, e)` → outbox-ready record; fills `eid` / `producer` / version defaults
 - re-exports `Codec` / `encodeJson` / `decodeJson` from `@theseus/util`
 
 ------------------------------------------------------------------------------------------------
