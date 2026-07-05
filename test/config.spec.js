@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test   from 'node:test'
 
 import { format, readEnv, requireEnv } from '#packages/config/src/env.js'
+import { bootService, isMain         } from '#packages/config/src/service.js'
 
 import '#packages/testing/src/index.js?title=🧪 🎛️  CONFIG'
 
@@ -66,4 +67,22 @@ test('requireEnv returns the value for a present key', () => {
     process.env[ '_TEST_PRESENT' ] = 'hello'
     assert.equal(requireEnv('_TEST_PRESENT'), 'hello')
     delete process.env[ '_TEST_PRESENT' ]
+})
+
+// ── service ──────────────────────────────────────────────────────────────────
+
+test('bootService logs a structured boot line', t => {
+    const log = t.mock.method(console, 'log', () => {})
+
+    bootService({ service: 'spec-service', role: 'testing', owns: [ 'nothing' ]})
+
+    const line = JSON.parse(log.mock.calls[ 0 ].arguments[ 0 ])
+    assert.equal(line.event, 'service.booted')
+    assert.equal(line.service, 'spec-service')
+    assert.deepEqual(line.owns, [ 'nothing' ])
+})
+
+test('isMain matches only the entry module', () => {
+    assert.equal(isMain('file:///definitely/not/main.js'), false)
+    assert.equal(isMain(new URL(process.argv[ 1 ], 'file:').href), true)
 })

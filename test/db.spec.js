@@ -13,6 +13,7 @@ import outbox, {
 } from '#packages/db/src/outbox.js'
 
 import migrate from '#packages/db/src/migrate.js'
+import { createPool, withTransaction } from '#packages/db/src/pool.js'
 import { encodeJson } from '#packages/util/src/index.js'
 
 import {
@@ -194,4 +195,44 @@ test('migrate rolls back on sql error', async () => {
 
     await assert.rejects(() => migrate(pool), /syntax error/)
     assert.ok(log.includes('rollback'))
+})
+
+// ── pool ──────────────────────────────────────────────────────────────────────
+
+test('withTransaction commits and returns the fn result', async () => {
+    const pool = fakePool()
+    const rs   = await withTransaction(pool, async () => 42)
+
+    assert.equal(rs, 42)
+    const sqls = pool.client.log.map(q => q.sql)
+    assert.ok(sqls.includes('begin'))
+    assert.ok(sqls.includes('commit'))
+    assert.ok(!sqls.includes('rollback'))
+})
+
+test('withTransaction rolls back when fn throws', async () => {
+    const pool = fakePool()
+    await assert.rejects(
+        () => withTransaction(pool, async () => { throw new Error('boom') }),
+        /boom/,
+    )
+    const sqls = pool.client.log.map(q => q.sql)
+    assert.ok(sqls.includes('rollback'))
+    assert.ok(!sqls.includes('commit'))
+})
+
+test('createPool sets search_path option and remembers the schema', async () => {
+    Object.assign(process.env, { PG_HOST: 'localhost', PG_PORT: '5432', PG_USER: 'u', PG_PASS: 'p', PG_DB: 'd' })
+
+    const pool = createPool({ schema: 'spec' })
+    assert.equal(pool.schema, 'spec')
+    assert.equal(pool.options.options, '-c search_path=spec')
+    await pool.end()
+})
+
+test('createPool without schema leaves search_path alone', async () => {
+    const pool = createPool()
+    assert.equal(pool.schema, undefined)
+    assert.equal(pool.options.options, undefined)
+    await pool.end()
 })
