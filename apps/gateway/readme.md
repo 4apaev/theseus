@@ -1,7 +1,7 @@
 ⛩️ gateway
 ================================
 
-step `7` in [docs/progress.p.md](../../docs/progress.p.md)
+step `7` in [docs/phase.1.md](../../docs/phase.1.md)
 
 - http api + websocket gateway
 - owns no write models - translates http → commands, reads from projection read models
