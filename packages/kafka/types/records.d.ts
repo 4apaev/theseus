@@ -35,7 +35,17 @@ export interface DecodedTopicMessage<T = unknown> {
     value: T
 }
 
+export interface EmitInput {
+    aggregate_id: string
+    aggregate_type: string
+    aggregate_version?: number
+    causation_id?: string
+    correlation_id?: string
+    payload: object
+}
+
 export function createTopicRecord<T>(input: TopicRecordInput<T>): TopicRecord
 export function createCommandRecord(command: AnyCommandEnvelope): TopicRecord
 export function createEventRecords(event: AnyEventEnvelope, options?: { includeAll?: boolean }): TopicRecord[]
+export function createEmitter(producer: string): (etype: string, e: EmitInput) => TopicRecord
 export function decodeTopicMessage<T = unknown>(record: RawTopicMessage): DecodedTopicMessage<T>

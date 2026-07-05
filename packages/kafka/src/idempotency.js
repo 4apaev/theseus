@@ -14,11 +14,5 @@ export default class Store extends Set {
         return msg?.eid ?? msg?.cmd ?? void 0
     }
 
-    static of() {
-        return Reflect.construct(this, arguments)
-    }
+    static of = (...a) => Reflect.construct(this, a)
 }
-
-export { Store as MemoryMessageStore }
-export const messageIdentity = Store.identity
-export const createMemoryMessageStore = Store.of

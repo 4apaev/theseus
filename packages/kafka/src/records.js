@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import {
     eventKey,
     eventTopic,
@@ -6,6 +8,7 @@ import {
     validateCommand,
     commandTopic,
     commandKey,
+    createEventEnvelope,
 } from '@theseus/contracts'
 
 import { Codec } from '@theseus/util'
@@ -50,6 +53,18 @@ export function createEventRecords(e, opt = {}) {
     }
 
     return records
+}
+
+// service-side event factory: fills eid / producer / version defaults,
+// validates, and returns an outbox-ready topic record
+export function createEmitter(producer) {
+    return (etype, e) => createEventRecords(createEventEnvelope({
+        eid              : randomUUID(),
+        producer,
+        event_type       : etype,
+        aggregate_version: e.aggregate_version ?? 1,
+        ...e,
+    }))[ 0 ]
 }
 
 export function decodeTopicMessage({

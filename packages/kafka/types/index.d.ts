@@ -10,6 +10,7 @@ export {
 } from './consumer.js'
 
 export {
+    type EmitInput,
     type TopicRecord,
     type RawTopicMessage,
     type TopicRecordInput,
@@ -17,6 +18,7 @@ export {
     type DecodedTopicMessage,
 
     createCommandRecord,
+    createEmitter,
     createEventRecords,
     createTopicRecord,
     decodeTopicMessage,
@@ -25,23 +27,15 @@ export {
 export {
     type MemoryKafka,
     type PublishResult,
-
     createMemoryKafka,
 } from './memory.js'
 
 export {
     type Producer,
     type ProducerInput,
-
     createProducer,
 } from './producer.js'
 
-export {
-    messageIdentity,
-    createMemoryMessageStore,
-
-    type default as Store,
-    type default as MemoryMessageStore,
-} from './idempotency.js'
+export { type default as Store } from './idempotency.js'
 
 export { decodeJson, encodeJson, Codec } from '@theseus/util'

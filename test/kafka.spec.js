@@ -1,11 +1,24 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createFakeKafka                              } from '#packages/testing/src/index.js?title=🧪 📬 KAFKA'
-import { createConsumer, createProducer               } from '@theseus/kafka'
-import { createEventEnvelope, eventTopics, eventTypes } from '@theseus/contracts'
+import { createFakeKafka } from '#packages/testing/src/index.js?title=🧪 📬 KAFKA'
+import {
+    Store,
+    createConsumer,
+    createProducer,
+    createEmitter,
+    createCommandRecord,
+    createTopicRecord,
+    decodeTopicMessage,
+    decodeJson,
+} from '@theseus/kafka'
 
-// console.log('\n── PKG/KAFKA %s\n', '─'.repeat(64))
+import {
+    createEventEnvelope,
+    createCommandEnvelope,
+    eventTopics,
+    eventTypes,
+} from '@theseus/contracts'
 
 // ── basic publish / consume ─────────────────────────────────────────────────
 
@@ -147,3 +160,68 @@ function shipCreatedEvent(eid) {
         },
     })
 }
+
+// ── idempotency store ────────────────────────────────────────────────────────
+
+test('Store marks and remembers ids', () => {
+    const store = Store.of()
+    assert.ok(store instanceof Store)
+    assert.equal(store.mark('e1'), true)
+    assert.ok(store.has('e1'))
+    assert.ok(!store.has('e2'))
+    assert.equal(Object.prototype.toString.call(store), '[object Store]')
+})
+
+test('Store.identity extracts eid then cmd', () => {
+    assert.equal(Store.identity({ eid: 'e1', cmd: 'c1' }), 'e1')
+    assert.equal(Store.identity({ cmd: 'c1' }), 'c1')
+    assert.equal(Store.identity({}), undefined)
+    assert.equal(Store.identity(null), undefined)
+})
+
+// ── records ──────────────────────────────────────────────────────────────────
+
+test('createCommandRecord routes a valid command to its topic', () => {
+    const rec = createCommandRecord(createCommandEnvelope({
+        cmd         : 'cmd-1',
+        command_type: 'ship.travel.requested.v1',
+        requested_by: 'spec',
+        payload     : { sid: 's1', pid: 'p1', from: 'sol.outpost', to: 'alpha.exchange' },
+    }))
+
+    assert.equal(rec.topic, 'commands.ship')
+    assert.equal(rec.messages[ 0 ].key, 's1')
+    assert.equal(decodeJson(rec.messages[ 0 ].value).cmd, 'cmd-1')
+})
+
+test('createEmitter fills eid, producer and version defaults', () => {
+    const emit = createEmitter('spec-service')
+    const rec  = emit('ship.arrived.v1', {
+        aggregate_id  : 's1',
+        aggregate_type: 'ship',
+        causation_id  : 'cmd-1',
+        payload       : { sid: 's1', pid: 'p1', stid: 'sol.outpost', arrived: (new Date).toISOString() },
+    })
+
+    assert.equal(rec.topic, 'events.ship')
+    assert.equal(rec.messages[ 0 ].key, 's1')
+
+    const e = decodeJson(rec.messages[ 0 ].value)
+    assert.ok(e.eid, 'eid generated')
+    assert.equal(e.producer, 'spec-service')
+    assert.equal(e.aggregate_version, 1)
+    assert.equal(e.correlation_id, 'cmd-1', 'correlation falls back to causation')
+})
+
+test('decodeTopicMessage decodes the value buffer', () => {
+    const rec = createTopicRecord({ topic: 't', key: 'k', value: { x: 1 }})
+    const msg = decodeTopicMessage({ ...rec.messages[ 0 ], topic: rec.topic, offset: '0', partition: 0 })
+    assert.deepEqual(msg.value, { x: 1 })
+    assert.equal(msg.topic, 't')
+})
+
+test('memory kafka rejects a record without topic or messages', async () => {
+    const kafka = createFakeKafka()
+    await assert.rejects(() => kafka.publish({ messages: []}), /topic and messages/)
+    await assert.rejects(() => kafka.publish({ topic: 't' }), /topic and messages/)
+})
