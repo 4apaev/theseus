@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test   from 'node:test'
+import { setTimeout }   from 'node:timers/promises'
 
 import inbox, {
     Inbox,
-    createMemoryInbox,
     createInbox,
 } from '#packages/db/src/inbox.js'
 
@@ -39,7 +39,7 @@ test('Inbox.identity extracts eid then cmd', () => {
 })
 
 test('Inbox toStringTag', () => {
-    assert.equal(Object.prototype.toString.call(new Inbox), '[object Inbox]')
+    assert.equal(toString.call(new Inbox), '[object Inbox]')
 })
 
 test('Inbox.of returns Inbox instance', () => {
@@ -47,7 +47,7 @@ test('Inbox.of returns Inbox instance', () => {
 })
 
 test('createMemoryInbox returns an Inbox', () => {
-    assert.ok(createMemoryInbox() instanceof Inbox)
+    assert.ok(inbox.memory() instanceof Inbox)
 })
 
 test('inbox default export groups factory functions', () => {
@@ -117,7 +117,7 @@ test('pollOutbox publishes pending rows then marks them', async () => {
     })
 
     const poller = pollOutbox(pool, async rec => published.push(rec), { interval: 5 })
-    await new Promise(r => setTimeout(r, 20))
+    await setTimeout(20)
     poller.stop()
 
     assert.equal(published[ 0 ].topic, 'events.player')
@@ -134,7 +134,7 @@ test('pollOutbox marks row only after publish succeeds', async () => {
     })
 
     const poller = pollOutbox(pool, async () => { order.push('publish') }, { interval: 100 })
-    await new Promise(r => setTimeout(r, 20))
+    await setTimeout(20)
     poller.stop()
 
     assert.deepEqual(order, [ 'publish', 'mark' ])
@@ -146,10 +146,10 @@ test('pollOutbox stop prevents further polling', async () => {
         'where published is null'() { fetches++; return { rows: []} },
     })
     const poller = pollOutbox(pool, async () => {}, { interval: 10 })
-    await new Promise(r => setTimeout(r, 5))
+    await setTimeout(5)
     poller.stop()
     const snapshot = fetches
-    await new Promise(r => setTimeout(r, 50))
+    await setTimeout(50)
     assert.equal(fetches, snapshot)
 })
 
