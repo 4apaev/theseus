@@ -40,11 +40,11 @@ export const Codec = {
 
 // ── String ────────────────────────────────────────────────────
 
-export function Raw(s, a) {
+export function Raw(s, ...a) {
     return (a => s?.raw
         ? String.raw(s, ...a)
         : String(s).concat(...a)
-    )(concat(a ?? '').map(String))
+    )(concat(...a).map(String))
 }
 
 export function up(s) { return s.toUpperCase() }
