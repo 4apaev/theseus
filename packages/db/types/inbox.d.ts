@@ -10,15 +10,14 @@ export declare class Inbox extends Set<string> implements IInbox {
     mark(id: string): true
     readonly [ Symbol.toStringTag ]: string
     static identity(msg: unknown): string | undefined
-    static of(...args: unknown[]): Inbox
+    static of(...a: string[]): Inbox
 }
 
 export declare namespace Inbox {
-    function memory(): Inbox
+    function memory(...a: string[]): Inbox
     function create(pool: Pool): IInbox
 }
 
-export function createMemoryInbox(): Inbox
 export function createInbox(pool: Pool): IInbox
 
 export default Inbox
