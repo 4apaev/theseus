@@ -1,5 +1,6 @@
 import test   from 'node:test'
 import assert from 'node:assert/strict'
+import Crypto from 'node:crypto'
 
 import { DB }    from '@theseus/db'
 import { Query } from '@theseus/util'
@@ -15,6 +16,7 @@ import {
 import {
     eventTree as EVT,
     commandTree as CMD,
+    createEventEnvelope,
 } from '@theseus/contracts'
 
 const PRFX = 'itg_ship_'
@@ -36,16 +38,17 @@ async function seedShip(stid = 'sol.outpost') {
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
-let kafka, service, pool, sql, publish
+let kafka, service, pool, sql, publish, producer
 
 test.before(async () => {
     // dynamic import so TIME_SCALE above wins over .env before travel.js reads it
     const { start } = await import('@theseus/ship-service')
 
-    kafka   = Kfk.createMemoryKafka()
-    pool    = DB.create({ schema: 'ship' })
-    publish = createPublisher(Kfk.createProducer({ client: kafka }))
-    service = await start(kafka)
+    kafka    = Kfk.createMemoryKafka()
+    pool     = DB.create({ schema: 'ship' })
+    producer = Kfk.createProducer({ client: kafka })
+    publish  = createPublisher(producer)
+    service  = await start(kafka)
     sql = (...a) => Query(pool)(...a).then(r => r.rows[ 0 ])
 })
 
@@ -55,6 +58,49 @@ test.after(() => {
 })
 
 // ── tests ────────────────────────────────────────────────────────────────────
+
+test('player.created - seeds a starter ship that can fly', async () => {
+    const pid = guid(PRFX)
+    const { events, stop } = collectEvents(kafka, [ 'events.ship' ])
+
+    await producer.publishEvent(createEventEnvelope({
+        eid              : Crypto.randomUUID(),
+        event_type       : EVT.player.created,
+        aggregate_id     : pid,
+        aggregate_type   : 'player',
+        aggregate_version: 1,
+        producer         : 'integration-test',
+        payload          : { pid, handle: guid(PRFX) },
+    }))
+
+    const created = e => e.event_type === EVT.ship.created && e.payload.pid === pid
+    await waitFor(() => events.some(created))
+
+    const { sid } = events.find(created).payload
+    const ship = await sql`select * from ships where sid = ${ sid }`
+
+    assert.equal(ship.status, 'docked')
+    assert.equal(ship.stid, 'sol.outpost')
+    assert.equal(ship.name, 'far treasure')
+    assert.equal(ship.capacity, 20)
+    assert.equal(+ship.velocity, 0.6)
+
+    // the freebie flies
+    await publish(CMD.ship.travel.requested, {
+        sid,
+        pid,
+        from: 'sol.outpost',
+        to  : 'alpha.exchange',
+    })
+
+    const arrived = e => e.event_type === EVT.ship.arrived && e.payload.sid === sid
+    await waitFor(() => events.some(arrived))
+    stop()
+
+    const after = await sql`select status, stid from ships where sid = ${ sid }`
+    assert.equal(after.status, 'docked')
+    assert.equal(after.stid, 'alpha.exchange')
+})
 
 test('travel - departs, then arrives and docks at destination', async () => {
     const { sid, pid } = await seedShip()

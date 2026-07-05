@@ -1,47 +1,50 @@
 /* eslint-disable camelcase */
-import Crypto from 'node:crypto'
-
 import { Outbox } from '@theseus/db'
+import { createEmitter } from '@theseus/kafka'
+import { makeId, starterShip } from '@theseus/domain'
 import {
-    eventKey,
-    eventTopic,
-    createEventEnvelope,
     eventTree   as EVT,
     commandTree as CMD,
 } from '@theseus/contracts'
 
 import { travel } from './travel.js'
 
-const PRODUCER = 'ship-service'
-
-function emit(evtp, e) {
-    return createEventEnvelope({
-        eid              : Crypto.randomUUID(),
-        event_type       : evtp,
-        aggregate_id     : e.aggregate_id,
-        aggregate_type   : e.aggregate_type,
-        aggregate_version: e.aggregate_version ?? 1,
-        causation_id     : e.causation_id,
-        correlation_id   : e.correlation_id,
-        payload          : e.payload,
-        producer         : PRODUCER,
-    })
-}
-
-function toRecord(envelope) {
-    return {
-        topic   : eventTopic(envelope.event_type),
-        messages: [{
-            key  : eventKey(envelope),
-            value: envelope,
-        }],
-    }
-}
+const emit = createEmitter('ship-service')
 
 // ─────────────────────────────────────────────────────────────
 
 export function createHandlers(pool, transact) {
     return {
+        // saga: every new player gets the starter ship, docked at sol.outpost
+        async [ EVT.player.created ]({ eid: causation_id, correlation_id, payload: p }) {
+            const sid = makeId('ship')
+
+            await transact(pool, async client => {
+                await client.query(`
+                    insert into ships (sid, pid, stid, name, capacity, velocity)
+                    values ($1, $2, $3, $4, $5, $6)
+                `, [ sid, p.pid, starterShip.stid, starterShip.name, starterShip.capacity, starterShip.velocity ])
+
+                await Outbox.write(client, [
+                    emit(EVT.ship.created, {
+                        causation_id,
+                        correlation_id,
+                        aggregate_id     : sid,
+                        aggregate_type   : 'ship',
+                        aggregate_version: 1,
+                        payload          : {
+                            sid,
+                            pid     : p.pid,
+                            stid    : starterShip.stid,
+                            name    : starterShip.name,
+                            capacity: starterShip.capacity,
+                            velocity: starterShip.velocity,
+                        },
+                    }),
+                ])
+            })
+        },
+
         async [ CMD.ship.travel.requested ]({ cmd: causation_id, correlation_id, payload: p }) {
             const trip = await transact(pool, async client => {
 
@@ -77,7 +80,7 @@ export function createHandlers(pool, transact) {
             `, [ p.sid, p.from, p.to, departed, arrives ])
 
                 await Outbox.write(client, [
-                    toRecord(emit(EVT.ship.departed, {
+                    emit(EVT.ship.departed, {
                         causation_id,
                         correlation_id,
                         aggregate_id     : p.sid,
@@ -93,7 +96,7 @@ export function createHandlers(pool, transact) {
                             years_abs,
                             years_rel,
                         },
-                    })),
+                    }),
                 ])
                 return { ms, ship, to: p.to, arrives }
             })
@@ -116,7 +119,7 @@ async function arrive(pool, transact, { ship, arrives, to, ...data }) {
         `, [ ship.sid, to, arrives ])
 
         await Outbox.write(client, [
-            toRecord(emit(EVT.ship.arrived, {
+            emit(EVT.ship.arrived, {
                 causation_id     : data.causation_id,
                 correlation_id   : data.correlation_id,
                 aggregate_id     : ship.sid,
@@ -128,20 +131,20 @@ async function arrive(pool, transact, { ship, arrives, to, ...data }) {
                     stid   : to,
                     arrived: arrives,
                 },
-            })),
+            }),
         ])
     })
 }
 
 async function reject(client, { reason, causation_id, correlation_id, p }) {
     await Outbox.write(client, [
-        toRecord(emit(EVT.ship.travel.rejected, {
+        emit(EVT.ship.travel.rejected, {
             causation_id,
             correlation_id,
             aggregate_id     : p.sid,
             aggregate_type   : 'ship',
             aggregate_version: 1,
             payload          : { sid: p.sid, pid: p.pid, reason },
-        })),
+        }),
     ])
 }

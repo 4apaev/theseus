@@ -2,8 +2,8 @@
 ================================
 
 - owns `ships` write model in pg schema `ship`
-- handles 1 command
-- emits 3 event types
+- handles 1 command + 1 event (`player.created` → starter ship saga)
+- emits 4 event types
 - travel timer is in-process `setTimeout` - doesn't survive restarts, acceptable for now
 - step 4 done - scaffold, handler, migrations, tests all in place
 
@@ -13,13 +13,14 @@
 - `@theseus/kafka`
 - `@theseus/contracts`
 - `@theseus/config`
+- `@theseus/domain` - `universe` graph, `starterShip`, `makeId`
 - `@theseus/util`
 
 
 ### exports
-- `src/main.js`     - pool → migrate → inbox → consumer(`commands.ship`) + `pollOutbox`
-- `src/handlers.js` - dispatch map + travelRequested / arrive / reject
-- `src/travel.js`   - distance/time math, `Route` class, `travel` default export
+- `src/main.js`     - pool → migrate → inbox → consumer(`commands.ship`, `events.player`) + `pollOutbox`
+- `src/handlers.js` - dispatch map + playerCreated / travelRequested / arrive / reject
+- `src/travel.js`   - distance/time math, `distance()` delegates to `universe`
 
 ------------------------------------------------------------------------------------------------
 
@@ -55,6 +56,14 @@
 
 ------------------------------------------------------------------------------------------------
 
+### saga: `player.created.v1` → starter ship
+- every new player gets `starterShip` from `@theseus/domain` -
+  `far treasure`, docked at `sol.outpost`, 0.6c, capacity 20
+- insert into `ships` + outbox → `ship.created.v1` in one transaction
+- ownership stays here - only ship-service writes ships; projection mirrors the event
+
+------------------------------------------------------------------------------------------------
+
 ### handler: `ship.travel.requested.v1`
 - fetch ship, reject if not found
 - reject if not docked (`status !== 'docked'`)
@@ -75,8 +84,8 @@
 ------------------------------------------------------------------------------------------------
 
 ### tests
-- [x] unit: `test/ship.spec.js` - travel math, 4 rejections, departed payload, arrived after timeout (mock timers)
-- [x] integration: `test/ship.integration.spec.js` - full travel flow, memory kafka + real postgres, `TIME_SCALE=0.1`
+- [x] unit: `test/ship.spec.js` - travel math, 4 rejections, departed payload, arrived after timeout (mock timers), starter ship saga
+- [x] integration: `test/ship.integration.spec.js` - full travel flow + player.created → starter ship flies, memory kafka + real postgres, `TIME_SCALE=0.1`
 
 ------------------------------------------------------------------------------------------------
 
@@ -84,3 +93,8 @@
 
 - `sol.outpost` → `alpha.exchange` in `~143s` game time (4.3 ly / 0.6c × 20 s/year)
 - `departed` + `arrived` events flow through outbox.
+
+TODO
+----------------
+- **travel timer** - in-process `setTimeout`, doesn't survive restarts.
+  postgres as durable schedule (poll `arrives <= now()`) or redis, later.
