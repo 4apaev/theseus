@@ -1,7 +1,7 @@
 🎰 market-service
 ================================
 
-step `6` in [docs/progress.p.md](../../docs/progress.p.md)
+step `6` in [docs/phase.1.md](../../docs/phase.1.md) - current step, tracked in [docs/progress.md](../../docs/progress.md)
 
 - owns `markets`, `station_inventory`, `trades` write models
 - orchestrates buy + sell sagas across wallet (player-service) and cargo
