@@ -1,10 +1,7 @@
 export {
     type IInbox,
     type Inbox as TInbox,
-
     createInbox,
-    createMemoryInbox,
-
     default as Inbox,
 } from './inbox.js'
 

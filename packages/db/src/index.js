@@ -1,6 +1,5 @@
 export {
     createInbox,
-    createMemoryInbox,
     default as Inbox,
 } from './inbox.js'
 
@@ -19,22 +18,3 @@ export {
 export {
     default as migrate,
 } from './migrate.js'
-
-/*
-
-    Inbox {
-        memory: createMemoryInbox,
-        create: createInbox,
-    }
-
-    Outbox {
-        write: writeOutbox,
-        poll : pollOutbox,
-    }
-
-    DB {
-        create: createPool,
-        transact: withTransaction
-    }
-
-*/

@@ -14,13 +14,7 @@ export class Inbox extends Set {
         return msg?.eid ?? msg?.cmd ?? void 0
     }
 
-    static of() {
-        return Reflect.construct(this, arguments)
-    }
-}
-
-export function createMemoryInbox() {
-    return new Inbox
+    static of = (...a) => Reflect.construct(this, a)
 }
 
 export function createInbox(pool) {
@@ -44,6 +38,6 @@ export function createInbox(pool) {
 }
 
 export default {
-    memory: createMemoryInbox,
+    memory: Inbox.of,
     create: createInbox,
 }
