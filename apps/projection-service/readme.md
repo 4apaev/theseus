@@ -31,7 +31,7 @@
 - `005_market_prices.sql` : (stid, gid) pk, price_buy, price_sell, updated
 - `006_trade_history.sql` : tid pk, gid, pid, sid, stid, quantity, price_*, side, created
 
-full column detail in [docs/schema.md](../../docs/schema.md)
+full column detail in [migrations/](./migrations/), schema overview in [docs/phase.1.md](../../docs/phase.1.md)
 
 ------------------------------------------------------------------------------------------------
 
