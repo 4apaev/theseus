@@ -1,5 +1,5 @@
 import pg from 'pg'
-import { withClient } from '@theseus/util'
+import { Query, withClient   } from '@theseus/util'
 import { readEnv, requireEnv } from '@theseus/config'
 
 export function createPool({ schema } = {}) {
@@ -18,9 +18,10 @@ export function createPool({ schema } = {}) {
 
 export function withTransaction(pool, fn) {
     return withClient(pool, async client => {
+
         await client.query('begin')
         try {
-            const result = await fn(client)
+            const result = await fn(client, Query(client))
             await client.query('commit')
             return result
         }

@@ -96,7 +96,7 @@ export async function withClient(pool, fx) {
         after return, before the returned promise resolves.
         client.release() fires while fx is still running.
         tus, needs await.
-     */ return await fx(client)
+     */ return await fx(client, Query(client))
     }
     finally {
         client.release()
