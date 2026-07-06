@@ -16,7 +16,7 @@ export function createMemoryKafka() {
 
             Is.s(topic)
             && Is.a(messages)
-            || Fail.raise('kafka record must have topic and messages', { topic, messages })
+            || Fail.raise('kafka record must have topic and messages')
 
             let count = 0
             for (let { key, value } of messages) {
