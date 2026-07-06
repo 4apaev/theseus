@@ -1,17 +1,16 @@
-import test   from 'node:test'
-import assert from 'node:assert/strict'
-
-import { readEnv } from '@theseus/config'
-
+import test             from 'node:test'
+import assert           from 'node:assert/strict'
+import { setImmediate } from 'node:timers/promises'
+import { readEnv      } from '@theseus/config'
 import {
     makeCmd,
     fakeClient,
     fakeTransact,
     outboxEvents,
-} from '#packages/testing/src/index.js?title=🧪 🛸 SHIP'
+} from '#testing/index.js?title=🧪 🛸 SHIP'
 
-import { createHandlers   } from '#apps/ship-service/src/handlers.js'
-import { travel, distance } from '#apps/ship-service/src/travel.js'
+import { createHandlers   } from '#ship/handlers.js'
+import { travel, distance } from '#ship/travel.js'
 
 const TIME_SCALE = readEnv('TIME_SCALE', 20)
 
@@ -127,7 +126,7 @@ test('travelRequested docks ship at destination and emits ship.arrived after tim
 
     const { ms } = travel('sol.outpost', 'alpha.exchange', 0.6)
     t.mock.timers.tick(ms + 1)
-    await new Promise(r => setImmediate(r)) // let async arrive() drain
+    await setImmediate()  // let async arrive() drain
 
     const update = client.log.findLast(({ sql }) => sql.includes('update ships'))
     assert.match(update.sql, /status\s+= 'docked'/)
@@ -150,7 +149,7 @@ test('travelRequested schedules no arrival on rejection', async t => {
     await handlers[ 'ship.travel.requested.v1' ](trip)
 
     t.mock.timers.tick(1e9)
-    await new Promise(r => setImmediate(r))
+    await setImmediate()
 
     const events = outboxEvents(client)
     assert.equal(events.length, 1, 'only the rejection, no arrival')
