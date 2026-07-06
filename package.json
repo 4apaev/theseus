@@ -11,8 +11,26 @@
     ],
 
     "imports": {
-        "#apps/*"    : "./apps/*",
-        "#packages/*": "./packages/*"
+        "#apps/*"       : "./apps/*",
+        "#packages/*"   : "./packages/*",
+
+        "#service/*"    : "./apps/*",
+        "#app/*"        : "./apps/*",
+        "#pkg/*"        : "./packages/*",
+
+        "#gateway/*"    : "./apps/gateway-service/src/*",
+        "#market/*"     : "./apps/market-service/src/*",
+        "#projection/*" : "./apps/projection-service/src/*",
+        "#player/*"     : "./apps/player-service/src/*",
+        "#ship/*"       : "./apps/ship-service/src/*",
+
+        "#db/*"         : "./packages/db/src/*",
+        "#kafka/*"      : "./packages/kafka/src/*",
+        "#contracts/*"  : "./packages/contracts/src/*",
+        "#domain/*"     : "./packages/domain/src/*",
+        "#config/*"     : "./packages/config/src/*",
+        "#util/*"       : "./packages/util/src/*",
+        "#testing/*"    : "./packages/testing/src/*"
     },
     "scripts": {
         "prepare"       : "git config core.hooksPath scripts/hooks",
