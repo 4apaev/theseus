@@ -4,6 +4,7 @@
         { "name": "📺 projection", "path": "../apps/projection-service/migrations" },
         { "name": "🎮 player"    , "path": "../apps/player-service/migrations" },
         { "name": "🛸 ship"      , "path": "../apps/ship-service/migrations" },
+        { "name": "🎰 market"    , "path": "../apps/market-service/migrations" },
     ],
 
     "settings": {
