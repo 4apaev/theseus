@@ -44,8 +44,14 @@ export interface EmitInput {
     payload: object
 }
 
+export interface CommandInput {
+    correlation_id?: string
+    payload: object
+}
+
 export function createTopicRecord<T>(input: TopicRecordInput<T>): TopicRecord
 export function createCommandRecord(command: AnyCommandEnvelope): TopicRecord
 export function createEventRecords(event: AnyEventEnvelope, options?: { includeAll?: boolean }): TopicRecord[]
 export function createEmitter(producer: string): (etype: string, e: EmitInput) => TopicRecord
+export function createCommander(producer: string): (ctype: string, c: CommandInput) => TopicRecord
 export function decodeTopicMessage<T = unknown>(record: RawTopicMessage): DecodedTopicMessage<T>

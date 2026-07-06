@@ -6,6 +6,7 @@ export { createProducer    } from './producer.js'
 
 export {
     createEmitter,
+    createCommander,
     createCommandRecord,
     createEventRecords,
     createTopicRecord,

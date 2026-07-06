@@ -9,6 +9,7 @@ import {
     commandTopic,
     commandKey,
     createEventEnvelope,
+    createCommandEnvelope,
 } from '@theseus/contracts'
 
 import { Codec } from '@theseus/util'
@@ -65,6 +66,17 @@ export function createEmitter(producer) {
         aggregate_version: e.aggregate_version ?? 1,
         ...e,
     }))[ 0 ]
+}
+
+// service-side command factory: fills cmd / requested_by,
+// validates, and returns an outbox-ready topic record
+export function createCommander(producer) {
+    return (ctype, c) => createCommandRecord(createCommandEnvelope({
+        cmd         : randomUUID(),
+        command_type: ctype,
+        requested_by: producer,
+        ...c,
+    }))
 }
 
 export function decodeTopicMessage({
