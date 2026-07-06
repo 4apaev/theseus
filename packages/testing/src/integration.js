@@ -4,11 +4,11 @@ import { setTimeout } from 'node:timers/promises'
 import { Codec }                 from '@theseus/kafka'
 import { createCommandEnvelope } from '@theseus/contracts'
 
-export async function waitFor(fx, ms = 5000, interval = 50) {
+export async function waitFor(fx, ms = 5000, interval = 50, ...a) {
     const deadline = Date.now() + ms
 
     while (Date.now() < deadline) {
-        const rs = await fx()
+        const rs = await fx(...a)
         if (rs) return rs
         await setTimeout(interval)
     }
