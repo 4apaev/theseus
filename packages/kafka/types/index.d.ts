@@ -11,6 +11,7 @@ export {
 
 export {
     type EmitInput,
+    type CommandInput,
     type TopicRecord,
     type RawTopicMessage,
     type TopicRecordInput,
@@ -18,6 +19,7 @@ export {
     type DecodedTopicMessage,
 
     createCommandRecord,
+    createCommander,
     createEmitter,
     createEventRecords,
     createTopicRecord,
