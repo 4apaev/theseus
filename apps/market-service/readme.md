@@ -1,11 +1,13 @@
 🎰 market-service
 ================================
 
-step `6` in [docs/phase.1.md](../../docs/phase.1.md) - current step, tracked in [docs/progress.md](../../docs/progress.md)
+step `6` done - see [docs/phase.1.md](../../docs/phase.1.md), tracked in [docs/progress.md](../../docs/progress.md)
 
-- owns `markets`, `station_inventory`, `trades` write models
-- orchestrates buy + sell sagas across wallet (player-service) and cargo
-- emits `trade.executed.v1` / `trade.rejected.v1` / `market.price.changed.v1`
+- owns `markets`, `station_inventory`, `cargo`, `trades` write models in pg schema `market`
+- handles 2 commands + 5 events (wallet continuation, ships mirror)
+- orchestrates buy + sell sagas - the only cross-service hop is the wallet
+- emits `market.trade.executed.v1` / `market.trade.rejected.v1` / `market.price.changed.v1`
+  / `cargo.loaded.v1` / `cargo.unloaded.v1`
 
 
 ### deps:
@@ -13,46 +15,74 @@ step `6` in [docs/phase.1.md](../../docs/phase.1.md) - current step, tracked in 
 - `@theseus/kafka`
 - `@theseus/contracts`
 - `@theseus/config`
-- `@theseus/domain` - `capitalCost` for interest-adjusted pricing
+- `@theseus/domain` - universe profiles, `price` / `spread`, `makeId`
 - `@theseus/util`
 
 
-plan
---------------------------------
+### exports
+- `src/main.js`     - pool → migrate → seed → inbox → consumer(`commands.market`, `events.wallet`, `events.ship`) + `pollOutbox`
+- `src/handlers.js` - ships mirror + buy / sell sagas + continuation / compensation
+- `src/seed.js`     - `seed(pool, transact)` fills empty markets, `quote(gid, stock, target)`
 
-### scaffold
-- [ ] deps in `package.json`
-- [ ] `src/main.js`     - pool → migrate → inbox → consumer(`commands.market`, `commands.cargo`, `events.wallet`) + `pollOutbox`
-- [ ] `src/handlers.js` - dispatch map: buy / sell / cargo load / unload + saga continuation on wallet events
-- [ ] `src/saga.js`     - trade saga state machine
+------------------------------------------------------------------------------------------------
 
 ### migrations
-- [ ] `001_markets.sql`           : (`stid`, `gid`) pk, `price_buy`, `price_sell`, `updated`
-- [ ] `002_station_inventory.sql` : (`stid`, `gid`) pk, `quantity`, `updated`
-- [ ] `003_cargo.sql`             : (`sid`, `gid`) pk, `quantity`, `updated`
-- [ ] `004_trades.sql`            : `tid` pk, saga state (`pending` / `debited` / `executed` / `rejected`), payload, `created`, `updated`
+- `001_markets.sql`           : (`stid`, `gid`) pk, `price_buy`, `price_sell` - quote board,
+                                written on every stock change, never read by the sagas
+- `002_station_inventory.sql` : (`stid`, `gid`) pk, `stock`, `target` - source of truth,
+                                sagas `select … for update` here
+- `003_ships.sql`             : `sid` pk, `pid`, `stid`, `status`, `capacity` - mirror from `events.ship`
+- `004_cargo.sql`             : (`sid`, `gid`) pk, `quantity`
+- `005_trades.sql`            : `tid` pk, saga state - `pending` → `executed` | `rejected`
+
+------------------------------------------------------------------------------------------------
+
+### the locked stock
+
+every trade starts by locking its `station:good` inventory row and computing
+the price from the very stock it is about to change:
+
+- concurrent trades on the same row serialize - no double-spent stock
+- the quote can't drift - there is no second copy to fall out of sync
+- stock move + `pending` trade + outboxed wallet command commit atomically
+- `price_unit_max` / `price_unit_min` are the player's guard against
+  a quote moving between look and buy
+
+------------------------------------------------------------------------------------------------
 
 ### buy saga
-- [ ] `market.buy.requested.v1` → validate: ship docked at station, stock available, cargo capacity
-- [ ] reserve stock + insert trade `pending`, outbox → `wallet.debit.requested.v1` (rfid = tid)
-- [ ] on `wallet.debited.v1`    → load cargo, mark trade `executed`, outbox → `cargo.loaded.v1` + `trade.executed.v1`
-- [ ] on `wallet.transaction.rejected.v1` → release stock, mark trade `rejected`, outbox → `trade.rejected.v1`
+- `market.buy.requested.v1` → reject when: unknown market, ship unknown / not docked
+  here, insufficient stock, over capacity, price above limit → `market.trade.rejected.v1`
+- reserve: `stock -= quantity`, insert trade `pending`, outbox → `wallet.debit.requested.v1`
+  (`rfid = tid`, via kafka's `createCommander`)
+- on `wallet.debited.v1` (matched by `rfid`): cargo upsert, trade `executed`,
+  outbox → `cargo.loaded.v1` + `market.trade.executed.v1` + `market.price.changed.v1`
+- on `wallet.transaction.rejected.v1`: release stock, trade `rejected`, outbox → `market.trade.rejected.v1`
 
 ### sell saga
-- [ ] `market.sell.requested.v1` → validate: ship docked, cargo quantity available
-- [ ] unload cargo + insert trade `pending`, outbox → `wallet.credit.requested.v1` (rfid = tid)
-- [ ] on `wallet.credited.v1` → restock station, outbox → `cargo.unloaded.v1` + `trade.executed.v1`
+mirror of buy: hand over cargo → `wallet.credit.requested.v1` →
+on `wallet.credited.v1` station restocks, quote republished;
+wallet rejection returns the cargo.
 
 ### pricing
-- [ ] `market.price.changed.v1` on stock change or periodic drift
-- [ ] interest-adjusted goods pricing - `capitalCost(principal, INTEREST_RATE, years_abs)` per Krugman
+- seed derives stock from universe economy profiles (producer surplus 160,
+  consumer scarcity 40, target 100) and publishes the first quotes -
+  the step 5 deferred item
+- every settle republishes `spread(price(base, stock, target, elasticity))`
+  from fresh stock - markets breathe as players trade
 
 ### idempotency
-- [ ] inbox dedup on `cmd` / `eid`
-- [ ] `tid` as `rfid` for wallet commands - retries are no-ops on the wallet side
+- inbox dedup on `cmd` / `eid`
+- `tid` rides as `rfid` - wallet retries are no-ops on the player side
+- wallet events with no pending trade are ignored (not ours)
+
+------------------------------------------------------------------------------------------------
 
 ### tests
-- [ ] unit: buy rejected (not docked, no stock, no capacity, insufficient funds)
-- [ ] unit: sell rejected (not docked, no cargo)
-- [ ] unit: saga compensation - stock released on wallet rejection
-- [ ] integration: full buy → debit → cargo → trade.executed flow
+- [x] unit: `test/market.spec.js` - 21 tests: quotes, seed, every rejection reason,
+      reserve, settle, compensation, side mismatch, ships mirror
+- [x] integration: `test/market.integration.spec.js` - seed → buy → debit command
+      on `commands.wallet` → settle on `wallet.debited` → stock / cargo / trade rows
+- [x] integration: `test/game.integration.spec.js` - **the full loop** with player +
+      ship + market: register → buy ore at `sol.outpost` → fly to `barnards.port` →
+      sell → trader ends richer than ₡1000
