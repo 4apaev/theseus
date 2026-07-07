@@ -19,11 +19,11 @@ import {
     createEventEnvelope,
 } from '@theseus/contracts'
 
-const PRFX = 'itg_ship_'
+import start from '@theseus/ship-service'
 
-// shrink travel times: sol.outpost → alpha.exchange ≈ 717ms
-// must be set before ship-service (travel.js) is imported - see test.before
-process.env.TIME_SCALE = '0.1'
+const PRFX = 'itg_ship'
+
+// travel times shrunk by TIME_SCALE in .env.dev: sol → alpha ≈ 717ms
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,9 +41,6 @@ async function seedShip(stid = 'sol.outpost') {
 let kafka, service, pool, sql, publish, producer
 
 test.before(async () => {
-    // dynamic import so TIME_SCALE above wins over .env before travel.js reads it
-    const { start } = await import('@theseus/ship-service')
-
     kafka    = Kfk.createMemoryKafka()
     pool     = DB.create({ schema: 'ship' })
     producer = Kfk.createProducer({ client: kafka })
