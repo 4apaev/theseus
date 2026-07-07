@@ -18,7 +18,7 @@
 
 
 ### exports
-- `src/main.js`     - pool → migrate → inbox → consumer(`events.all`)
+- `src/main.js`     - `Projection extends Service` (no outbox) - consumer of the concrete event topics, NOT `events.all`
 - `src/handlers.js` - dispatch map: one upsert per event type
 
 ------------------------------------------------------------------------------------------------
