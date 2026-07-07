@@ -1,47 +1,32 @@
-import { fileURLToPath       } from 'node:url'
-import { bootService, isMain } from '@theseus/config'
-import { createConsumer      } from '@theseus/kafka'
-import { eventTopics         } from '@theseus/contracts'
-import { DB, Inbox, migrate  } from '@theseus/db'
+import { isMain } from '@theseus/config'
+import { eventTopics as Evt } from '@theseus/contracts'
+import Service from '@theseus/service'
 
 import { createHandlers } from './handlers.js'
 
-export const service = 'projection-service'
+export class Projection extends Service {
+    static schema     = 'projection'
+    static service    = 'projection-service'
+    static outbox     = false   // consume only - read models emit nothing
+    static migrations = new URL('../migrations', import.meta.url)
+    /*
+        the concrete topics, NOT events.all: outbox rows carry a single
+        topic, so on a real broker events.all never receives anything
+    */
+    static topics = [ Evt.player, Evt.wallet, Evt.ship, Evt.cargo, Evt.market ]
+    static owns   = [ 'event_log', 'read_models' ]
+    static role   =   'event log and disposable read models'
 
-const MIGRATIONS = fileURLToPath(new URL('../migrations', import.meta.url))
-
-export function describeService() {
-    return {
-        service,
-        role: 'event log and disposable read models',
-        owns: [ 'event_log', 'read_models' ],
+    handlers() {
+        return createHandlers(this.pool)
     }
 }
 
-export async function start(client) {
-    const pool = DB.create({ schema: 'projection' })
-    await migrate(pool)
-    await migrate(pool, MIGRATIONS)
+export const service = Projection.service
+export const describeService = () => Projection.describe()
 
-    const dispatch = createHandlers(pool)
-    const store    = Inbox.create(pool)
-
-    const consumer = createConsumer({
-        store,
-        client,
-        groupId: service,
-        topics : [ eventTopics.all ],
-        async handler(msg) {
-            const fx = dispatch[ msg.value?.event_type ]
-            fx && await fx(msg.value)
-        },
-    })
-
-    return {
-        stats() { return consumer.stats() },
-        stop()  { consumer.stop(); pool.end() },
-    }
-}
+export const start = client => new Projection({ client }).start()
+export default start
 
 // ── BOOT ─────────────────────────────────────────────────────
-isMain(import.meta.url) && bootService(describeService())
+isMain(import.meta.url) && Projection.run()
