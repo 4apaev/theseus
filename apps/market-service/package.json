@@ -11,6 +11,7 @@
     },
     "dependencies": {
         "@theseus/db"       : "*",
+        "@theseus/service"  : "*",
         "@theseus/config"   : "*",
         "@theseus/contracts": "*",
         "@theseus/domain"   : "*",

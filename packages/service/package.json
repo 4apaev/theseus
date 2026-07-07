@@ -1,0 +1,19 @@
+{
+    "name"   : "@theseus/service",
+    "version": "0.0.0",
+    "type"   : "module",
+    "main"   : "./src/index.js",
+    "types"  : "./types/index.d.ts",
+    "exports": {
+        ".": {
+            "types"  : "./types/index.d.ts",
+            "default": "./src/index.js"
+        }
+    },
+    "dependencies": {
+        "@theseus/db"    : "*",
+        "@theseus/kafka" : "*",
+        "@theseus/config": "*",
+        "@theseus/util"  : "*"
+    }
+}
