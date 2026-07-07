@@ -1,9 +1,8 @@
 /* eslint-disable camelcase */
 
-import Crypto from 'node:crypto'
-
 import { readEnv } from '@theseus/config'
 import { Outbox  } from '@theseus/db'
+import { guid    } from '@theseus/util'
 import { createEmitter } from '@theseus/kafka'
 import Crypt       from './crypto.js'
 import {
@@ -89,7 +88,7 @@ export function createHandlers(pool, transact) {
     }
 
     async function registerPlayer({ cmd: causation_id, correlation_id, payload: p }) {
-        const pid  = Crypto.randomUUID()
+        const pid  = guid()
         const hash = await Crypt.hash(p.password)
 
         try {

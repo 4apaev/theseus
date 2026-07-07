@@ -11,7 +11,6 @@
 
 
 ### exports
-- `src/ids.js`   - `makeId(prefix)` → `prefix_<uuid>`
 - `src/trade.js`
     - `commonFrameYears(distanceLy, velocityC)` - `distance / velocity`
     - `shipFrameYears(distanceLy, velocityC)`   - relativistic proper time, `years * sqrt(1 - v²)`

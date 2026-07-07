@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto'
 import {
+    guid,
     poll,
     Codec,
     withClient,
@@ -35,7 +35,7 @@ function insertOutboxRow(client, topic, key, value) {
     const payload = Buffer.isBuffer(value) ? Codec.decode(value) : value
     return client.query(
         'insert into outbox (id, topic, key, payload) values ($1, $2, $3, $4)',
-        [ randomUUID(), topic, key ?? null, JSON.stringify(payload) ],
+        [ guid(), topic, key ?? null, JSON.stringify(payload) ],
     )
 }
 
