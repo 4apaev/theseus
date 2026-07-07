@@ -4,20 +4,45 @@ theseus - progress
 full step list + reference: [phase.1.md](phase.1.md) · game design: [game.md](game.md)
 
 
-current - step 6: market service (buy + sell sagas)
+current - step 7: gateway (http + websocket)
 ------------------------------------------------
 
-plan lives in [apps/market-service/readme.md](../apps/market-service/readme.md)
+plan lives in [apps/gateway/readme.md](../apps/gateway/readme.md) - not started
 
-- [ ] scaffold - deps, `main.js`, `handlers.js`, `saga.js`
-- [ ] migrations - markets, station_inventory, cargo, trades (schema `market`)
-- [ ] buy saga - reserve stock → `wallet.debit.requested` → cargo load → `trade.executed`
-- [ ] sell saga - unload cargo → `wallet.credit.requested` → restock → `trade.executed`
-- [ ] compensation - stock released on wallet rejection
-- [ ] pricing - `price()` + `spread()` from `@theseus/domain` economy, seed
-      initial `market_prices` via `market.price.changed.v1`
-- [ ] idempotency - inbox dedup, `tid` as `rfid` for wallet commands
-- [ ] tests - unit rejections + saga compensation; integration full buy/sell flow
+- [ ] **real kafka connection first** - memory kafka is the only client, nothing
+      calls `start(client)` outside tests (details in [kafka readme](../packages/kafka/readme.md)):
+    - [ ] `kafka/src/client.js` - `createKafkaClient({ brokers, clientId })` via `kafkajs`,
+          same contract the memory client already defines
+    - [ ] `runService(describe, start)` in config - `node apps/<svc>/src/main.js` actually boots
+    - [ ] fix the `events.all` fanout gap - outbox publishes single-topic records,
+          projection must subscribe to the concrete event topics or it hears nothing
+    - [ ] `stop()` disconnects real consumers; smoke: infra:up → three services → game loop for real
+- [ ] `@theseus/auth` - signJwt / verifyJwt
+- [ ] http routes → commands via kafka's `createCommander`
+- [ ] read routes against projection tables
+- [ ] websocket event feed
+
+
+step 6: market service - done ✔
+------------------------------------------------
+
+- [x] scaffold - deps, `main.js`, `handlers.js`, `seed.js`, pg schema `market`
+- [x] migrations - markets (quote board), station_inventory (source of truth),
+      ships (mirror), cargo, trades (saga state machine)
+- [x] seed - stock + quotes per station × good from universe economy profiles,
+      `market.price.changed.v1` published for each (the deferred step-5 item)
+- [x] the locked stock - sagas `select … for update` the inventory row and
+      compute prices from it; `markets` is write-only for trade logic
+- [x] buy saga - reserve stock → `wallet.debit.requested` (rfid = tid) →
+      on `wallet.debited`: cargo loaded, trade executed, quote republished
+- [x] sell saga - hand over cargo → `wallet.credit.requested` →
+      on `wallet.credited`: station restocked, trade executed, quote republished
+- [x] compensation - wallet rejection releases stock (buy) or returns cargo (sell)
+- [x] ships mirror from `events.ship` - docked/transit + capacity checks
+- [x] kafka `createCommander` - command sibling of `createEmitter`
+- [x] tests - 21 unit (rejections, reserve, settle, compensation, mirror, seed);
+      market integration (reserve → debit → settle); **full game loop**:
+      register → buy ore → fly → sell → trader ends richer than ₡1000
 
 
 done
@@ -31,6 +56,7 @@ done
 | 3    | [player service](../apps/player-service/readme.md) - register, wallet |
 | 4    | [ship service](../apps/ship-service/readme.md) - travel + starter saga|
 | 5    | universe seed - [domain](../packages/domain/readme.md) graph, goods, economy |
+| 6    | [market service](../apps/market-service/readme.md) - buy/sell sagas, prices |
 
 also: CI (github actions, node 26), pre-push env hook, pg schema per service,
 integration test harness in [testing](../packages/testing/readme.md).
@@ -47,6 +73,10 @@ decisions log
 - starter ship            : ship-service saga on `player.created.v1` - ownership stays with ship-service
 - universe                : graph in `@theseus/domain` - nodes with economy profile, undirected edges
 - market prices           : float on supply/demand (`price` + `spread`), no fixed state prices
+- cargo ownership         : market-service owns cargo + keeps a ships mirror from `events.ship` -
+                            trades touch stock/cargo/prices in one service, the only saga hop is the wallet
+- the locked stock        : sagas `select … for update` the inventory row and compute prices
+                            from it; `markets` is a write-only quote board, nothing ever joins them
 - auth
     - gateway issues JWT on login, validates locally, player service not called at read time
     - `@theseus/auth` (signJwt/verifyJwt) deferred to step 7 - keeps JWT secret out of player service
@@ -57,10 +87,67 @@ decisions log
 refactors, todos and tech debt
 ------------------------------------------------
 
-- **travel timer** - in-process `setTimeout`, doesn't survive restarts.
-  postgres as durable schedule (poll `arrives <= now()`) or redis, later.
+- #### `events.all` fanout gap
+    outbox rows store a single topic - `includeAll` only applies to direct
+    `publishEvent` calls, never on the outbox path. memory kafka hides it;
+    on a real broker the projection (subscribed to `events.all`) hears nothing.
+    fix with the real kafka connection (step 7): projection subscribes to the
+    concrete event topics; `events.all` stays for websocket fanout or dies.
 
-- **`Universe.path()`** - dijkstra multi-hop routing, when the map outgrows
-  the fully-connected triangle.
+- #### service class
+    each service should be a class. pass db instance as class propery
 
-- **symbols for topics** - maybe `Symbol('commands.ship')` instead of strings.
+- ### `market:sagas`
+    add `auction` saga, when players can bid against `station:good`
+
+- #### `pkg/util`
+    - `poll` with arguments, returns callable function.
+    ```js
+        export function poll(fx, ms, max = Infinity) {
+            ms = formatTime(ms ?? 0)
+            let rs, tid, end = 0
+            return O.use(async function tick(...a) {
+                rs = await fx.apply(this, a)
+                if (end || max--< 1) return end = 1
+                tid = setTimeout(tick, ms, ...a)
+            }, {
+                get result() { return rs },
+                stop() {
+                    end = 1
+                    clearTimeout(tid)
+                }})
+        }
+    ```
+    - move to `pkg/db from` `pkg/util`:
+        - `Query`
+        - `where`
+        - `selectWhere`
+        - `withClient`
+
+    - `garage/util/Fail` fix msg/code bug or create `class Chaos extends Error` instead
+
+
+- #### game assets
+    lives in text file, read on startup and populate.
+    consider dedicated table
+    - ships
+    - goods
+    - stations
+    - weapons
+    - armor
+    - etc...
+
+- #### npm version
+    a version bump script for each app/pkg.
+
+- #### `setTimeout` as travel timer
+    in-process `setTimeout`, doesn't survive restarts.
+    postgres as durable schedule or redis.
+
+- #### `Universe` path
+    dijkstra multi hop routing, when the map outgrows
+    the fully connected triangle.
+
+- #### `Symbol` for topics / events
+    maybe `Symbol(cmd.ship)` instead of strings
+
