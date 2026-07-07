@@ -1,6 +1,7 @@
 export { default as Store } from './idempotency.js'
 
 export { createConsumer    } from './consumer.js'
+export { createKafkaClient } from './client.js'
 export { createMemoryKafka } from './memory.js'
 export { createProducer    } from './producer.js'
 
