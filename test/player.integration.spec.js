@@ -22,7 +22,7 @@ import {
 // import startPlayer from '#apps/player-service/src/main.js'
 import startPlayer from '@theseus/player-service'
 
-const PRFX = 'itg_player_'
+const PRFX = 'itg_player'
 // ─────────────────────────────────────────────────────────────────────────────
 
 // console.log('\n── INTEGRATION/PLAYER %s\n', '─'.repeat(60))

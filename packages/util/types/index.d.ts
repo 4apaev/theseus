@@ -32,6 +32,7 @@ export function up(s: string): string
 export function low(s: string): string
 export function trim(s: string): string
 export function camel2snake(s: string, ...a: string[]): string
+export function guid(prefix?: string): string
 export function formatTime(x: string | number): number
 
 

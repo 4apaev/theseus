@@ -1,9 +1,10 @@
-import Crypto         from 'node:crypto'
 import { setTimeout } from 'node:timers/promises'
 
-import { Codec }                 from '@theseus/kafka'
-import { formatTime }            from '@theseus/util'
+import { Codec }             from '@theseus/kafka'
+import { formatTime, guid }  from '@theseus/util'
 import { createCommandEnvelope } from '@theseus/contracts'
+
+export { guid }
 
 export async function waitFor(fx, ms = 5000, interval = 50, ...a) {
     ms = formatTime(ms)
@@ -19,13 +20,9 @@ export async function waitFor(fx, ms = 5000, interval = 50, ...a) {
     throw new Error('waitFor timed out')
 }
 
-export function guid(prfx = 'itg_') {
-    return prfx + Crypto.randomUUID().slice(0, 8)
-}
-
 export function createPublisher(producer, rqby = 'integration-test') {
     return (type, payload) => producer.publishCommand(createCommandEnvelope({
-        cmd         : Crypto.randomUUID(),
+        cmd         : guid(),
         command_type: type,
         requested_by: rqby,
         payload,
@@ -36,7 +33,7 @@ export function collectEvents(kafka, topics) {
     const events = []
     const sub = kafka.subscribe({
         topics,
-        groupId: 'test-' + Crypto.randomUUID(),
+        groupId: guid('test'),
         handler(msg) {
             return events.push(Codec.decode(msg.value))
         },

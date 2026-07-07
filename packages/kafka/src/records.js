@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
 import {
     eventKey,
     eventTopic,
@@ -12,7 +10,7 @@ import {
     createCommandEnvelope,
 } from '@theseus/contracts'
 
-import { Codec } from '@theseus/util'
+import { Codec, guid } from '@theseus/util'
 
 export function createTopicRecord({ key, topic, value }) {
     return {
@@ -60,7 +58,7 @@ export function createEventRecords(e, opt = {}) {
 // validates, and returns an outbox-ready topic record
 export function createEmitter(producer) {
     return (etype, e) => createEventRecords(createEventEnvelope({
-        eid              : randomUUID(),
+        eid              : guid(),
         producer,
         event_type       : etype,
         aggregate_version: e.aggregate_version ?? 1,
@@ -72,7 +70,7 @@ export function createEmitter(producer) {
 // validates, and returns an outbox-ready topic record
 export function createCommander(producer) {
     return (ctype, c) => createCommandRecord(createCommandEnvelope({
-        cmd         : randomUUID(),
+        cmd         : guid(),
         command_type: ctype,
         requested_by: producer,
         ...c,

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import * as Constants from 'garage/constants'
 import {
     A,     O,
@@ -38,6 +40,14 @@ export const Codec = {
     decode: decodeJson,
 }
 
+// ── Id ───────────────────────────────────────────────────────
+
+export function guid(prefix) {
+    return prefix
+        ? `${ prefix }_${ randomUUID() }`
+        : randomUUID()
+}
+
 // ── String ────────────────────────────────────────────────────
 
 export function Raw(s, ...a) {
@@ -56,7 +66,7 @@ export function formatTime(x) {
     if (Is.not.s(x)) return x
 
     let [ , n, t ] = x.trim().toLowerCase().match(/^([\d.]+) *(s|m|h|d|w)?/) ?? []
-    isNaN(n = +n) && Fail.raise(`invalid time string "${ x }"`, x)
+    isNaN(n = +n) && Fail.raise(`invalid time string "${ x }"`)
 
     switch (t) {
         case 's': return n * 1000

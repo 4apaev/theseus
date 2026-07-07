@@ -10,7 +10,6 @@ import {
     starterShip,
     price,
     spread,
-    makeId,
     gameSeconds,
     capitalCost,
 } from '@theseus/domain'
