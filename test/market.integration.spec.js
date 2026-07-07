@@ -21,7 +21,7 @@ import {
 
 import startMarketService from '@theseus/market-service'
 
-const PRFX = 'itg_market_'
+const PRFX = 'itg_market'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -149,6 +149,10 @@ test('buy - reserves stock, requests debit, settles on wallet.debited', async ()
 
     const executed = hasEvent(EVT.trade.executed, 'pid',  pid)
     await waitFor(() => events.some(executed), '5s')
+
+    // the quote republish is the last record of the settle batch -
+    // wait for it too before we stop collecting
+    await waitFor(() => events.some(hasEvent(EVT.market.price.changed, 'gid', 'ore')), '5s')
     stop()
 
     const trade = events.find(executed)

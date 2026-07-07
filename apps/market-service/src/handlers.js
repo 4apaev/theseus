@@ -1,6 +1,6 @@
 /* eslint-disable camelcase */
 import { Outbox } from '@theseus/db'
-import { makeId } from '@theseus/domain'
+import { guid } from '@theseus/util'
 import {
     createEmitter,
     createCommander,
@@ -194,7 +194,7 @@ export function createHandlers(pool, transact) {
                 const { price_buy } = quote(payload.gid, inv.stock, inv.target)
                 if (price_buy > payload.price_unit_max) return reject('price above limit')
 
-                const tid    = makeId('trade')
+                const tid    = guid('trade')
                 const amount = r2(price_buy * payload.quantity)
 
                 await bumpStock(client, payload.stid, payload.gid, -payload.quantity)
@@ -272,7 +272,7 @@ export function createHandlers(pool, transact) {
                 if (price_sell < price_unit_min)
                     return reject('price below limit')
 
-                const tid         = makeId('trade')
+                const tid         = guid('trade')
                 const price_total = r2(price_sell * quantity)
 
                 await client.query(`

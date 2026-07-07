@@ -5,7 +5,7 @@ import {
     withClient, poll,
     Query, where, selectWhere,
     formatTime, camel2snake,
-    Raw, up, low, trim,
+    Raw, up, low, trim, guid,
 } from '#packages/util/src/index.js'
 
 import '#packages/testing/src/index.js?title=🧪 🪏 UTIL'
@@ -196,4 +196,12 @@ test('up / low / trim', () => {
     assert.equal(up('abc'), 'ABC')
     assert.equal(low('ABC'), 'abc')
     assert.equal(trim('  x  '), 'x')
+})
+
+// ── guid ──────────────────────────────────────────────────────────────────────
+
+test('guid joins prefix with underscore, bare uuid without', () => {
+    assert.match(guid('trade'), /^trade_[0-9a-f-]{36}$/)
+    assert.match(guid(), /^[0-9a-f-]{36}$/)
+    assert.notEqual(guid(), guid())
 })

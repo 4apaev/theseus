@@ -13,12 +13,9 @@ import {
 
 // ── guid ─────────────────────────────────────────────────────────────────────
 
-test('guid defaults to itg_ prefix', () => {
-    assert.match(guid(), /^itg_[0-9a-f]{8}$/)
-})
-
-test('guid accepts a custom prefix and never repeats', () => {
-    assert.match(guid('x_'), /^x_[0-9a-f]{8}$/)
+test('guid is util.guid - bare uuid or prefix_uuid', () => {
+    assert.match(guid(), /^[0-9a-f-]{36}$/)
+    assert.match(guid('itg'), /^itg_[0-9a-f-]{36}$/)
     assert.notEqual(guid(), guid())
 })
 

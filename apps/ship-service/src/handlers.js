@@ -1,7 +1,8 @@
 /* eslint-disable camelcase */
 import { Outbox } from '@theseus/db'
+import { guid } from '@theseus/util'
 import { createEmitter } from '@theseus/kafka'
-import { makeId, starterShip } from '@theseus/domain'
+import { starterShip } from '@theseus/domain'
 import {
     eventTree   as EVT,
     commandTree as CMD,
@@ -17,7 +18,7 @@ export function createHandlers(pool, transact) {
     return {
         // saga: every new player gets the starter ship, docked at sol.outpost
         async [ EVT.player.created ]({ eid: causation_id, correlation_id, payload: p }) {
-            const sid = makeId('ship')
+            const sid = guid('ship')
 
             await transact(pool, async client => {
                 await client.query(`
