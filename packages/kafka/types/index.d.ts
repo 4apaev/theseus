@@ -33,6 +33,12 @@ export {
 } from './memory.js'
 
 export {
+    type KafkaClient,
+    type KafkaClientInput,
+    createKafkaClient,
+} from './client.js'
+
+export {
     type Producer,
     type ProducerInput,
     createProducer,
