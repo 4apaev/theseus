@@ -2,9 +2,13 @@ import Crypto         from 'node:crypto'
 import { setTimeout } from 'node:timers/promises'
 
 import { Codec }                 from '@theseus/kafka'
+import { formatTime }            from '@theseus/util'
 import { createCommandEnvelope } from '@theseus/contracts'
 
 export async function waitFor(fx, ms = 5000, interval = 50, ...a) {
+    ms = formatTime(ms)
+    interval = formatTime(interval)
+
     const deadline = Date.now() + ms
 
     while (Date.now() < deadline) {
