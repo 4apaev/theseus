@@ -16,7 +16,7 @@
 
 
 ### exports
-- `src/main.js`     - pool → migrate → inbox → consumer(`commands.player`, `commands.wallet`) + `pollOutbox`
+- `src/main.js`     - `Player extends Service` - consumer(`commands.player`, `commands.wallet`)
 - `src/handlers.js` - dispatch map: register / debit / credit
 - `src/crypto.js`   - `hash` / `verify` - scrypt, no pg extension, hash before it hits the DB
 
