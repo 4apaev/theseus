@@ -19,6 +19,7 @@
 │  contracts  │  📜 📋   │
 │  domain     │  🧮 🎓   │ 🧠
 │  config     │  🎛️ ⚙️   │
+│  service    │  🎖️ 🦮   │
 │  util       │  🪏 🪚   │
 │  testing    │  🧪 🧫   │
 ├─────────────┼─────────┤

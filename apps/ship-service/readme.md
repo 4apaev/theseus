@@ -13,12 +13,12 @@
 - `@theseus/kafka`
 - `@theseus/contracts`
 - `@theseus/config`
-- `@theseus/domain` - `universe` graph, `starterShip`, `makeId`
+- `@theseus/domain` - `universe` graph, `starterShip`
 - `@theseus/util`
 
 
 ### exports
-- `src/main.js`     - pool → migrate → inbox → consumer(`commands.ship`, `events.player`) + `pollOutbox`
+- `src/main.js`     - `Ship extends Service` - consumer(`commands.ship`, `events.player`)
 - `src/handlers.js` - dispatch map + playerCreated / travelRequested / arrive / reject
 - `src/travel.js`   - distance/time math, `distance()` delegates to `universe`
 

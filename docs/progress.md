@@ -9,14 +9,18 @@ current - step 7: gateway (http + websocket)
 
 plan lives in [apps/gateway/readme.md](../apps/gateway/readme.md) - not started
 
-- [ ] **real kafka connection first** - memory kafka is the only client, nothing
-      calls `start(client)` outside tests (details in [kafka readme](../packages/kafka/readme.md)):
-    - [ ] `kafka/src/client.js` - `createKafkaClient({ brokers, clientId })` via `kafkajs`,
-          same contract the memory client already defines
-    - [ ] `runService(describe, start)` in config - `node apps/<svc>/src/main.js` actually boots
-    - [ ] fix the `events.all` fanout gap - outbox publishes single-topic records,
-          projection must subscribe to the concrete event topics or it hears nothing
-    - [ ] `stop()` disconnects real consumers; smoke: infra:up → three services → game loop for real
+- [x] **real kafka connection** - done (details in [kafka readme](../packages/kafka/readme.md)):
+    - [x] `kafka/src/client.js` - `createKafkaClient({ brokers, clientId })` via `kafkajs`;
+          topics ensured before subscribe (serialized), transient broker errors retried
+    - [x] the little refactor - services are classes now: [`@theseus/service`](../packages/service/readme.md)
+          base owns the lifecycle, `Kind.run()` is the composition root -
+          `node apps/<svc>/src/main.js` actually boots against compose
+    - [x] `events.all` fanout gap fixed - projection subscribes to the concrete event topics
+    - [x] `npm run smoke` - the full loop through the REAL broker: register → buy ore →
+          fly → sell → profit ₡830.68, projection read models populated;
+          repeat runs resume consumer groups, inbox dedup holds
+    - [x] `util.guid(prefix?)` - the one id helper, `crypto.randomUUID` imports gone
+    - [x] `.env.dev` - test knobs stacked via `--env-file`, spec env hacks removed
 - [ ] `@theseus/auth` - signJwt / verifyJwt
 - [ ] http routes → commands via kafka's `createCommander`
 - [ ] read routes against projection tables
@@ -87,15 +91,10 @@ decisions log
 refactors, todos and tech debt
 ------------------------------------------------
 
-- #### `events.all` fanout gap
-    outbox rows store a single topic - `includeAll` only applies to direct
-    `publishEvent` calls, never on the outbox path. memory kafka hides it;
-    on a real broker the projection (subscribed to `events.all`) hears nothing.
-    fix with the real kafka connection (step 7): projection subscribes to the
-    concrete event topics; `events.all` stays for websocket fanout or dies.
-
-- #### service class
-    each service should be a class. pass db instance as class propery
+- #### kafkajs `TimeoutNegativeWarning`
+    upstream quirk in kafkajs' request queue (`scheduleCheckPendingRequests`
+    computes a negative delay, node clamps to 1ms) - harmless noise on boot,
+    not our code. revisit if kafkajs ships a fix or we swap clients.
 
 - ### `market:sagas`
     add `auction` saga, when players can bid against `station:good`

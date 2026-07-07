@@ -30,6 +30,7 @@ steps
 | [contracts](../packages/contracts/readme.md)   | commands, events, topics, envelopes - the vocab   |
 | [kafka](../packages/kafka/readme.md)           | producer / consumer / memory broker               |
 | [db](../packages/db/readme.md)                 | pool, schema per service, inbox / outbox, migrate |
+| [service](../packages/service/readme.md)       | Service base class - lifecycle, `Kind.run()` root |
 | [domain](../packages/domain/readme.md)         | pure math + universe graph, goods, economy        |
 | [config](../packages/config/readme.md)         | env access, service boot                          |
 | [util](../packages/util/readme.md)             | garage re-exports, codec, sql builders, errors    |

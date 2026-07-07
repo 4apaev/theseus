@@ -1,6 +1,19 @@
 Notes
 --------------------------------
 
+Update Todos
+
+<!-- util.guid(prefix?) + replace randomUUID/makeId everywhere
+.env.dev + test.sh env stacking, strip spec hacks
+
+kafka client.js via kafkajs + types
+packages/service: Service class + runService
+migrate 4 app mains to Service classes + fanout fix
+scripts/smoke.js + npm run smoke
+run suites + lint + tsc
+smoke against real broker, twice
+docs + prepare commits -->
+
 
 ## time managment for multiplayer
 `absolute` time is measured at `stations`,

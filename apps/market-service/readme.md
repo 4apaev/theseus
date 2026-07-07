@@ -15,12 +15,12 @@ step `6` done - see [docs/phase.1.md](../../docs/phase.1.md), tracked in [docs/p
 - `@theseus/kafka`
 - `@theseus/contracts`
 - `@theseus/config`
-- `@theseus/domain` - universe profiles, `price` / `spread`, `makeId`
+- `@theseus/domain` - universe profiles, `price` / `spread`
 - `@theseus/util`
 
 
 ### exports
-- `src/main.js`     - pool → migrate → seed → inbox → consumer(`commands.market`, `events.wallet`, `events.ship`) + `pollOutbox`
+- `src/main.js`     - `Market extends Service` - seed + consumer(`commands.market`, `events.wallet`, `events.ship`)
 - `src/handlers.js` - ships mirror + buy / sell sagas + continuation / compensation
 - `src/seed.js`     - `seed(pool, transact)` fills empty markets, `quote(gid, stock, target)`
 
