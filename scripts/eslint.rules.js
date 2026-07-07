@@ -129,7 +129,9 @@ export default {
     'computed-property-spacing'  : [ 2, 'always', { enforceForClassMembers                 : !0 }],
     'object-curly-spacing'       : [ 2, 'always', { arraysInObjects  : !1, objectsInObjects: !1 }],
     'array-bracket-spacing'      : [ 2, 'always', { arraysInArrays   : !1, objectsInArrays : !1 }],
-    'key-spacing'                : [ 2, { align: 'colon', afterColon : !0, beforeColon     : !1 }],
     'space-before-function-paren': [ 2, { named: 'never', anonymous  : 'always', asyncArrow: 'always' }],
+
+    // ---------------------------------------------------------------------------------------------------------
+    'key-spacing'                : [ 0, { align: 'colon', afterColon : !0, beforeColon     : !1 }],
 }
 
