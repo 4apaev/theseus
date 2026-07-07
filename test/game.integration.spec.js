@@ -9,6 +9,7 @@ import {
 } from '#testing/index.js?title=🧪 INTEGRATION 🚀 GAME'
 
 import startPlayer from '@theseus/player-service'
+import startShip   from '@theseus/ship-service'
 import startMarket from '@theseus/market-service'
 import * as Kfk from '@theseus/kafka'
 import { DB } from '@theseus/db'
@@ -17,11 +18,9 @@ import {
     commandTree as CMD,
 } from '@theseus/contracts'
 
-const PRFX = 'itg_game_'
+const PRFX = 'itg_game'
 
-// shrink travel: sol.outpost → barnards.port = 6.0 ly / 0.6c ~ 1s
-// must be set before ship-service (travel.js) is imported - see test.before
-process.env.TIME_SCALE = '0.1'
+// travel times shrunk by TIME_SCALE in .env.dev: sol → barnards ≈ 1s
 
 /*
     the phase 1 loop, minus the gateway:
@@ -46,8 +45,6 @@ test.before(async () => {
     const admin = DB.create()
     await admin.query('drop schema if exists market cascade')
     await admin.end()
-
-    const { start: startShip } = await import('@theseus/ship-service')
 
     kafka   = Kfk.createMemoryKafka()
     publish = createPublisher(Kfk.createProducer({ client: kafka }))

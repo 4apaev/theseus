@@ -21,6 +21,7 @@ echo "COVERAGE : $COVERAGE"
 
 node                             \
     --env-file=./.env            \
+    --env-file=./.env.dev        \
     --experimental-test-coverage \
     --test-coverage-exclude='packages/testing/**'  \
     --test-coverage-lines=$COVERAGE     \
