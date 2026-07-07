@@ -9,31 +9,31 @@ is and why - see [game.md](game.md). current work - see [progress.md](progress.m
 steps
 ------------------------------------------------
 
-| step | what                                                            | status |
-|------|-----------------------------------------------------------------|--------|
-| 0    | rename pass on existing [contracts](../packages/contracts/readme.md) | done ✔ |
-| 1    | [db package](../packages/db/readme.md) - pool, inbox, outbox, migrate | done ✔ |
-| 2    | [projection service](../apps/projection-service/readme.md) - read models | done ✔ |
-| 3    | [player service](../apps/player-service/readme.md) - register, wallet | done ✔ |
-| 4    | [ship service](../apps/ship-service/readme.md) - travel             | done ✔ |
-| 5    | universe seed - [domain](../packages/domain/readme.md) graph, goods, starter ship | done ✔ |
-| 6    | [market service](../apps/market-service/readme.md) - buy + sell sagas | next   |
-| 7    | [gateway](../apps/gateway/readme.md) - http + websocket, `@theseus/auth` | todo |
-| 8    | minimal client - single html file, websocket-driven                | todo   |
-| 9    | projection rebuild - truncate + replay from event log              | todo   |
+| step   | what                                                                     | status |
+|--------|--------------------------------------------------------------------------|--------|
+|   0    | rename pass on existing [contracts](../packages/contracts/readme.md)     | done ✔ |
+|   1    | [db package](../packages/db/readme.md) - pool, inbox, outbox, migrate    | done ✔ |
+|   2    | [projection service](../apps/projection-service/readme.md) - read models | done ✔ |
+|   3    | [player service](../apps/player-service/readme.md) - register, wallet    | done ✔ |
+|   4    | [ship service](../apps/ship-service/readme.md) - travel                  | done ✔ |
+|   5    | universe seed - [domain](../packages/domain/readme.md) graph, goods, starter ship | done ✔ |
+|   6    | [market service](../apps/market-service/readme.md) - buy + sell sagas    | done ✔ |
+|  [7]   | [gateway](../apps/gateway/readme.md) - http + websocket, `@theseus/auth` | next |
+|   8    | minimal client - single html file, websocket-driven                      | todo   |
+|   9    | projection rebuild - truncate + replay from event log                    | todo   |
 
 
 ### packages
 
-| package                                        | role                                             |
-|------------------------------------------------|--------------------------------------------------|
-| [contracts](../packages/contracts/readme.md)   | commands, events, topics, envelopes - the vocab  |
-| [kafka](../packages/kafka/readme.md)           | producer / consumer / memory broker              |
+| package                                        | role                                              |
+|------------------------------------------------|---------------------------------------------------|
+| [contracts](../packages/contracts/readme.md)   | commands, events, topics, envelopes - the vocab   |
+| [kafka](../packages/kafka/readme.md)           | producer / consumer / memory broker               |
 | [db](../packages/db/readme.md)                 | pool, schema per service, inbox / outbox, migrate |
-| [domain](../packages/domain/readme.md)         | pure math + universe graph, goods, economy       |
-| [config](../packages/config/readme.md)         | env access, service boot                         |
-| [util](../packages/util/readme.md)             | garage re-exports, codec, sql builders, errors   |
-| [testing](../packages/testing/readme.md)       | mocks, integration harness, spec title banners   |
+| [domain](../packages/domain/readme.md)         | pure math + universe graph, goods, economy        |
+| [config](../packages/config/readme.md)         | env access, service boot                          |
+| [util](../packages/util/readme.md)             | garage re-exports, codec, sql builders, errors    |
+| [testing](../packages/testing/readme.md)       | mocks, integration harness, spec title banners    |
 
 
 success criteria
