@@ -12,6 +12,7 @@
       "./packages/db/types/index.d.ts",
       "./packages/domain/types/index.d.ts",
       "./packages/kafka/types/index.d.ts",
+      "./packages/service/types/index.d.ts",
       "./packages/testing/types/index.d.ts",
     ],
     "rootDir"                          : "./",

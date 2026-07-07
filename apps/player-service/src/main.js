@@ -1,50 +1,26 @@
-import { fileURLToPath                  } from 'node:url'
-import { DB, Inbox, Outbox, migrate     } from '@theseus/db'
-import { bootService, isMain            } from '@theseus/config'
-import { createConsumer, createProducer } from '@theseus/kafka'
-import { commandTopics                  } from '@theseus/contracts'
-import { createHandlers                 } from './handlers.js'
+import { DB } from '@theseus/db'
+import { isMain } from '@theseus/config'
+import { commandTopics } from '@theseus/contracts'
+import Service from '@theseus/service'
+import { createHandlers } from './handlers.js'
 
-export const service = 'player-service'
+export class Player extends Service {
+    static schema     = 'player'
+    static service    = 'player-service'
+    static migrations = new URL('../migrations', import.meta.url)
+    static topics     = [ commandTopics.player, commandTopics.wallet ]
+    static owns       = [ 'players', 'wallets' ]
+    static role       = 'players, sessions, and wallets'
 
-const MIGRATIONS = fileURLToPath(new URL('../migrations', import.meta.url))
+    handlers() {
+        return createHandlers(this.pool, DB.transact)
+    }
+}
 
+export const service = Player.service
+export const start   = client => Player.of({ client }).start()
+export const describeService = () => Player.describe()
 export default start
 
-export function describeService() {
-    return {
-        service,
-        role: 'players, sessions, and wallets',
-        owns: [ 'players', 'wallets' ],
-    }
-}
-
-export async function start(client) {
-    const pool = DB.create({ schema: 'player' })
-    await migrate(pool)
-    await migrate(pool, MIGRATIONS)
-
-    const producer = createProducer({ client })
-    const dispatch = createHandlers(pool, DB.transact)
-    const store    = Inbox.create(pool)
-
-    const outbox   = Outbox.poll(pool, producer.publish)
-    const consumer = createConsumer({
-        store,
-        client,
-        groupId: service,
-        topics : [ commandTopics.player, commandTopics.wallet ],
-        async handler(msg) {
-            const fx = dispatch[ msg.value?.command_type ]
-            fx && await fx(msg.value)
-        },
-    })
-
-    return {
-        stats: () => consumer.stats(),
-        stop()  { consumer.stop(); outbox.stop(); pool.end() },
-    }
-}
-
 // ── BOOT ─────────────────────────────────────────────────────
-isMain(import.meta.url) && bootService(describeService())
+isMain(import.meta.url) && Player.run()
