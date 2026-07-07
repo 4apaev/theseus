@@ -1,10 +1,35 @@
 {
     "folders": [
-        { "name": "🚀 theseus"   , "path": "../" },
-        { "name": "📺 projection", "path": "../apps/projection-service/migrations" },
-        { "name": "🎮 player"    , "path": "../apps/player-service/migrations" },
-        { "name": "🛸 ship"      , "path": "../apps/ship-service/migrations" },
-        { "name": "🎰 market"    , "path": "../apps/market-service/migrations" },
+        { "name" : "🚀 theseus"    ,  "path": "../"                        },
+
+        // ══ APP ══════════════════════════════════════════════════════════════
+        // { "name" : "⛩️ gateway"    ,  "path": "../apps/gateway"    },
+        // { "name" : "🎰 market"     ,  "path": "../apps/market-service"     },
+        // { "name" : "📺 projection" ,  "path": "../apps/projection-service" },
+        // { "name" : "🕹️ player"     ,  "path": "../apps/player-service"     },
+        // { "name" : "🚢 ship"       ,  "path": "../apps/ship-service"       },
+
+        // ━━ PKG ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        // { "name" : "📇 db"         ,  "path": "../packages/db"        },
+        // { "name" : "📮 kafka"      ,  "path": "../packages/kafka"     },
+        // { "name" : "📜 contracts"  ,  "path": "../packages/contracts" },
+        // { "name" : "🧮 domain"     ,  "path": "../packages/domain"    },
+        // { "name" : "🎛️ config"     ,  "path": "../packages/config"    },
+        // { "name" : "🪏 util"       ,  "path": "../packages/util"      },
+        // { "name" : "🧪 testing"    ,  "path": "../packages/testing"   },
+
+        // ━━ PKG ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        // { "name" : "🛟 docs"       ,  "path": "../docs"  },
+        // { "name" : "🧫 test"       ,  "path": "../test"  },
+        // { "name" : "🧱 infra"      ,  "path": "../infra" },
+
+        // ── SQL ──────────────────────────────────────────────────────────────
+        // { "name": "🗄️ 📺 migrations projection", "path": "../apps/projection-service/migrations" },
+        // { "name": "🗄️ 🕹️ migrations player"    , "path": "../apps/player-service/migrations" },
+        // { "name": "🗄️ 🚢 migrations ship"      , "path": "../apps/ship-service/migrations" },
+        // { "name": "🗄️ 🎰 migrations market"    , "path": "../apps/market-service/migrations" },
     ],
 
     "settings": {
@@ -16,18 +41,46 @@
 }
 
 /*
-    service
-        ⛩️ gateway
-        🎰 market
-        📺 projection
-        🎮 player
-        🛸 ship
-    package
-        📇 db
-        📬 kafka
-        📜 contracts
-        🧮 domain
-        🎛️ config
-        🪏 util
-        🧪 testing
+
+┌───────────────────────┐
+│  → APPS               │
+├─────────────┬─────────┤
+│  theseus    │  🚀 🏺   │
+│  gateway    │  ⛩️ 🥅   │
+│  market     │  🎰 🏛️   │
+│  projection │  📺 🛰️   │
+│  player     │  🕹️ 🎮   │
+│  ship       │  🚢 🛸   │
+├─────────────┴─────────┤
+│  → PKG                │
+├─────────────┬─────────┤
+│  db         │  📇 🗄️   │
+│  kafka      │  📮 📻   │
+│  contracts  │  📜 📋   │
+│  domain     │  🧮 🧠   │ 🎓
+│  config     │  🎛️ ⚙️   │
+│  util       │  🪏 🪚   │
+│  testing    │  🧪 🧫   │
+├─────────────┼─────────┤
+│  docs       │  🛟 🗂️   │ 🗒️
+│  scripts    │  🎬 🤖   │
+│  infra      │  🧱 🧶   │ 🎹 🎪 ♻️ 🔮
+├─────────────┴─────────┤
+│  → FELDS              │
+├─────────────┬─────────┤
+│  command    │  📯 🚩   │
+│  topic      │  🔖 🆔   │
+│  event      │  🗓️ 🛎️   │
+├─────────────┴─────────┤
+│  → SQL                │
+├─────────────┬─────────┤
+│  cargo      │  🦺 📦   │ 🚚 🚛
+│  trade      │  🪢 📈   │ 🛍️
+│  goods      │  🛢️ 🥫   │ ⛽️ 💎 🥦 🍆 🥑 🥨 🍔
+│  wallet     │  👛 💼   │
+│  station    │  🪐 🅿️   │
+│  port       │  🅿️ 🏰   │
+└─────────────┴─────────┘
+
+
 */
