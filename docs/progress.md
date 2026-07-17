@@ -17,7 +17,7 @@ plan lives in [apps/gateway/readme.md](../apps/gateway/readme.md) - not started
           `node apps/<svc>/src/main.js` actually boots against compose
     - [x] `events.all` fanout gap fixed - projection subscribes to the concrete event topics
     - [x] `npm run smoke` - the full loop through the REAL broker: register → buy ore →
-          fly → sell → profit ₡830.68, projection read models populated;
+          fly → sell → profit ₢830.68, projection read models populated;
           repeat runs resume consumer groups, inbox dedup holds
     - [x] `util.guid(prefix?)` - the one id helper, `crypto.randomUUID` imports gone
     - [x] `.env.dev` - test knobs stacked via `--env-file`, spec env hacks removed
@@ -46,7 +46,7 @@ step 6: market service - done ✔
 - [x] kafka `createCommander` - command sibling of `createEmitter`
 - [x] tests - 21 unit (rejections, reserve, settle, compensation, mirror, seed);
       market integration (reserve → debit → settle); **full game loop**:
-      register → buy ore → fly → sell → trader ends richer than ₡1000
+      register → buy ore → fly → sell → trader ends richer than ₢1000
 
 
 done

@@ -85,4 +85,4 @@ wallet rejection returns the cargo.
       on `commands.wallet` → settle on `wallet.debited` → stock / cargo / trade rows
 - [x] integration: `test/game.integration.spec.js` - **the full loop** with player +
       ship + market: register → buy ore at `sol.outpost` → fly to `barnards.port` →
-      sell → trader ends richer than ₡1000
+      sell → trader ends richer than ₢1000
