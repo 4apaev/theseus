@@ -1,3 +1,4 @@
+import { setTimeout      } from 'node:timers/promises'
 import { Kafka, logLevel } from 'kafkajs'
 
 /*
@@ -26,7 +27,7 @@ export function createKafkaClient({ brokers, clientId }) {
     // fresh brokers auto-create topics on produce, not on subscribe -
     // a consumer of a never-produced topic dies with UNKNOWN_TOPIC_OR_PARTITION.
     // serialized per client: parallel createTopics calls race each other
-    const ensured = new Set()
+    const ensured = new Set
     let creating  = Promise.resolve()
 
     function ensure(topics) {
@@ -64,7 +65,7 @@ export function createKafkaClient({ brokers, clientId }) {
             // the connect chain settles in the background; transient broker
             // errors (metadata propagation, group coordinator) get retried
             const running = (async () => {
-                for (let attempt = 1; ; attempt++)
+                for (let attempt = 1; ; attempt++) {
                     try {
                         await ensure(topics)
                         await consumer.connect()
@@ -84,8 +85,9 @@ export function createKafkaClient({ brokers, clientId }) {
                     catch (e) {
                         if (attempt >= 5)
                             return console.error(`kafka ⋮ ${ groupId } subscribe failed -`, e.message)
-                        await new Promise(ok => setTimeout(ok, 300 * attempt))
+                        await setTimeout(300 * attempt)
                     }
+                }
             })()
 
             return {
