@@ -134,7 +134,7 @@ test('a trader can profit from ore arbitrage across the triangle', async () => {
 
     assert.ok(revenue > cost, `arbitrage pays: sold ${ revenue } vs paid ${ cost }`)
     assert.equal(balance, Math.round((1000 - cost + revenue) * 100) / 100)
-    assert.ok(balance > 1000, `trader is richer: ₡${ balance }`)
+    assert.ok(balance > 1000, `trader is richer: ₢${ balance }`)
 
     // the whole story flowed through kafka
     for (const type of [
