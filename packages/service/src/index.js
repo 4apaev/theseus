@@ -40,7 +40,7 @@ export default class Service {
 
     constructor({ client, pool } = {}) {
         this.client = client
-        this.pool   = pool ?? DB.create({ schema: this.constructor.schema })
+        this.pool   = pool ?? DB.create({ schema: new.target.schema })
     }
 
     handlers() { return {} }
