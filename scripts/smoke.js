@@ -115,7 +115,7 @@ try {
     const bought = await waitFor(() =>
         events.find(e => e.event_type === EVT.trade.executed
             && e.payload.pid === pid && e.payload.side === 'buy'), SLOW)
-    say(`bought 10 ore for ₡${ bought.payload.price_total } (₡${ bought.payload.price_unit }/unit)`)
+    say(`bought 10 ore for ₢${ bought.payload.price_total } (₢${ bought.payload.price_unit }/unit)`)
 
     await publish(CMD.ship.travel.requested, {
         sid, pid,
@@ -144,7 +144,7 @@ try {
 
     await waitFor(async () =>
         await sql`select 1 as ok from trade_history where pid = ${ pid } and side = ${ 'sell' }`
-        && await sql`select 1 as ok from players where pid = ${ pid }`
+        && await sql`select 1 as ok from players where pid = ${ pid }` // eslint-disable-next-line no-return-await
         && await sql`select 1 as ok from ships where sid = ${ sid }`, SLOW)
     await projection.end()
     say('projection read models populated - fanout fix holds')
@@ -155,11 +155,11 @@ try {
     const revenue = +sold.payload.price_total
     const balance = +credited.payload.balance
 
-    say(`sold 10 ore for ₡${ revenue }`)
-    say(`profit ₡${ Math.round((revenue - cost) * 100) / 100 }, balance ₡${ balance }`)
+    say(`sold 10 ore for ₢${ revenue }`)
+    say(`profit ₢${ Math.round((revenue - cost) * 100) / 100 }, balance ₢${ balance }`)
 
     if (balance <= 1000)
-        throw new Error(`trader should profit, balance ₡${ balance }`)
+        throw new Error(`trader should profit, balance ₢${ balance }`)
 
     say('the loop holds - interstellar arbitrage pays ✔')
 }
