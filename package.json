@@ -30,6 +30,7 @@
         "#domain/*"     : "./packages/domain/src/*",
         "#config/*"     : "./packages/config/src/*",
         "#util/*"       : "./packages/util/src/*",
+        "#auth/*"       : "./packages/auth/src/*",
         "#testing/*"    : "./packages/testing/src/*"
     },
     "scripts": {

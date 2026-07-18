@@ -20,6 +20,7 @@
 │  domain     │  🧮 🎓   │ 🧠
 │  config     │  🎛️ ⚙️   │
 │  service    │  🎖️ 🦮   │
+│  auth       │  🔐 🗝️   │
 │  util       │  🪏 🪚   │
 │  testing    │  🧪 🧫   │
 ├─────────────┼─────────┤

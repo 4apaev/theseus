@@ -34,6 +34,7 @@ steps
 | [domain](../packages/domain/readme.md)         | pure math + universe graph, goods, economy        |
 | [config](../packages/config/readme.md)         | env access, service boot                          |
 | [util](../packages/util/readme.md)             | garage re-exports, codec, sql builders, errors    |
+| [auth](../packages/auth/readme.md)             | signJwt / verifyJwt - the gateway's token secret  |
 | [testing](../packages/testing/readme.md)       | mocks, integration harness, spec title banners    |
 
 

@@ -1,33 +1,47 @@
 {
-  "compilerOptions": {
-    "types"                            : [
-      "node",
-      "./apps/gateway/types/main.d.ts",
-      "./apps/market-service/types/main.d.ts",
-      "./apps/player-service/types/main.d.ts",
-      "./apps/projection-service/types/main.d.ts",
-      "./apps/ship-service/types/main.d.ts",
-      "./packages/config/types/index.d.ts",
-      "./packages/contracts/types/index.d.ts",
-      "./packages/db/types/index.d.ts",
-      "./packages/domain/types/index.d.ts",
-      "./packages/kafka/types/index.d.ts",
-      "./packages/service/types/index.d.ts",
-      "./packages/testing/types/index.d.ts",
-    ],
-    "rootDir"                          : "./",
-    "outDir"                           : "dist",
-    "target"                           : "es2025",
-    "module"                           : "NodeNext",
-    "moduleResolution"                 : "NodeNext",
-    "forceConsistentCasingInFileNames" : true,
-    "esModuleInterop"                  : true,
-    "declaration"                      : true,
-    "allowJs"                          : true,
-    "pretty"                           : true,
-    "strict"                           : false
-  },
+    "compilerOptions": {
+        "types": [
+            "node",
+            "./apps/gateway/types/main.d.ts",
+            "./apps/market-service/types/main.d.ts",
+            "./apps/player-service/types/main.d.ts",
+            "./apps/projection-service/types/main.d.ts",
+            "./apps/ship-service/types/main.d.ts",
+            "./packages/config/types/index.d.ts",
+            "./packages/contracts/types/index.d.ts",
+            "./packages/db/types/index.d.ts",
+            "./packages/domain/types/index.d.ts",
+            "./packages/kafka/types/index.d.ts",
+            "./packages/service/types/index.d.ts",
+            "./packages/auth/types/index.d.ts",
+            "./packages/testing/types/index.d.ts",
+        ],
 
-  "include": [ "apps", "packages", "scripts", "test" ],
-  "exclude": [ ".vscode", "node_modules" ],
+        "rootDir"                          : "./",
+        "outDir"                           : "dist",
+        "target"                           : "es2025",
+        "module"                           : "NodeNext",
+        "moduleResolution"                 : "NodeNext",
+        "forceConsistentCasingInFileNames" : true,
+        "esModuleInterop"                  : true,
+        "declaration"                      : true,
+        "allowJs"                          : true,
+        "pretty"                           : true,
+        "strict"                           : false
+    },
+
+    "include": [
+        "apps",
+        "packages",
+        "scripts",
+        "test"
+    ],
+
+    "exclude": [
+        ".github",
+        ".vscode",
+        "docs",
+        "infra",
+        "node_modules",
+    ],
 }
