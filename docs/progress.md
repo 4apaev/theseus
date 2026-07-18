@@ -21,7 +21,9 @@ plan lives in [apps/gateway/readme.md](../apps/gateway/readme.md) - not started
           repeat runs resume consumer groups, inbox dedup holds
     - [x] `util.guid(prefix?)` - the one id helper, `crypto.randomUUID` imports gone
     - [x] `.env.dev` - test knobs stacked via `--env-file`, spec env hacks removed
-- [ ] `@theseus/auth` - signJwt / verifyJwt
+- [x] `@theseus/auth` - `signJwt` / `verifyJwt` / `createAuth({ secret, ttl })` -
+      hand-rolled HS256, `verify` throws a coded `Fail` (401) on bad/expired/malformed
+      tokens; secret stays out of player-service, see [readme](../packages/auth/readme.md)
 - [ ] http routes → commands via kafka's `createCommander`
 - [ ] read routes against projection tables
 - [ ] websocket event feed
