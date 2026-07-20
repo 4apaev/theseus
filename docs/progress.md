@@ -1,13 +1,19 @@
 theseus - progress
 ================================================
 
-full step list + reference: [phase.1.md](phase.1.md) · game design: [game.md](game.md)
+full step list + reference: [phase.1.md](phase.1.md) · game design: [game.md](game.md) · roles design: [permissions.md](permissions.md)
 
 
-current - step 7: gateway (http + websocket)
+current - step 8: minimal client
 ------------------------------------------------
 
-plan lives in [apps/gateway/readme.md](../apps/gateway/readme.md) - not started
+single html file, websocket-driven - not started
+
+
+step 7: gateway (http + websocket) - done ✔
+------------------------------------------------
+
+details in [apps/gateway/readme.md](../apps/gateway/readme.md)
 
 - [x] **real kafka connection** - done (details in [kafka readme](../packages/kafka/readme.md)):
     - [x] `kafka/src/client.js` - `createKafkaClient({ brokers, clientId })` via `kafkajs`;
@@ -24,9 +30,17 @@ plan lives in [apps/gateway/readme.md](../apps/gateway/readme.md) - not started
 - [x] `@theseus/auth` - `signJwt` / `verifyJwt` / `createAuth({ secret, ttl })` -
       hand-rolled HS256, `verify` throws a coded `Fail` (401) on bad/expired/malformed
       tokens; secret stays out of player-service, see [readme](../packages/auth/readme.md)
-- [ ] http routes → commands via kafka's `createCommander`
-- [ ] read routes against projection tables
-- [ ] websocket event feed
+- [x] http routes → commands - `garage` app, payload validated pre-publish (417 → 400),
+      `pid` from token claims, 202 `{ cmd, correlation_id }`
+- [x] `POST /register` / `POST /login` - correlated reply over `events.player`
+      (new `player.login.requested.v1` + `login.succeeded/rejected.v1`), gateway
+      signs JWT; 201/409/202 register, 200/401/504 login
+- [x] read routes against projection tables - `/me` `/ships` `/cargo/:sid`
+      `/market/:stid` `/trades`
+- [x] websocket event feed - hand-rolled rfc 6455, `?token=` before the 101,
+      per-pid fanout + price broadcast, ping/pong keepalive; `scripts/ws-probe.js`
+- [x] tests - 29 unit (routes, frame codec, handshake, fanout, heartbeat, waiter),
+      7 integration (register → login → /me, command lands, ws filtering)
 
 
 step 6: market service - done ✔
@@ -86,12 +100,32 @@ decisions log
 - auth
     - gateway issues JWT on login, validates locally, player service not called at read time
     - `@theseus/auth` (signJwt/verifyJwt) deferred to step 7 - keeps JWT secret out of player service
+- login over kafka       : `player.login.requested.v1` command, player-service verifies the hash
+                           and replies `login.succeeded/rejected.v1` - hash never leaves player-service;
+                           reply is direct-published (no outbox: nothing to keep atomic, no ~1s poll
+                           latency, no auth noise in the durable log); gateway awaits by correlation_id
+- passwords in transit   : plaintext inside `commands.player` payloads (register always worked this
+                           way) - broker is docker-internal, accepted for now; mitigations if it ever
+                           matters: topic retention, broker tls. pre-hashing client-side is pointless,
+                           the digest would just become the password
+- gateway http           : `garage` (the house lib) - router, middleware, `Fail.code` → http status
+- gateway ws             : hand-rolled rfc 6455, jwt via `?token=` checked before the 101
+                           (browsers cannot set ws headers); stable consumer group `gateway` on the
+                           five concrete event topics - resumes offsets instead of replaying per boot
 - crypto split
     - `player/src/crypto.js` owns `hash`/`verify` (credential management only)
 
 
 refactors, todos and tech debt
 ------------------------------------------------
+
+- #### permissions - roles and visibility
+    design note in [permissions.md](permissions.md) - `players.role` →
+    login reply → JWT claim → `requireRole('admin')` middleware, role-aware
+    ws fanout, read-only admin surface + `POST /admin/rebuild` (step 10's home).
+    decided: ship traffic + market transactions public by default, future
+    transponder-off mechanic hides movement. still open: leaderboard, admin
+    powers, admin bootstrap. plumb roles before the html client (step 9).
 
 - #### kafkajs `TimeoutNegativeWarning`
     upstream quirk in kafkajs' request queue (`scheduleCheckPendingRequests`
