@@ -11,6 +11,8 @@ import {
 import {
     playerCreated,
     playerRegistrationRejected,
+    playerLoginSucceeded,
+    playerLoginRejected,
     walletCreated,
     walletDebited,
     walletCredited,
@@ -30,6 +32,8 @@ import {
 const definitions = [
     playerCreated,
     playerRegistrationRejected,
+    playerLoginSucceeded,
+    playerLoginRejected,
     walletCreated,
     walletDebited,
     walletCredited,
@@ -59,6 +63,10 @@ export const tree = freezer({
     player: {
         created     : playerCreated.slug,
         registration: { rejected: playerRegistrationRejected.slug },
+        login       : {
+            succeeded: playerLoginSucceeded.slug,
+            rejected : playerLoginRejected.slug,
+        },
     },
     wallet: {
         created    : walletCreated.slug,

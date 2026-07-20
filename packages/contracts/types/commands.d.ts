@@ -8,7 +8,8 @@ export declare const commandTopics: Readonly<{
 
 export declare const tree: Readonly<{
     player: {
-        register: { requested: 'player.register.requested.v1' }
+        register: { requested: 'player.register.requested.v1' },
+        login: { requested: 'player.login.requested.v1' }
     },
     wallet: {
         debit: { requested: 'wallet.debit.requested.v1' },
@@ -34,13 +35,17 @@ export interface CommandPayloads {
         handle: string
         password: string
     }
+    'player.login.requested.v1': {
+        handle: string
+        password: string
+    }
     'wallet.debit.requested.v1': WalletTransactionRequestPayload
     'wallet.credit.requested.v1': WalletTransactionRequestPayload
     'ship.travel.requested.v1': {
-        from_station: string
+        from: string
         pid: string
         sid: string
-        to_station: string
+        to: string
     }
     'cargo.load.requested.v1': CargoCommandPayload
     'cargo.unload.requested.v1': CargoCommandPayload
@@ -106,6 +111,7 @@ export declare const commandDefinitions: Readonly<{
 
 export declare const commandTypes: Readonly<{
     player_register_requested_v1: 'player.register.requested.v1'
+    player_login_requested_v1: 'player.login.requested.v1'
     wallet_debit_requested_v1: 'wallet.debit.requested.v1'
     wallet_credit_requested_v1: 'wallet.credit.requested.v1'
     ship_travel_requested_v1: 'ship.travel.requested.v1'
