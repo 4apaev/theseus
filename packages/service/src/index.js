@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
 import {
+    readEnv,
     requireEnv,
     bootService,
 } from '@theseus/config'
@@ -56,8 +57,11 @@ export default class Service {
         this.producer = createProducer({ client: this.client })
         this.store    = Inbox.create(this.pool)
 
-        if (ctor.outbox)
-            this.outbox = Outbox.poll(this.pool, this.producer.publish)
+        if (ctor.outbox) {
+            this.outbox = Outbox.poll(this.pool, this.producer.publish, {
+                interval: readEnv('OUTBOX_INTERVAL', 1000),
+            })
+        }
 
         const dispatch = this.handlers()
 
