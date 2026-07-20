@@ -13,7 +13,7 @@ export class Player extends Service {
     static role       = 'players, sessions, and wallets'
 
     handlers() {
-        return createHandlers(this.pool, DB.transact)
+        return createHandlers(this.pool, DB.transact, this.producer)
     }
 }
 

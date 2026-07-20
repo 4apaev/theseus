@@ -4,8 +4,10 @@ import assert from 'node:assert/strict'
 import { createHandlers } from '#apps/player-service/src/handlers.js'
 import Crypt, { hash, verify } from '#apps/player-service/src/crypto.js'
 
+import { Codec } from '@theseus/util'
 import {
     makeCmd,
+    fakePool,
     fakeClient,
     fakeTransact,
     outboxEvents,
@@ -101,6 +103,72 @@ test('registerPlayer rethrows non-23505 errors', async () => {
         () => handlers[ 'player.register.requested.v1' ](makeCmd({ handle: 'alice', password: 'secret' })),
         /connection lost/,
     )
+})
+
+// ── loginPlayer ──────────────────────────────────────────────────────────────
+
+function fakeProducer() {
+    const published = []
+    return {
+        published,
+        events: () => published.map(r => Codec.decode(r.messages[ 0 ].value)),
+        async publish(record) { published.push(record) },
+    }
+}
+
+async function login(producer, players, payload) {
+    const pool     = fakePool(players)
+    const handlers = createHandlers(pool, fakeTransact(pool.client), producer)
+    await handlers[ 'player.login.requested.v1' ](makeCmd(payload))
+}
+
+test('loginPlayer emits login.succeeded on correct password', async () => {
+    const producer = fakeProducer()
+    const stored   = await hash('secret')
+
+    await login(producer, {
+        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored }]}),
+    }, { handle: 'alice', password: 'secret' })
+
+    const [ e ] = producer.events()
+    assert.equal(e.event_type, 'player.login.succeeded.v1')
+    assert.equal(e.causation_id, 'cmd-test')
+    assert.equal(e.correlation_id, 'corr-test')
+    assert.deepEqual(e.payload, { pid: 'p1', handle: 'alice' })
+})
+
+test('loginPlayer emits login.rejected on wrong password', async () => {
+    const producer = fakeProducer()
+    const stored   = await hash('secret')
+
+    await login(producer, {
+        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored }]}),
+    }, { handle: 'alice', password: 'wrong' })
+
+    const [ e ] = producer.events()
+    assert.equal(e.event_type, 'player.login.rejected.v1')
+    assert.deepEqual(e.payload, { handle: 'alice', reason: 'invalid credentials' })
+})
+
+test('loginPlayer emits login.rejected on unknown handle', async () => {
+    const producer = fakeProducer()
+
+    await login(producer, {}, { handle: 'nobody', password: 'secret' })
+
+    const [ e ] = producer.events()
+    assert.equal(e.event_type, 'player.login.rejected.v1')
+    assert.deepEqual(e.payload, { handle: 'nobody', reason: 'invalid credentials' })
+})
+
+test('loginPlayer never writes to the outbox', async () => {
+    const producer = fakeProducer()
+    const pool     = fakePool()
+    const handlers = createHandlers(pool, fakeTransact(pool.client), producer)
+
+    await handlers[ 'player.login.requested.v1' ](makeCmd({ handle: 'alice', password: 'x' }))
+
+    assert.equal(outboxEvents(pool.client).length, 0)
+    assert.equal(producer.published.length, 1)
 })
 
 // ── debitWallet ───────────────────────────────────────────────────────────────
