@@ -1,6 +1,7 @@
 import type { Server } from 'node:http'
 import type { ServiceDescription } from '@theseus/config'
 import type { KafkaConsumerClient } from '@theseus/kafka'
+import type { Wss } from './ws.js'
 
 export {
     type RoutesInput,
@@ -40,11 +41,7 @@ export interface Gateway {
     readonly port: number
     server: Server
     stop(): Promise<void>
-    wss: {
-        push(e: unknown): void;
-        stats(): { sockets: number };
-        close(): void
-    }
+    wss: Wss
 }
 
 export function start(client: KafkaConsumerClient, opt?: GatewayOptions): Promise<Gateway>

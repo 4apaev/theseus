@@ -1,26 +1,51 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { Codec, formatTime       } from '@theseus/util'
-import { eventTree as EVT        } from '@theseus/contracts'
-
-/*  the fixed guid from rfc 6455 - every websocket server uses this
-    exact string. the handshake echoes base64(sha1(client key + MAGIC))
-    back as sec-websocket-accept: not auth, a liveness proof - nothing
-    that doesn't specifically speak websocket would know to do this,
-    so a naive http server / cache / proxy can't accidentally accept
-    an upgrade by echoing headers */
-export const MAGIC = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
-
+import { eventTree as EVT        } from '@theseus/contracts'                   /*
+                                                                                *
+    rfc 6455 in ~250 lines.                                                     *
+    -----------------------------------------------------------------------------
+                                                                                *
+    a websocket starts life as a plain http GET:                                *
+                                                                                *
+        GET /?token=... HTTP/1.1                                                *
+        Connection: Upgrade                                                     *
+        Upgrade: websocket                                                      *
+        Sec-WebSocket-Key: <16 random bytes, base64>                            *
+                                                                                *
+    the server answers `101 Switching Protocols` (handleUpgrade below)          *
+    and from that moment the tcp socket stops being http: both sides            *
+    exchange binary FRAMES (encodeFrame / readFrame), full duplex,              *
+    until a close frame or the socket dies.                                     *
+                                                                                *
+    three layers here:                                                          *
+        handshake   - acceptKey + handleUpgrade                                 *
+        frame codec - encodeFrame + createFrameParser (pure, no sockets)        *
+        the server  - createWss: socket registry, keepalive, per-pid fanout     *
+                                                                                *
+    -----------------------------------------------------------------------------
+                                                                                *
+    the fixed guid from rfc 6455 - every websocket server uses this             *
+    exact string. the handshake echoes base64(sha1(client key + MAGIC))         *
+    back as sec-websocket-accept: not auth, a liveness proof - nothing          *
+    that doesn't specifically speak websocket would know to do this,            *
+    so a naive http server / cache / proxy can't accidentally accept            *
+    an upgrade by echoing headers                                               */
+export const MAGIC = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'                    /*
+                                                                                *
+    frame opcodes - 4 bits on the wire saying what a frame IS.                  *
+    0x0-0x7 are data frames, 0x8-0xf are control frames:                        *
+    control frames are never fragmented and may arrive                          *
+    in the middle of a fragmented message                                       */
 export const OP = {
-    cont : 0x0,
-    text : 0x1,
-    bin  : 0x2,
-    close: 0x8,
-    ping : 0x9,
-    pong : 0xA,
-}
-
-// rfc 6455 §4.2.2 - the client kills the connection unless
-// the 101 carries exactly this value for its sec-websocket-key
+    cont : 0x0, // continuation of a fragmented message - we never fragment
+    text : 0x1, // utf8 payload    - everything the gateway pushes
+    bin  : 0x2, // binary payload  - unused here
+    close: 0x8, // close handshake - 2 byte status code + optional reason
+    ping : 0x9, // keepalive probe - receiver must answer with a pong
+    pong : 0xA, // the answer, payload echoed back
+}                                                                              /*
+    rfc 6455 §4.2.2 - the client kills the connection unless                    *
+    the 101 carries exactly this value for its sec-websocket-key                */
 export function acceptKey(key) {
     return createHash('sha1')
         .update(key + MAGIC)
@@ -29,6 +54,43 @@ export function acceptKey(key) {
 
 // ── frame codec ──────────────────────────────────────────────
 
+/*
+    the rfc 6455 §5.2 frame layout:
+
+     0               1               2               3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-------+-+-------------+-------------------------------+
+    |F|R|R|R| op    |M| len (7)     | extended length (16 or 64)    |
+    |I|S|S|S| code  |A|             | present only when len is      |
+    |N|V|V|V| (4)   |S|             | 126 (u16) or 127 (u64)        |
+    +-+-+-+-+-------+-+-------------+-------------------------------+
+    | masking key (4 bytes, present only when MASK)                 |
+    +---------------------------------------------------------------+
+    | payload - XORed with the key when MASK                        |
+    +---------------------------------------------------------------+
+
+    FIN marks the last fragment of a message - we always send whole
+    messages, so it is always set. RSV bits belong to extensions we
+    don't speak (deflate etc) - always 0.
+
+    length is a 7-bit field with two escape values:
+        n < 126     - the field is the length
+        n < 65536   - field = 126, real length in the next 2 bytes
+        else        - field = 127, real length in the next 8 bytes
+
+    masking: client → server frames MUST be masked (4 random bytes,
+    payload XORed with them), server → client MUST NOT be. it is not
+    encryption - the key travels in the same frame. it randomizes the
+    bytes on the wire so a malicious script can't shape a payload that
+    LOOKS like an http request and poison a dumb caching proxy sitting
+    between browser and server (the §10.3 cache-poisoning attack).
+*/
+
+/**
+ * @param  { Buffer | string } payload
+ * @param  {{ opcode?: number, mask?: boolean }} [opt] - mask: true = act as a client
+ * @return { Buffer } one complete wire frame, FIN always set
+ */
 export function encodeFrame(payload, {
     opcode = OP.text,
     mask = false,
@@ -84,7 +146,12 @@ export function encodeFrame(payload, {
 
 /**
  * @description
- *      stateful: accumulates partial tcp chunks, emits complete frames
+ *      stateful: accumulates partial tcp chunks, emits complete frames.
+ *
+ *      tcp is a byte stream, not a message stream - one 'data' event
+ *      may carry half a frame, or three frames and the start of a
+ *      fourth. the parser buffers what arrived, slices off complete
+ *      frames in a loop, and keeps the remainder for the next chunk.
  *
  * @param  {(frame: Frame) => unknown} onFrame
  * @return {{ push: (chunk: Buffer) => void }}
@@ -106,7 +173,14 @@ export function createFrameParser(onFrame) {
         },
     }
 }
-
+/**
+ * @description
+ *     one frame off the front of the buffer, or undefined
+ *     when the buffer doesn't hold a complete frame yet
+ *
+ * @param  { Buffer } buf
+ * @return { Frame | undefined }
+ */
 function readFrame(buf) {
     if (buf.length < 2)
         return
@@ -115,7 +189,7 @@ function readFrame(buf) {
     const fin    = !!(buf[ 0 ] & 0x80) // 128
     const masked = !!(buf[ 1 ] & 0x80) // 128
     let n        =    buf[ 1 ] & 0x7f  // 127
-    let off = 2
+    let off      = 2
 
     if (n === 126) {                   // 0x7e
         if (buf.length < 4) return
@@ -152,22 +226,43 @@ function readFrame(buf) {
 
 /**
  * @description
- *      push-only feed: jwt in ?token= checked before the 101
+ *      push-only feed: jwt in ?token=... checked before the 101
  *      (browsers cannot set headers on WebSocket),
  *      sockets keyed by pid,
  *      events with payload.pid go to that player,
- *      price changes broadcast
+ *      price changes broadcast.
+ *
+ *      lifecycle per socket:
+ *          1. http upgrade arrives - verify jwt from ?token=, bad → plain 401
+ *          2. answer 101 + Sec-WebSocket-Accept (acceptKey)
+ *          3. register the socket under the token's pid
+ *          4. inbound frames: ping is echoed as pong, pong marks alive,
+ *             close closes politely, anything else is a violation
+ *          5. every `ping` interval probe each socket - an unanswered
+ *             probe means the tcp connection is dead without having
+ *             said so (pulled cable, sleeping laptop, dead nat entry) -
+ *             tcp alone would keep it "open" for hours
+ *
+ *      close codes used: 1000 normal, 1001 going away (shutdown),
+ *      1002 protocol error, 1003 unsupported data
+ *
+ * @param  {{ jwt: { verify(token: string): { pid: string }}, ping?: string | number }} opt
  */
 export function createWss({ jwt, ping = '30s' } = {}) {
     const connections = new Map                       // socket → { pid, alive, closed }
     const tid   = setInterval(heartbeat, formatTime(ping))
     tid.unref?.()
 
+    // before the 101 we are still http - a refusal
+    // is a plain status line, not a close frame
     function reject(soc, status) {
         soc.write(`HTTP/1.1 ${ status }\r\n\r\n`)
         soc.destroy()
     }
 
+    /*  node hands upgrade requests to `server.on('upgrade')` instead of
+        the normal request listener: rq is the parsed http request,
+        soc the raw tcp socket - whatever we write next is the protocol */
     function handleUpgrade(rq, soc) {
         let claims
         try {
@@ -211,6 +306,10 @@ export function createWss({ jwt, ping = '30s' } = {}) {
         soc.on('close', () => connections.delete(soc))
     }
 
+    /*  the polite goodbye: a close frame whose payload is the 2-byte
+        status code, sent at most once (`closed` guard), then the socket
+        goes down. a proper client answers with its own close frame -
+        we don't wait for it, the game feed has nothing left to say */
     function close(soc, code) {
         const con = connections.get(soc)
         if (con && !con.closed) {
@@ -231,6 +330,9 @@ export function createWss({ jwt, ping = '30s' } = {}) {
         connections.get(soc)?.closed || soc.write(frame)
     }
 
+    /*  mark-and-sweep keepalive: flip every socket to not-alive and
+        ping it; the pong handler flips it back. still not-alive on the
+        next tick = no pong for a full interval = presumed dead, drop */
     function heartbeat() {
         for (const [ soc, con ] of connections) {
             if (!con.alive) {
@@ -244,6 +346,9 @@ export function createWss({ jwt, ping = '30s' } = {}) {
 
     return {
         handleUpgrade,
+
+        // one event in, one text frame out - to the owner's sockets when
+        // the payload carries a pid, to everyone for price changes
         push(e) {
             const frame = encodeFrame(Codec.encode({
                 correlation_id: e.correlation_id,
