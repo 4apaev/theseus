@@ -9,7 +9,7 @@ import {
     createCommandEnvelope,
 } from '@theseus/contracts'
 
-const BODY_LIMIT = 65536
+const BODY_LIMIT = 0x10000
 
 export function createRoutes({
     jwt,
@@ -19,23 +19,18 @@ export function createRoutes({
     service = 'gateway',
 }) {
 
-    const app = new Garage({
+    const gw = new Garage({
         name: service,
         onerror(e, rq, rs) {
             e.code >= 500 && console.error(e)
-            rs.headersSent || rs.json(
-                e.code === 417
-                    ? 400
-                    : e.code,
-                { error: e.message },
-            )
+            rs.headersSent || rs.json(e.code === 417 ? 400 : e.code, { error: e.message })
         },
     })
 
     // ── middleware ───────────────────────────────────────────
 
     function auth(rq, rs, next) {
-        const [ scheme, token ] = rq.get('authorization').split(' ')
+        const [ scheme, token ] = rq.get('authorization').split(/ +/)
 
         scheme === 'Bearer' && token || Fail.raise(401, 'missing bearer token')
 
@@ -73,23 +68,21 @@ export function createRoutes({
         })
     }
 
-    async function publish(cmd) {
-        await producer.publish(createCommandRecord(cmd))
-    }
-
-    function accepted(rs,   { cmd, correlation_id }) {
-        return rs.json(202, { cmd, correlation_id })
-    }
     /*
         register the waiter, then publish - the memory broker in tests
         delivers the reply before publish() resolves  */
     async function publishAndWait(cmd, types) {
         const reply = waiter.wait(cmd.correlation_id, types)
-        await publish(cmd)
+        await producer.publish(createCommandRecord(cmd))
         return reply
     }
 
-    app.post('/register', json, async (rq, rs) => {
+    // ── routes ───────────────────────────────────────────────
+
+    // use json for every post route
+    gw.post(json)
+
+    gw.post('/register', async (rq, rs) => {
         const { handle, password } = rq.body
         const cmd = command(CMD.player.register.requested, { handle, password })
 
@@ -98,13 +91,13 @@ export function createRoutes({
             EVT.player.registration.rejected,
         ])
 
-        if (!e) return accepted(rs, cmd)
+        if (!e) return rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id }) // accepted(rs, cmd)
         e.event_type === EVT.player.created
             ? rs.json(201, e.payload)
             : Fail.raise(409, e.payload.reason)
     })
 
-    app.post('/login', json, async (rq, rs) => {
+    gw.post('/login', async (rq, rs) => {
         const { handle, password } = rq.body
         const cmd = command(CMD.player.login.requested, { handle, password })
 
@@ -120,57 +113,67 @@ export function createRoutes({
         rs.json(200, { token: jwt.sign({ pid, handle: h }), pid, handle: h })
     })
 
+    // use auth for every other route
+    gw.use(auth)
+
     // pid always comes from the token, never from the body
-    app.post('/travel', auth, json, async (rq, rs) => {
+    gw.post('/travel', async (rq, rs) => {
         const { sid, from, to } = rq.body
         const cmd = command(CMD.ship.travel.requested, { pid: rq.claims.pid, sid, from, to })
-        await publish(cmd)
-        accepted(rs, cmd)
+        await producer.publish(createCommandRecord(cmd))
+        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
     })
 
-    app.post('/buy', auth, json, async (rq, rs) => {
+    gw.post('/buy', async (rq, rs) => {
         const { gid, sid, stid, quantity, price_unit_max } = rq.body
         const cmd = command(CMD.market.buy.requested, {
             pid: rq.claims.pid, gid, sid, stid, quantity, price_unit_max,
         })
-        await publish(cmd)
-        accepted(rs, cmd)
+        await producer.publish(createCommandRecord(cmd))
+        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
+        // accepted(rs, cmd)
     })
 
-    app.post('/sell', auth, json, async (rq, rs) => {
+    gw.post('/sell', async (rq, rs) => {
         const { gid, sid, stid, quantity, price_unit_min } = rq.body
         const cmd = command(CMD.market.sell.requested, {
-            pid: rq.claims.pid, gid, sid, stid, quantity, price_unit_min,
+            pid: rq.claims.pid,
+            gid,
+            sid,
+            stid,
+            quantity,
+            price_unit_min,
         })
-        await publish(cmd)
-        accepted(rs, cmd)
+        await producer.publish(createCommandRecord(cmd))
+        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
+        // accepted(rs, cmd)
     })
 
     // ── queries ──────────────────────────────────────────────
 
-    app.get('/me', auth, async (rq, rs) => {
+    gw.get('/me', async (rq, rs) => {
         const row = await queries.me(rq.claims.pid)
         row || Fail.raise(404, 'player not found')
         rs.json(200, row)
     })
 
-    app.get('/ships', auth, async (rq, rs) => {
+    gw.get('/ships', async (rq, rs) => {
         rs.json(200, await queries.ships(rq.claims.pid))
     })
 
-    app.get('/cargo/:sid', auth, async (rq, rs) => {
+    gw.get('/cargo/:sid', async (rq, rs) => {
         rs.json(200, await queries.cargo(rq.params.sid, rq.claims.pid))
     })
 
-    app.get('/market/:stid', auth, async (rq, rs) => {
+    gw.get('/market/:stid', async (rq, rs) => {
         rs.json(200, await queries.market(rq.params.stid))
     })
 
-    app.get('/trades', auth, async (rq, rs) => {
+    gw.get('/trades', async (rq, rs) => {
         rs.json(200, await queries.trades(rq.claims.pid))
     })
 
-    app.use((rq, rs) => rs.json(404, { error: 'not found' }))
+    gw.use((rq, rs) => rs.json(404, { error: 'not found' }))
 
-    return app
+    return gw
 }
