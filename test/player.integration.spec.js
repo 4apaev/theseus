@@ -4,6 +4,7 @@ import Crypto from 'node:crypto'
 import { setTimeout } from 'node:timers/promises'
 
 import { DB }                                from '@theseus/db'
+import { readEnv }                           from '@theseus/config'
 import { Query }                             from '@theseus/util'
 import { createProducer, createMemoryKafka } from '@theseus/kafka'
 
@@ -193,7 +194,7 @@ test('debitWallet - duplicate rfid is silently ignored', async () => {
     // replay - same rfid
     await publish(CMD.wallet.debit.requested, cmd)
 
-    await setTimeout(1200) // wait > outbox interval
+    await setTimeout(+readEnv('OUTBOX_INTERVAL', 1000) + 200) // wait > outbox interval
     const { balance } = await sql`select balance from wallets where pid = ${ pid }`
     assert.equal(+balance, 900, 'balance unchanged on replay')
 })
