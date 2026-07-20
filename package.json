@@ -18,7 +18,7 @@
         "#app/*"        : "./apps/*",
         "#pkg/*"        : "./packages/*",
 
-        "#gateway/*"    : "./apps/gateway-service/src/*",
+        "#gateway/*"    : "./apps/gateway/src/*",
         "#market/*"     : "./apps/market-service/src/*",
         "#projection/*" : "./apps/projection-service/src/*",
         "#player/*"     : "./apps/player-service/src/*",
@@ -39,7 +39,8 @@
         "test"          : "bash scripts/test.sh",
         "lint"          : "eslint .",
         "tsc"           : "tsc --noEmit",
-        "check"         : "npm run test && npm run lint && npm run tsc",
+
+        "check"         : "npm run lint && npm run tsc && npm run test && npm run test int && npm run smoke",
         "infra:up"      : "docker compose -f infra/docker-compose.yml up -d",
         "infra:down"    : "docker compose -f infra/docker-compose.yml down",
         "infra:logs"    : "docker compose -f infra/docker-compose.yml logs -f",
