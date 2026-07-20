@@ -11,6 +11,10 @@ export declare const tree: Readonly<{
     player: {
         created: 'player.created.v1',
         registration: { rejected: 'player.registration.rejected.v1' },
+        login: {
+            succeeded: 'player.login.succeeded.v1',
+            rejected: 'player.login.rejected.v1',
+        },
     },
     wallet: {
         created: 'wallet.created.v1',
@@ -35,8 +39,8 @@ export declare const tree: Readonly<{
         },
     },
     trade: {
-        executed: 'trade.executed.v1',
-        rejected: 'trade.rejected.v1',
+        executed: 'market.trade.executed.v1',
+        rejected: 'market.trade.rejected.v1',
     },
 }>
 
@@ -50,6 +54,14 @@ export interface EventPayloads {
         pid: string
     }
     'player.registration.rejected.v1': {
+        handle: string
+        reason: string
+    }
+    'player.login.succeeded.v1': {
+        handle: string
+        pid: string
+    }
+    'player.login.rejected.v1': {
         handle: string
         reason: string
     }
@@ -76,10 +88,10 @@ export interface EventPayloads {
     'ship.departed.v1': {
         arrives: string
         departed: string
-        from_station: string
+        from: string
         pid: string
         sid: string
-        to_station: string
+        to: string
         years_abs: number
         years_rel: number
     }
@@ -103,7 +115,7 @@ export interface EventPayloads {
         reason: string
         sid: string
     }
-    'trade.executed.v1': {
+    'market.trade.executed.v1': {
         gid: string
         pid: string
         price_total: number
@@ -114,7 +126,7 @@ export interface EventPayloads {
         stid: string
         tid: string
     }
-    'trade.rejected.v1': {
+    'market.trade.rejected.v1': {
         gid: string
         pid: string
         quantity: number
@@ -179,6 +191,8 @@ export declare const eventDefinitions: Readonly<{
 export declare const eventTypes: Readonly<{
     player_created_v1: 'player.created.v1'
     player_registration_rejected_v1: 'player.registration.rejected.v1'
+    player_login_succeeded_v1: 'player.login.succeeded.v1'
+    player_login_rejected_v1: 'player.login.rejected.v1'
     wallet_created_v1: 'wallet.created.v1'
     wallet_debited_v1: 'wallet.debited.v1'
     wallet_credited_v1: 'wallet.credited.v1'
@@ -190,8 +204,8 @@ export declare const eventTypes: Readonly<{
     cargo_loaded_v1: 'cargo.loaded.v1'
     cargo_unloaded_v1: 'cargo.unloaded.v1'
     cargo_operation_rejected_v1: 'cargo.operation.rejected.v1'
-    trade_executed_v1: 'trade.executed.v1'
-    trade_rejected_v1: 'trade.rejected.v1'
+    market_trade_executed_v1: 'market.trade.executed.v1'
+    market_trade_rejected_v1: 'market.trade.rejected.v1'
     market_price_changed_v1: 'market.price.changed.v1'
 }>
 

@@ -39,6 +39,16 @@ export const playerRegisterRequested = new Cmd({
     },
 })
 
+export const playerLoginRequested = new Cmd({
+    topic  : 'player',
+    type   : 'login.requested',
+    key    : 'handle',
+    payload: {
+        handle  : field.nonEmptyString,
+        password: field.nonEmptyString,
+    },
+})
+
 export const walletDebitRequested = new Cmd({
     topic  : 'wallet',
     type   : 'debit.requested',
@@ -146,6 +156,26 @@ export const playerCreated = new Schema({
 export const playerRegistrationRejected = new Schema({
     topic  : 'player',
     type   : 'registration.rejected',
+    key    : 'handle',
+    payload: {
+        handle: field.nonEmptyString,
+        reason: field.nonEmptyString,
+    },
+})
+
+export const playerLoginSucceeded = new Schema({
+    topic  : 'player',
+    type   : 'login.succeeded',
+    key    : 'pid',
+    payload: {
+        pid   : field.nonEmptyString,
+        handle: field.nonEmptyString,
+    },
+})
+
+export const playerLoginRejected = new Schema({
+    topic  : 'player',
+    type   : 'login.rejected',
     key    : 'handle',
     payload: {
         handle: field.nonEmptyString,
