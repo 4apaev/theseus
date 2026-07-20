@@ -79,12 +79,39 @@ async function rejectWallet(client, wallet, { cmd: causation_id, correlation_id,
 
 // ─────────────────────────────────────────────────────────────
 
-export function createHandlers(pool, transact) {
+export function createHandlers(pool, transact, producer) {
 
     return {
         [ CMD.player.register.requested ]: registerPlayer,
+        [ CMD.player.login.requested    ]: loginPlayer,
         [ CMD.wallet.debit.requested    ]: debitWallet,
         [ CMD.wallet.credit.requested   ]: creditWallet,
+    }
+
+    /*  login replies bypass the outbox on purpose - no domain write to
+        keep atomic, and the gateway is waiting on the http request */
+    async function loginPlayer({ cmd: causation_id, correlation_id, payload: p }) {
+        const { rows: [ player ] } = await pool.query(
+            'select pid, handle, hash from players where handle = $1',
+            [ p.handle ],
+        )
+
+        const ok = !!player && await Crypt.verify(p.password, player.hash)
+
+        await producer.publish(emit(
+            ok ? EVT.player.login.succeeded : EVT.player.login.rejected,
+            {
+                correlation_id,
+                causation_id,
+                aggregate_id     : ok ? player.pid : p.handle,
+                aggregate_type   : 'player',
+                aggregate_version: 1,
+
+                payload: ok
+                    ? { pid: player.pid, handle: player.handle }
+                    : { handle: p.handle, reason: 'invalid credentials' },
+            },
+        ))
     }
 
     async function registerPlayer({ cmd: causation_id, correlation_id, payload: p }) {
