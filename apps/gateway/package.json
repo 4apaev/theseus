@@ -8,5 +8,14 @@
             "types"  : "./types/main.d.ts",
             "default": "./src/main.js"
         }
+    },
+    "dependencies": {
+        "@theseus/auth"     : "*",
+        "@theseus/config"   : "*",
+        "@theseus/contracts": "*",
+        "@theseus/db"       : "*",
+        "@theseus/kafka"    : "*",
+        "@theseus/util"     : "*",
+        "garage"            : "github:4apaev/garage"
     }
 }
