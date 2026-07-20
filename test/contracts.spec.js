@@ -19,6 +19,7 @@ import '#packages/testing/src/index.js?title=🧪 📜 CONTRACTS'
 
 test('command catalog maps commands to topics', () => {
     assert.equal(commandTopic(commandTypes.player_register_requested_v1), commandTopics.player)
+    assert.equal(commandTopic(commandTypes.player_login_requested_v1)   , commandTopics.player)
     assert.equal(commandTopic(commandTypes.market_buy_requested_v1)     , commandTopics.market)
     assert.equal(commandTopic(commandTypes.ship_travel_requested_v1)    , commandTopics.ship)
     assert.equal(commandTopic(commandTypes.cargo_load_requested_v1)     , commandTopics.cargo)
@@ -27,6 +28,8 @@ test('command catalog maps commands to topics', () => {
 
 test('event catalog maps events to topics', () => {
     assert.equal(eventTopic(eventTypes.ship_departed_v1) , eventTopics.ship)
+    assert.equal(eventTopic(eventTypes.player_login_succeeded_v1), eventTopics.player)
+    assert.equal(eventTopic(eventTypes.player_login_rejected_v1) , eventTopics.player)
     assert.equal(eventTopic(eventTypes.market_trade_executed_v1), eventTopics.market)
     assert.equal(eventTopic(eventTypes.player_created_v1), eventTopics.player)
     assert.equal(eventTopic(eventTypes.cargo_loaded_v1)  , eventTopics.cargo)

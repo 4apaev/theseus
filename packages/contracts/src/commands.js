@@ -8,6 +8,7 @@ import {
 
 import {
     playerRegisterRequested,
+    playerLoginRequested,
     walletDebitRequested,
     walletCreditRequested,
     shipTravelRequested,
@@ -19,6 +20,7 @@ import {
 
 const definitions = [
     playerRegisterRequested,
+    playerLoginRequested,
     walletDebitRequested,
     walletCreditRequested,
     shipTravelRequested,
@@ -38,7 +40,8 @@ export const commandTopics = Object.freeze({
 
 export const tree = freezer({
     player: {
-        register: { requested: playerRegisterRequested.slug }},
+        register: { requested: playerRegisterRequested.slug },
+        login   : { requested: playerLoginRequested.slug }},
     wallet: {
         debit : { requested: walletDebitRequested.slug },
         credit: { requested: walletCreditRequested.slug }},
