@@ -3,6 +3,10 @@ export {
 } from './fixtures.js'
 
 export {
+    wsConnect,
+} from './ws.js'
+
+export {
     createFakeKafka,
 } from './fake-kafka.js'
 

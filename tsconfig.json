@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "types": [
+            "pg",
             "node",
             "./apps/gateway/types/main.d.ts",
             "./apps/market-service/types/main.d.ts",
@@ -14,6 +15,7 @@
             "./packages/kafka/types/index.d.ts",
             "./packages/service/types/index.d.ts",
             "./packages/auth/types/index.d.ts",
+            "./packages/ws/types/index.d.ts",
             "./packages/testing/types/index.d.ts",
         ],
 
