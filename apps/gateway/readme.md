@@ -15,6 +15,8 @@ step `8` in [docs/phase.1.md](../../docs/phase.1.md)
 - `@theseus/contracts` - command envelopes + validation (417 → http 400)
 - `@theseus/auth`      - `sign` / `verify` / `create` - the JWT secret lives here only
 - `@theseus/db`        - read-only pool into projection read models
+- `@theseus/ws`        - the rfc 6455 protocol (handshake, frames, keepalive) -
+  see [readme](../../packages/ws/readme.md); `feed.js` is the game-specific layer on top
 - `@theseus/config`
 - `@theseus/util`
 
@@ -28,7 +30,7 @@ step `8` in [docs/phase.1.md](../../docs/phase.1.md)
 | `routes.js`  | garage app: auth middleware, command routes, query routes                |
 | `queries.js` | sql against `projection` tables                                          |
 | `replies.js` | correlation waiter - register/login block until the reply event lands    |
-| `ws.js`      | hand-rolled rfc 6455: frame codec, upgrade handshake, per-pid fanout     |
+| `feed.js`    | jwt-authenticated pid/price-broadcast fanout, built on `@theseus/ws`     |
 
 one kafka subscription (stable group `gateway`, the five concrete `events.*`
 topics - `events.all` is never populated on a real broker) feeds both the
@@ -82,8 +84,9 @@ probe it: `node --env-file=./.env scripts/ws-probe.js <token>`
 ### tests
 
 - `test/gateway.spec.js` - routes against a live garage app on port 0
-  (memory kafka + fake pool + fake player service), ws frame codec,
-  handshake, fanout filtering, heartbeat, reply waiter
+  (memory kafka + fake pool + fake player service), `feed.js`'s jwt/pid
+  fanout, reply waiter. rfc 6455 protocol mechanics (frame codec,
+  handshake, keepalive) live in `test/ws.spec.js` against `@theseus/ws` directly
 - `test/gateway.integration.spec.js` - memory kafka + real pg: register →
   login → /me through the projection, travel command lands in kafka,
   ws pushes own events only

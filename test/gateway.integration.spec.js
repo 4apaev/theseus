@@ -1,6 +1,5 @@
 import test   from 'node:test'
 import assert from 'node:assert/strict'
-import Http   from 'node:http'
 
 import { Codec } from '@theseus/util'
 import { createMemoryKafka } from '@theseus/kafka'
@@ -9,11 +8,12 @@ import { commandTree as CMD, commandTopics, eventTree as EVT } from '@theseus/co
 import startPlayer     from '@theseus/player-service'
 import startProjection from '@theseus/projection-service'
 import startGateway    from '@theseus/gateway'
-import { createFrameParser, acceptKey } from '#apps/gateway/src/ws.js'
+import { createFrameParser, acceptKey } from '@theseus/ws'
 
 import {
     guid,
     waitFor,
+    wsConnect,
 } from '#packages/testing/src/index.js?title=🧪 INTEGRATION ⛩️ GATEWAY'
 
 const PRFX = 'itg_gateway'
@@ -114,27 +114,6 @@ test('command routes without a token reply 401', async () => {
 
 // ── websocket ────────────────────────────────────────────────────────────────
 
-function wsConnect(port, token) {
-    return new Promise((resolve, reject) => {
-        const rq = Http.request({
-            port,
-            path   : `/?token=${ token }`,
-            headers: {
-                connection         : 'Upgrade',
-                upgrade            : 'websocket',
-                'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==',
-            },
-        })
-        rq.on('upgrade', (rs, socket) => {
-            socket.on('error', () => {})
-            resolve({ rs, socket })
-        })
-        rq.on('response', rs => resolve({ rs }))
-        rq.on('error', reject)
-        rq.end()
-    })
-}
-
 test('ws feed pushes this player\'s events and only theirs', async () => {
     const mine   = guid(PRFX)
     const theirs = guid(PRFX)
@@ -142,7 +121,7 @@ test('ws feed pushes this player\'s events and only theirs', async () => {
     const me    = await registerAndLogin(mine)
     const other = await registerAndLogin(theirs)
 
-    const { rs, socket } = await wsConnect(gateway.port, me.token)
+    const { rs, socket } = await wsConnect(gateway.port, `?token=${ me.token }`)
     assert.equal(rs.statusCode, 101)
     assert.equal(rs.headers[ 'sec-websocket-accept' ], acceptKey('dGhlIHNhbXBsZSBub25jZQ=='))
 
@@ -185,6 +164,6 @@ test('ws feed pushes this player\'s events and only theirs', async () => {
 })
 
 test('ws upgrade with a bad token replies 401', async () => {
-    const { rs } = await wsConnect(gateway.port, 'garbage')
+    const { rs } = await wsConnect(gateway.port, '?token=garbage')
     assert.equal(rs.statusCode, 401)
 })

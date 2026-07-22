@@ -2,12 +2,12 @@
 
 import test   from 'node:test'
 import assert from 'node:assert/strict'
-import Http   from 'node:http'
 
 import Sync from 'garage/sync'
 
 import { create } from '@theseus/auth'
 import { Codec, echo } from '@theseus/util'
+import { acceptKey, createFrameParser } from '@theseus/ws'
 import {
     createEmitter,
     createMemoryKafka,
@@ -22,16 +22,11 @@ import {
 
 import start             from '#gateway/main.js'
 import { createReplies } from '#gateway/replies.js'
-import {
-    OP,
-    acceptKey,
-    encodeFrame,
-    createFrameParser,
-} from '#gateway/ws.js'
 
 import {
     fakePool,
     waitFor,
+    wsConnect,
 } from '#testing/index.js?title=🧪 ⛩️ GATEWAY'
 
 const SECRET = 'test-secret'
@@ -241,60 +236,6 @@ test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async
     assert.equal(trades, void 0)
 })
 
-// ── ws codec ────────────────────────────────────────────────────────────────
-
-/*  known-answer test: the worked example published in rfc 6455 §1.3 -
-    key base64("the sample nonce") must hash to exactly this accept.
-    pins the sha1 + MAGIC + base64 chain: wrong digest, swapped
-    concatenation or a typo'd guid fails here, no sockets involved.
-    wsConnect below reuses the same pair against the live handshake */
-test('acceptKey matches the rfc 6455 sample', () => {
-    assert.equal(acceptKey('dGhlIHNhbXBsZSBub25jZQ=='), 's3pPLMBiTxaQ9kYGzzhZRbK+xOo=')
-})
-
-test('frame codec roundtrips short, medium and long payloads', () => {
-    for (const n of [ 5, 300, 70000 ]) {
-        const payload = 'x'.repeat(n)
-        const frames  = []
-        createFrameParser(f => frames.push(f)).push(encodeFrame(payload))
-
-        assert.equal(frames.length, 1)
-        assert.equal(frames[ 0 ].opcode, OP.text)
-        assert.equal(frames[ 0 ].payload.toString(), payload)
-        assert.ok(frames[ 0 ].fin)
-    }
-})
-
-test('frame parser unmasks client frames', () => {
-    const frames = []
-    createFrameParser(f => frames.push(f)).push(encodeFrame('hello', { mask: true }))
-
-    assert.equal(frames[ 0 ].masked, true)
-    assert.equal(frames[ 0 ].payload.toString(), 'hello')
-})
-
-test('frame parser survives byte-at-a-time delivery', () => {
-    const frames = []
-    const parser = createFrameParser(f => frames.push(f))
-    const wire   = encodeFrame('sliced', { mask: true })
-
-    for (const byte of wire)
-        parser.push(Buffer.from([ byte ]))
-
-    assert.equal(frames.length, 1)
-    assert.equal(frames[ 0 ].payload.toString(), 'sliced')
-})
-
-test('frame parser emits multiple frames from one chunk', () => {
-    const frames = []
-    createFrameParser(f => frames.push(f)).push(Buffer.concat([
-        encodeFrame('one'),
-        encodeFrame('two'),
-    ]))
-
-    assert.deepEqual(frames.map(f => f.payload.toString()), [ 'one', 'two' ])
-})
-
 // ── replies waiter ──────────────────────────────────────────────────────────
 
 test('waiter resolves a matching reply', async () => {
@@ -321,29 +262,10 @@ test('waiter resolves undefined on timeout and cleans up', async () => {
     assert.equal(waiter.size, 0)
 })
 
-// ── websocket server ────────────────────────────────────────────────────────
-
-function wsConnect(port, params, headers = {}) {
-    return new Promise((resolve, reject) => {
-        const rq = Http.request({
-            port,
-            path   : `/${ params }`,
-            headers: {
-                connection           : 'Upgrade',
-                upgrade              : 'websocket',
-                'sec-websocket-key'  : 'dGhlIHNhbXBsZSBub25jZQ==',
-                ...headers,
-            },
-        })
-        rq.on('upgrade', (rs, socket) => {
-            socket.on('error', () => {})
-            resolve({ rs, socket })
-        })
-        rq.on('response', rs => resolve({ rs }))
-        rq.on('error', reject)
-        rq.end()
-    })
-}
+// ── websocket feed ──────────────────────────────────────────────────────────
+// createFeed's own composition: jwt → authenticate wiring, pid-filtered
+// routing, price broadcast. protocol mechanics (handshake, frame codec,
+// keepalive) are @theseus/ws's job and live in test/ws.spec.js
 
 test('ws upgrade handshakes with a valid token', async () => {
     const { rs, socket } = await wsConnect(gw.port, `?token=${ token }`)
@@ -397,47 +319,4 @@ test('ws broadcasts market price changes to everyone', async () => {
     await waitFor(() => received.length)
     assert.equal(received[ 0 ].event_type, EVT.market.price.changed)
     socket.destroy()
-})
-
-test('ws answers ping with pong and close with close', async () => {
-    const { socket } = await wsConnect(gw.port, `?token=${ token }`)
-    const frames     = []
-    const parser     = createFrameParser(f => frames.push(f))
-    socket.on('data', chunk => parser.push(chunk))
-
-    socket.write(encodeFrame('marco', { opcode: OP.ping, mask: true }))
-    await waitFor(() => frames.length)
-
-    assert.equal(frames[ 0 ].opcode, OP.pong)
-    assert.equal(frames[ 0 ].payload.toString(), 'marco')
-
-    socket.write(encodeFrame(Buffer.alloc(0), { opcode: OP.close, mask: true }))
-    await waitFor(() => frames.some(f => f.opcode === OP.close))
-})
-
-test('ws closes the connection on an unmasked client frame', async () => {
-    const { socket } = await wsConnect(gw.port, `?token=${ token }`)
-    const closed     = new Promise(done => socket.on('close', done))
-
-    socket.resume()                        // paused upgrade socket never sees the fin
-    socket.write(encodeFrame('cheat', { mask: false }))
-    await closed
-    assert.ok(true)
-})
-
-test('ws heartbeat drops silent connections', async () => {
-    const beat = await start(kafka, { pool: fakePool(), secret: SECRET, port: 0, ping: 40 })
-
-    try {
-        const { socket } = await wsConnect(beat.port, `?token=${ token }`)
-        const closed = new Promise(done => socket.on('close', done))
-        socket.resume()
-
-        await waitFor(() => beat.wss.stats().sockets === 1)
-        await closed                                   // no pong sent → dropped
-        await waitFor(() => beat.wss.stats().sockets === 0)
-    }
-    finally {
-        await beat.stop()
-    }
 })
