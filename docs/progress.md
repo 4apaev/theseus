@@ -119,6 +119,19 @@ decisions log
 refactors, todos and tech debt
 ------------------------------------------------
 
+
+- #### admin dashboard
+    the game needs an admin dashboard
+    1. manage game assets
+    2. deployment tasks
+    3. monitoring (grafana, kibana, prometheus)
+
+- #### delta v
+    add real delta v calculus to the game,
+    accelerate + blaming + mass of fuel and mass of the ship + cargo
+    1. introduce `cargo` `weight` field
+    2. introduce `fuel` entity with `mass`, `type`, etc...
+
 - #### permissions - roles and visibility
     design note in [permissions.md](permissions.md) - `players.role` →
     login reply → JWT claim → `requireRole('admin')` middleware, role-aware
@@ -127,12 +140,30 @@ refactors, todos and tech debt
     transponder-off mechanic hides movement. still open: leaderboard, admin
     powers, admin bootstrap. plumb roles before the html client (step 9).
 
+- #### gateway logger
+    gateway should use logger, the logger should live in `garage/mware`
+
+- #### websocket lib - done ✔
+    extracted to [`packages/ws`](../packages/ws/readme.md) - `../garage` had
+    unrelated uncommitted work in progress and theseus's `node_modules/garage`
+    is a separately-installed copy, not live-linked, so landing it there
+    would've been invisible until a publish+bump cycle. protocol only
+    (handshake, frame codec, keepalive, opaque `authenticate`/`each` registry) -
+    `apps/gateway/src/feed.js` is the game-specific pid/jwt fanout on top.
+    still worth upstreaming into `garage/ws` later once that repo settles -
+    the code itself won't need to change, just its address.
+
+- #### garage
+    1. `Sync.parse` throws if `response.ok` is `false` - make it optional
+    2. `Fail` refactor, `code` should be optional, map system error errno to http status
+    3. add useful `middleware` under `garage/mware` like `logger`, `cors`, `etag`, `gzip` etc...
+
 - #### kafkajs `TimeoutNegativeWarning`
     upstream quirk in kafkajs' request queue (`scheduleCheckPendingRequests`
     computes a negative delay, node clamps to 1ms) - harmless noise on boot,
     not our code. revisit if kafkajs ships a fix or we swap clients.
 
-- ### `market:sagas`
+- #### `market:sagas`
     add `auction` saga, when players can bid against `station:good`
 
 - #### `pkg/util`
