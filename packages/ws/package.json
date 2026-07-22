@@ -1,0 +1,15 @@
+{
+    "name"   : "@theseus/ws",
+    "version": "0.0.0",
+    "type"   : "module",
+    "types"  : "./types/index.d.ts",
+    "exports": {
+        ".": {
+            "types"  : "./types/index.d.ts",
+            "default": "./src/index.js"
+        }
+    },
+    "dependencies": {
+        "@theseus/util": "*"
+    }
+}

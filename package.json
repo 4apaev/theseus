@@ -31,6 +31,7 @@
         "#config/*"     : "./packages/config/src/*",
         "#util/*"       : "./packages/util/src/*",
         "#auth/*"       : "./packages/auth/src/*",
+        "#ws/*"         : "./packages/ws/src/*",
         "#testing/*"    : "./packages/testing/src/*"
     },
     "scripts": {
