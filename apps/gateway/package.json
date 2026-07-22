@@ -16,6 +16,7 @@
         "@theseus/db"       : "*",
         "@theseus/kafka"    : "*",
         "@theseus/util"     : "*",
+        "@theseus/ws"       : "*",
         "garage"            : "github:4apaev/garage"
     }
 }
