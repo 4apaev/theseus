@@ -9,8 +9,13 @@ and see it all update live - through a browser. first real consumer of the
 gateway api.
 
 decisions:
-- lives at `apps/gateway/public/index.html`, served by a public `GET /`
-  via garage `rs.file()` - same origin as api + ws, zero cors, one url
+- lives at top-level `client/index.html` - not nested in the gateway app,
+  not an npm package (no deps, nothing imports it). served by a public
+  `GET /` via garage `rs.file()`; path comes from `GATEWAY_CLIENT_PATH`
+  (default `./client/index.html`, relative to cwd - every documented boot
+  command in this repo runs from repo root). same origin as api + ws
+  either way - cors was never about file location, only which process
+  serves the response
 - scope: the full loop + flavor + retro terminal theme (dark, monospace,
   phosphor green + amber, css scanlines). no framework, no external assets
 - new public `GET /universe` - client needs stations/routes/goods/constants,
@@ -25,6 +30,10 @@ verified facts the plan leans on
 - `rs.file(path)` streams, content-type from extension, self-404s.
   ws upgrades bypass the router (`server.on('upgrade')`) - `GET /` and
   `ws://host/?token=` coexist on the same path
+- gateway's own config (`secret`, `ttl`, `timeout`, `ping`, `port`) all
+  flow `opt.x ?? readEnv(...)` in `main.js`'s `start()`, then get passed
+  as explicit params into `createRoutes`/`createFeed` - `routes.js` never
+  calls `readEnv` itself. the client path follows the same shape
 - `universe.link(a, b)` stores both directions → 3 links = 6 directed
   routes. `Universe` holds Maps - hand-serialize
 - `cargo.loaded/unloaded.v1` quantity is the trade **delta** - client
@@ -40,12 +49,16 @@ verified facts the plan leans on
 ------------------------------------------------
 
 - `apps/gateway/package.json` + `"@theseus/domain": "*"`, `npm i`
-- `apps/gateway/src/routes.js` - import `fileURLToPath`, `readEnv`,
-  `{ universe, goods, starterShip }`; module consts next to `BODY_LIMIT`:
+- `apps/gateway/src/main.js` - inside `start(client, opt)`, next to the
+  other `opt.x ?? readEnv(...)` lines:
+  `const clientPath = opt.clientPath ?? readEnv('GATEWAY_CLIENT_PATH', './client/index.html')`,
+  then thread it into `createRoutes({ producer, jwt, queries, waiter, service, clientPath })`
+- `apps/gateway/src/routes.js` - import `readEnv`, `{ universe, goods, starterShip }`;
+  `createRoutes({ ..., clientPath })` destructures the new param; module
+  const next to `BODY_LIMIT` (no `fileURLToPath`/`import.meta.url` needed -
+  the default is already a plain cwd-relative string):
 
 ```js
-const INDEX = fileURLToPath(new URL('../public/index.html', import.meta.url))
-
 const UNIVERSE = {
     stations : [ ...universe.nodes.values() ],
     routes   : [ ...universe.edges ].flatMap(([ from, m ]) =>
@@ -61,9 +74,13 @@ const UNIVERSE = {
 ```
 
 - register after `gw.post(json)`, before `POST /register`:
-  `gw.get('/', (rq, rs) => rs.file(INDEX))` and
+  `gw.get('/', (rq, rs) => rs.file(clientPath))` and
   `gw.get('/universe', (rq, rs) => rs.json(200, UNIVERSE))`
-- `types/routes.d.ts` doc comment mentions both
+- `types/routes.d.ts` doc comment mentions both; `RoutesInput` gains `clientPath: string`
+- `.env.example`: add `GATEWAY_CLIENT_PATH=`
+- `.env`: add `GATEWAY_CLIENT_PATH=./client/index.html` (spelled out
+  explicitly for discoverability, matching how `GATEWAY_PORT=3000` is
+  set even though the code has a fallback)
 
 specs in `test/gateway.spec.js` (no bearer - that IS the public assertion):
 - `GET /` → 200, `text/html`, body matches `/theseus/i`
@@ -71,7 +88,7 @@ specs in `test/gateway.spec.js` (no bearer - that IS the public assertion):
   `starter.stid === 'sol.outpost'`, `constants.time_scale === 20`
 
 
-2 · the file - apps/gateway/public/index.html
+2 · the file - client/index.html
 ------------------------------------------------
 
 order inside: `<style>` (~200) → markup (~120) → `<script>` (~650).
@@ -177,7 +194,8 @@ explicit copy · multiple ships → `ships[0]` defensively
 4 · order + verify
 ------------------------------------------------
 
-1. routes + deps + placeholder html + d.ts comment → `npm run lint && npm run tsc`
+1. routes + deps + `GATEWAY_CLIENT_PATH` env + placeholder html + d.ts comment
+   → `npm run lint && npm run tsc`
 2. two specs → `npm test` green (coverage gate needs both handlers)
 3. css + markup + auth + api + hydrate + renders (no ws) → boot infra +
    4 services + gateway, open localhost:3000, register/login, panels
