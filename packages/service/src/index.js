@@ -93,6 +93,10 @@ export default class Service {
             service: this.service,
             role   : this.role,
             owns   : this.owns,
+            get uptime() {
+                return process.uptime()
+            },
+            __proto__: null,
         }
     }
 
