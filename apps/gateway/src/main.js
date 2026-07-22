@@ -13,7 +13,7 @@ import {
     bootService,
 } from '@theseus/config'
 
-import { createWss     } from './ws.js'
+import { createFeed    } from './feed.js'
 import { createRoutes  } from './routes.js'
 import { createQueries } from './queries.js'
 import { createReplies } from './replies.js'
@@ -24,6 +24,7 @@ export const service = 'gateway'
 export function describeService() {
     return {
         service,
+        uptime: process.uptime(),
         role: 'http api and websocket gateway',
         owns: [],
     }
@@ -38,17 +39,17 @@ export async function start(client, opt = {}) {
     const jwt      = create(opt.secret ?? requireEnv('JWT_SECRET'), opt.ttl ?? readEnv('JWT_TTL', '7d'))
     const producer = createProducer({ client })
     const waiter   = createReplies(opt.timeout ?? readEnv('GATEWAY_REPLY_TIMEOUT', '5s'))
-    const wss      = createWss({ jwt, ping: opt.ping })
+    const feed     = createFeed({ jwt, ping: opt.ping })
     const queries  = createQueries(pool)
 
     const app    = createRoutes({ producer, jwt, queries, waiter, service })
     const server = app.init()
-    server.on('upgrade', (rq, socket) => wss.handleUpgrade(rq, socket))
+    server.on('upgrade', (rq, socket) => feed.handleUpgrade(rq, socket))
 
     /*  stable group: resumes offsets across restarts instead of replaying
         the log at every boot. a second gateway instance would split the
         fanout - single instance for now */
-    const feed = client.subscribe({
+    const subscription = client.subscribe({
         groupId: service,
         topics : [
             eventTopics.player,
@@ -60,7 +61,7 @@ export async function start(client, opt = {}) {
         handler(record) {
             const { value } = decodeTopicMessage(record)
             waiter.settle(value)
-            wss.push(value)
+            feed.push(value)
         },
     })
 
@@ -68,11 +69,11 @@ export async function start(client, opt = {}) {
 
     return {
         server,
-        wss,
+        feed,
         get port() { return server.address().port },
         async stop() {
-            wss.close()
-            feed.stop()
+            feed.close()
+            subscription.stop()
             await new Promise(done => {
                 server.close(done)
                 server.closeAllConnections()      // keep-alive sockets outlive close()
