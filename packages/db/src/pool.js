@@ -2,6 +2,13 @@ import pg from 'pg'
 import { Query, withClient   } from '@theseus/util'
 import { readEnv, requireEnv } from '@theseus/config'
 
+/*  pg's default parser for `timestamp` (no tz, oid 1114) reads the naive
+    digits using the driver process's LOCAL timezone. every service writes
+    these columns via `new Date().toISOString()` (always utc), so on a
+    non-utc host the round trip silently shifts every value by the host's
+    utc offset. force utc interpretation - matches what's actually stored */
+pg.types.setTypeParser(1114, str => new Date(str + 'Z'))
+
 export function createPool({ schema } = {}) {
     const pool = new pg.Pool({
         host    : requireEnv('PG_HOST'),
