@@ -34,15 +34,16 @@ export function describeService() {
     the producer, reads from projection, one event feed shared by the
     reply waiter and the websocket fanout */
 export async function start(client, opt = {}) {
-    const owned    = !opt.pool
-    const pool     = opt.pool ?? DB.create({ schema: 'projection' })
-    const jwt      = create(opt.secret ?? requireEnv('JWT_SECRET'), opt.ttl ?? readEnv('JWT_TTL', '7d'))
-    const producer = createProducer({ client })
-    const waiter   = createReplies(opt.timeout ?? readEnv('GATEWAY_REPLY_TIMEOUT', '5s'))
-    const feed     = createFeed({ jwt, ping: opt.ping })
-    const queries  = createQueries(pool)
+    const owned      = !opt.pool
+    const pool       = opt.pool ?? DB.create({ schema: 'projection' })
+    const jwt        = create(opt.secret ?? requireEnv('JWT_SECRET'), opt.ttl ?? readEnv('JWT_TTL', '7d'))
+    const producer   = createProducer({ client })
+    const waiter     = createReplies(opt.timeout ?? readEnv('GATEWAY_REPLY_TIMEOUT', '5s'))
+    const feed       = createFeed({ jwt, ping: opt.ping })
+    const queries    = createQueries(pool)
+    const clientPath = opt.clientPath ?? readEnv('GATEWAY_CLIENT_PATH', './client/index.html')
 
-    const app    = createRoutes({ producer, jwt, queries, waiter, service })
+    const app    = createRoutes({ producer, jwt, queries, waiter, service, clientPath })
     const server = app.init()
     server.on('upgrade', (rq, socket) => feed.handleUpgrade(rq, socket))
 

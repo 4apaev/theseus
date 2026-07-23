@@ -20,8 +20,8 @@ steps
 |   6    | [market service](../apps/market-service/readme.md)         - `@theseus/market`     buy + sell sagas                           | done    |
 |   7    | [auth](../packages/auth/readme.md)                         - `@theseus/auth`       sign / verify / create                     | done    |
 |   8    | [gateway](../apps/gateway/readme.md)                       - `@theseus/gateway`    http + websocket                           | done    |
-|  [9]   | minimal client - single html file, websocket-driven                                                                           | current |
-|  10    | projection rebuild - truncate + replay from event log                                                                         | todo    |
+|   9    | [client](../client) - `client/index.html`, plan in [client.md](client.md)          websocket-driven                           | done    |
+| [10]   | projection rebuild - truncate + replay from event log                                                                         | current |
 
 
 ### packages

@@ -1,15 +1,28 @@
 /* eslint-disable camelcase */
+import Pt from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { styleText as styl } from 'node:util'
 
 import { Garage } from 'garage'
 import { Is, Fail, guid } from '@theseus/util'
 import { createCommandRecord } from '@theseus/kafka'
+import { universeData } from '@theseus/domain'
 import {
     commandTree as CMD,
     eventTree as EVT,
     createCommandEnvelope,
 } from '@theseus/contracts'
 
+/**
+ * @typedef { import('garage').MWare } MWare
+ * @typedef { import('garage').GarageOptions } GarageOpt
+ */
+
 const BODY_LIMIT = 0x10000
+
+// browser-safe subset of garage's source
+// served so the client can `import ... from 'garage/x'`
+const GARAGE_DIR = Pt.dirname(fileURLToPath(import.meta.resolve('garage')))
 
 export function createRoutes({
     jwt,
@@ -17,27 +30,43 @@ export function createRoutes({
     queries,
     producer,
     service = 'gateway',
+    clientPath,
 }) {
 
-    const gw = new Garage({
-        name: service,
-        onerror(e, rq, rs) {
-            e.code >= 500 && console.error(e)
-            rs.headersSent || rs.json(e.code === 417 ? 400 : e.code, { error: e.message })
-        },
-    })
+    /** @type { GarageOpt['onerror'] } */
+    function onerror(e, rq, rs) {
+        e.code >= 500 && console.error(e)
+        rs.headersSent || rs.json(e.code === 417 ? 400 : e.code, { error: e.message })
+    }
+
+    /** @type  { Garage } */
+    const gw = new Garage({ name: service, onerror })
 
     // ── middleware ───────────────────────────────────────────
 
+    /** @type { MWare } */
+    async function log(rq, rs, next) {
+        const start = performance.now()
+        await next()
+        // (new Date).toLocaleString('en-gb', { hour12: false }),
+        console.log(
+            styl('bgCyan', (performance.now() - start).toFixed(2).padEnd(8)),
+            styl(rs.status > 399 ? 'red' : 'green', `${ rs.status }`),
+            styl('yellow', rq.method.padEnd(8)),
+            rq.url,
+        )
+    }
+
+    /** @type { MWare } */
     function auth(rq, rs, next) {
         const [ scheme, token ] = rq.get('authorization').split(/ +/)
-
-        scheme === 'Bearer' && token || Fail.raise(401, 'missing bearer token')
+        scheme == 'Bearer' && token || Fail.raise(401, 'missing bearer token')
 
         rq.claims = jwt.verify(token)
         return next()
     }
 
+    /** @type { MWare } */
     async function json(rq, rs, next) {
         rq.size > BODY_LIMIT && Fail.raise(413, 'body too large')
 
@@ -45,6 +74,9 @@ export function createRoutes({
         if (rq.error)
             throw rq.error
 
+        // TODO: rq.reader() should parse automaticly
+        // if content-type is json.
+        // looks like duplicate
         if (Is.s(rq.body) || Is.B(rq.body)) {
             try {
                 rq.body = JSON.parse(rq.body)
@@ -78,6 +110,25 @@ export function createRoutes({
     }
 
     // ── routes ───────────────────────────────────────────────
+
+    // ── public: client + universe ───────────────────────────
+
+    // style.css / app.js are siblings of clientPath, not separately configured
+    const clientDir = Pt.dirname(clientPath)
+
+    gw.use(log)
+
+    gw.get('/'         , (rq, rs) => rs.file(clientPath))
+    gw.get('/style.css', (rq, rs) => rs.file(Pt.join(clientDir, 'style.css')))
+    gw.get('/app.js'   , (rq, rs) => rs.file(Pt.join(clientDir, 'app.js')))
+    gw.get('/universe' , (rq, rs) => rs.json(200, universeData))
+
+    gw.get('/garage/:file(.*)', (rq, rs) => {
+        const path = Pt.resolve(GARAGE_DIR, rq.params.file)
+        return path.startsWith(GARAGE_DIR)
+            ? rs.file(path.replace(/(\.js)?$/, '.js'))
+            : rs.send(404, 'not found')
+    })
 
     // use json for every post route
     gw.post(json)

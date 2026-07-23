@@ -8,6 +8,8 @@ step `8` in [docs/phase.1.md](../../docs/phase.1.md)
 - issues JWT on login, validates locally - player-service not called at read time
 - stateless: no schema, no migrations, no inbox/outbox - does NOT extend `@theseus/service`
 - composes `createKafkaClient` + `createProducer` + `DB.create({ schema: 'projection' })` directly (like `scripts/smoke.js`)
+- also serves the reference client - a top-level `client/index.html`, not
+  nested here and not an npm package; see [docs/client.md](../../docs/client.md)
 
 ### deps
 - `garage`             - http server, router, middleware ([readme](https://github.com/4apaev/garage))
@@ -15,6 +17,9 @@ step `8` in [docs/phase.1.md](../../docs/phase.1.md)
 - `@theseus/contracts` - command envelopes + validation (417 → http 400)
 - `@theseus/auth`      - `sign` / `verify` / `create` - the JWT secret lives here only
 - `@theseus/db`        - read-only pool into projection read models
+- `@theseus/domain`    - `universeData` - stations/routes/goods/starter/constants,
+  fully composed there (incl. env-tunable `TIME_SCALE`/`INTEREST_RATE`/`STARTER_CREDITS`)
+  and served as-is for `GET /universe`
 - `@theseus/ws`        - the rfc 6455 protocol (handshake, frames, keepalive) -
   see [readme](../../packages/ws/readme.md); `feed.js` is the game-specific layer on top
 - `@theseus/config`
@@ -40,6 +45,11 @@ reply waiter and the websocket fanout.
 
 | route              | auth | behavior                                                            |
 |--------------------|------|---------------------------------------------------------------------|
+| `GET /`            |  -   | the html client, `rs.file(clientPath)`                              |
+| `GET /style.css`   |  -   | `style.css`, a sibling of `clientPath`                               |
+| `GET /app.js`      |  -   | `app.js`, a sibling of `clientPath`                                  |
+| `GET /universe`    |  -   | stations / routes / goods / starter ship / constants, serialized once |
+| `GET /garage/:file(.*)` | - | browser-safe `garage` source (util/sync/mime/constants), backs the client's import map |
 | `POST /register`   |  -   | `player.register.requested` → waits for reply: 201 created, 409 taken, 202 `{cmd, correlation_id}` on timeout |
 | `POST /login`      |  -   | `player.login.requested` → 200 `{token, pid, handle}`, 401 bad creds, 504 timeout |
 | `POST /travel`     |  ✓   | `ship.travel.requested` → 202 `{cmd, correlation_id}`               |
@@ -79,14 +89,16 @@ probe it: `node --env-file=./.env scripts/ws-probe.js <token>`
 |-------------------------|---------|-----------------------------------|
 | `GATEWAY_PORT`          | 3000    | http + ws port                    |
 | `GATEWAY_REPLY_TIMEOUT` | 5s      | register/login reply wait (must exceed the ~1s outbox poll) |
+| `GATEWAY_CLIENT_PATH`   | `./client/index.html` | served by `GET /`, cwd-relative - every documented boot command runs from repo root |
 | `JWT_SECRET` `JWT_TTL`  | -       | token signing (`@theseus/auth`)   |
 
 ### tests
 
 - `test/gateway.spec.js` - routes against a live garage app on port 0
-  (memory kafka + fake pool + fake player service), `feed.js`'s jwt/pid
-  fanout, reply waiter. rfc 6455 protocol mechanics (frame codec,
-  handshake, keepalive) live in `test/ws.spec.js` against `@theseus/ws` directly
+  (memory kafka + fake pool + fake player service): `GET /` `/universe`
+  (public, no bearer), `feed.js`'s jwt/pid fanout, reply waiter. rfc 6455
+  protocol mechanics (frame codec, handshake, keepalive) live in
+  `test/ws.spec.js` against `@theseus/ws` directly
 - `test/gateway.integration.spec.js` - memory kafka + real pg: register →
   login → /me through the projection, travel command lands in kafka,
   ws pushes own events only
