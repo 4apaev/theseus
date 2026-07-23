@@ -138,3 +138,90 @@ not only goods, but also services like:
   outgrows the fully-connected triangle
 - travel timer persistence - in-process `setTimeout` doesn't survive
   restarts; postgres as durable schedule or redis
+
+
+
+ideas
+------------------------------------------------
+
+the game is kinda boring right now.
+it needs some cool elements for player experience.
+
+### map of the universe
+
+navigation as a map with ship travel animation.
+
+1. player clicks on the destination
+2. travel info shown
+3. confirms travel
+5. travel animation starts.
+6. when waiting for travle to finish, display options:
+    - at least a progress bar | spining logo | load animation
+    - random quotes from SIFI books/tv/movies in meantime?
+    - random events occurs, like pirates, good/bad aliens encounters?
+    - accidents - meteorite strike, random engine problems
+    - interest graph for cargo goods
+    - station stock exchange graph
+    - other ideas?
+
+### port operations
+
+cargo load / unload animations / repairs
+
+### delta v mechanics
+
+add real delta v calculus to the game.
+let player decide about accelerate + blaming + mass of fuel and mass of the ship + cargo
+
+1. introduce `cargo` `weight` field
+2. introduce `fuel` entity with `mass`, `type`, etc...
+
+let player decide about:
+- acceleration / blaming,  duration / power
+- fuel / mass calculation
+
+let player ability to mess with orbital mechanics (kerbal space program).
+in other words give user ship control,
+maybe even develop some piloting skills (RPG)
+
+### stations
+
+station can consume / produce more then one good.
+not only goods, but also services
+like repair, security / policing, tech, work force etc.
+
+**station types**:
+- trade posts
+- research labs/outposts
+- military bases
+- population centers
+
+### player 2 player communications & ship transponders
+
+some kind of `ansible` device that enables faster then light speed coms.
+but still with delay, no instant / immediate message transfer.
+btw, player should be able to see other players at least in same station
+
+- ship traffic should be visible.
+- player should be able to see other ships (at least those docked in the same port)
+- player should be able to publish travel manifests
+- player should be able to switch off his ship transponder (not by default, but after a ship upgrade or some other game mechanism)
+- player should be able to trade with other players
+
+### ship types & upgrades
+
+introduce ship classes / types / kinds
+
+- freighter, tanker and other cargo ships
+- research ship
+- military, like: cruiser, frigate, corvette, etc
+- exploration, research ship
+- privateer, which suggests existents of states, empires and such. (somebody should give you a license to be a pirate after all)
+- if there is a pirate, then - prison barge is a necessity
+- repair ship
+- passenger ship, a taxi, an interstellar uber). jokes aside, orbital taxi can be a thing
+
+### exploration
+
+give player the ability to establish new station/colony/base
+form alliances and fractions
