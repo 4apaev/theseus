@@ -43,6 +43,9 @@ cost      = principal * (1 + rate)^years_abs
 
 ### constants
 
+owned by `@theseus/domain` (`packages/domain/src/universe.js`), each `readEnv`-backed with
+the default shown - single source of truth, no service re-reads these itself:
+
 ```js
 const TIME_SCALE      = 20      // 1 common-frame year = 20 game seconds
 const INTEREST_RATE   = 0.05    // per common-frame year
