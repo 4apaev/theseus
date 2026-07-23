@@ -1,16 +1,51 @@
 theseus - progress
 ================================================
 
-full step list + reference: [phase.1.md](phase.1.md) · game design: [game.md](game.md) · roles design: [permissions.md](permissions.md)
+full step list
+- reference: [phase.1.md](phase.1.md)
+- game design: [game.md](game.md)
+- roles design: [permissions.md](permissions.md)
 
-
-current - step 8: minimal client
+------------------------------------------------
+current - step 10: projection rebuild
 ------------------------------------------------
 
-single html file, websocket-driven - not started
+truncate + replay from the event log - not started
 
+------------------------------------------------
+step 9: minimal client - done ✔
+------------------------------------------------
 
-step 7: gateway (http + websocket) - done ✔
+single html file, websocket-driven - plan in [client.md](client.md)
+
+- [x] `client/` (`index.html` + `style.css` + `app.js`) - top-level, not
+      nested in the gateway app, not an npm package. terminal theme (dark, monospace, phosphor glow,
+      css scanlines), no framework, no external assets
+- [x] `GET /` `GET /universe` - public routes on the gateway, `clientPath`
+      threaded `opt.x ?? readEnv('GATEWAY_CLIENT_PATH', ...)` same as every
+      other gateway config value; universe/goods/starter serialized once
+- [x] auth screen - register (201 auto-login / 409 / 202 queued+retry),
+      login, token in `localStorage`, auto-login on reload
+- [x] hydrate - `/me` retried during projection lag, `/universe` once,
+      `/ships` `/cargo/:sid` `/market/:stid` `/trades`
+- [x] websocket feed - `?token=` query, dispatch table per event type,
+      pending-command correlation (✓/✗ marks the original feed line),
+      reconnect with exponential backoff (capped 10s) + re-hydrate
+- [x] live flavor - years-rel/years-abs copy, eta + capital-cost route
+      previews mirroring `@theseus/domain`'s trade math, buy/sell slack
+      hints, disabled/empty states throughout
+- [x] found + fixed in manual verification: `packages/db` had no utc
+      override for postgres `timestamp` columns - the `pg` driver read them
+      back in the host's local timezone instead of utc, so the countdown
+      showed "arriving…" immediately instead of counting down. one-line
+      fix (`pg.types.setTypeParser`) + regression test, see decisions log
+- [x] verified live in a real browser (playwright via docker mcp toolkit):
+      register → login → buy → travel → live countdown → arrival,
+      gateway kill/restart → client reconnects and re-hydrates, logout
+
+------------------------------------------------
+
+step 8: gateway (http + websocket) - done ✔
 ------------------------------------------------
 
 details in [apps/gateway/readme.md](../apps/gateway/readme.md)
@@ -42,6 +77,7 @@ details in [apps/gateway/readme.md](../apps/gateway/readme.md)
 - [x] tests - 29 unit (routes, frame codec, handshake, fanout, heartbeat, waiter),
       7 integration (register → login → /me, command lands, ws filtering)
 
+------------------------------------------------
 
 step 6: market service - done ✔
 ------------------------------------------------
@@ -65,6 +101,9 @@ step 6: market service - done ✔
       register → buy ore → fly → sell → trader ends richer than ₢1000
 
 
+
+------------------------------------------------
+
 done
 ------------------------------------------------
 
@@ -80,6 +119,8 @@ done
 
 also: CI (github actions, node 26), pre-push env hook, pg schema per service,
 integration test harness in [testing](../packages/testing/readme.md).
+
+------------------------------------------------
 
 
 decisions log
@@ -114,106 +155,87 @@ decisions log
                            five concrete event topics - resumes offsets instead of replaying per boot
 - crypto split
     - `player/src/crypto.js` owns `hash`/`verify` (credential management only)
+- client location        : top-level `client/index.html`, not nested in the gateway app and not
+                           an npm package - cors was never about file location, only which process
+                           serves the response, so the gateway can keep being the sole server without
+                           owning the client's code. path is `GATEWAY_CLIENT_PATH`, threaded the same
+                           `opt.x ?? readEnv(...)` way as every other gateway config value
+- utc timestamps          : `packages/db`'s pool now forces `pg.types.setTypeParser(1114, ...)` to
+                           read naive `timestamp` columns as utc - the driver's default parses them
+                           in the host's local timezone, silently shifting every value by the host's
+                           utc offset (found via the client's live countdown reading an `arrives` 3
+                           hours in the past on a UTC+3 dev machine). affects every naive-timestamp
+                           column project-wide (ships, players, wallets, trade_history, ...), fixed
+                           once at the driver level - no schema/migration change
 
 
-refactors, todos and tech debt
 ------------------------------------------------
 
+tech debth & refactors
+------------------------------------------------
+### permissions - roles and visibility
+design note in [permissions.md](permissions.md) - `players.role` →
+login reply → JWT claim → `requireRole('admin')` middleware, role-aware
+ws fanout, read-only admin surface + `POST /admin/rebuild` (step 10's home).
+decided: ship traffic + market transactions public by default, future
+transponder-off mechanic hides movement. still open: leaderboard, admin
+powers, admin bootstrap. plumb roles before the html client (step 9).
 
-- #### admin dashboard
-    the game needs an admin dashboard
-    1. manage game assets
-    2. deployment tasks
-    3. monitoring (grafana, kibana, prometheus)
+### kafkajs `TimeoutNegativeWarning`
+upstream quirk in kafkajs' request queue (`scheduleCheckPendingRequests`
+computes a negative delay, node clamps to 1ms) - harmless noise on boot,
+not our code. revisit if kafkajs ships a fix or we swap clients.
 
-- #### delta v
-    add real delta v calculus to the game,
-    accelerate + blaming + mass of fuel and mass of the ship + cargo
-    1. introduce `cargo` `weight` field
-    2. introduce `fuel` entity with `mass`, `type`, etc...
+### gateway logger
+gateway should use logger, the logger should live in `garage/mware`
 
-- #### permissions - roles and visibility
-    design note in [permissions.md](permissions.md) - `players.role` →
-    login reply → JWT claim → `requireRole('admin')` middleware, role-aware
-    ws fanout, read-only admin surface + `POST /admin/rebuild` (step 10's home).
-    decided: ship traffic + market transactions public by default, future
-    transponder-off mechanic hides movement. still open: leaderboard, admin
-    powers, admin bootstrap. plumb roles before the html client (step 9).
+### websocket lib - done ✔
+extracted to [`packages/ws`](../packages/ws/readme.md)
+still needs moving to `garage`
 
-- #### gateway logger
-    gateway should use logger, the logger should live in `garage/mware`
+### garage
+1. `Sync.parse` throws if `response.ok` is `false` - make it optional
+2. `Fail` refactor, `code` should be optional, map system error errno to http status
+3. add useful `middleware` under `garage/mware` like `logger`, `cors`, `etag`, `gzip` etc...
 
-- #### websocket lib - done ✔
-    extracted to [`packages/ws`](../packages/ws/readme.md) - `../garage` had
-    unrelated uncommitted work in progress and theseus's `node_modules/garage`
-    is a separately-installed copy, not live-linked, so landing it there
-    would've been invisible until a publish+bump cycle. protocol only
-    (handshake, frame codec, keepalive, opaque `authenticate`/`each` registry) -
-    `apps/gateway/src/feed.js` is the game-specific pid/jwt fanout on top.
-    still worth upstreaming into `garage/ws` later once that repo settles -
-    the code itself won't need to change, just its address.
+### `pkg/util`
+- `garage/util/Fail` fix msg/code bug or create `class Chaos extends Error` instead
 
-- #### garage
-    1. `Sync.parse` throws if `response.ok` is `false` - make it optional
-    2. `Fail` refactor, `code` should be optional, map system error errno to http status
-    3. add useful `middleware` under `garage/mware` like `logger`, `cors`, `etag`, `gzip` etc...
+### cleanup & order
+move to `pkg/db` from `pkg/util`
+- `Query`
+- `where`
+- `selectWhere`
+- `withClient`
 
-- #### kafkajs `TimeoutNegativeWarning`
-    upstream quirk in kafkajs' request queue (`scheduleCheckPendingRequests`
-    computes a negative delay, node clamps to 1ms) - harmless noise on boot,
-    not our code. revisit if kafkajs ships a fix or we swap clients.
-
-- #### `market:sagas`
-    add `auction` saga, when players can bid against `station:good`
-
-- #### `pkg/util`
-    - `poll` with arguments, returns callable function.
-    ```js
-        export function poll(fx, ms, max = Infinity) {
-            ms = formatTime(ms ?? 0)
-            let rs, tid, end = 0
-            return O.use(async function tick(...a) {
-                rs = await fx.apply(this, a)
-                if (end || max--< 1) return end = 1
-                tid = setTimeout(tick, ms, ...a)
-            }, {
-                get result() { return rs },
-                stop() {
-                    end = 1
-                    clearTimeout(tid)
-                }})
-        }
-    ```
-    - move to `pkg/db from` `pkg/util`:
-        - `Query`
-        - `where`
-        - `selectWhere`
-        - `withClient`
-
-    - `garage/util/Fail` fix msg/code bug or create `class Chaos extends Error` instead
-
-
-- #### game assets
-    lives in text file, read on startup and populate.
-    consider dedicated table
-    - ships
-    - goods
-    - stations
-    - weapons
-    - armor
-    - etc...
-
-- #### npm version
+### npm version
     a version bump script for each app/pkg.
 
-- #### `setTimeout` as travel timer
+### `setTimeout` as travel timer
     in-process `setTimeout`, doesn't survive restarts.
     postgres as durable schedule or redis.
 
-- #### `Universe` path
+### `Universe` path
     dijkstra multi hop routing, when the map outgrows
     the fully connected triangle.
 
-- #### `Symbol` for topics / events
-    maybe `Symbol(cmd.ship)` instead of strings
+### `market:sagas`
+    add `auction` saga, when players can bid against other players
 
+------------------------------------------------
+
+### admin dashboard
+the game needs an admin dashboard
+1. manage game assets
+2. deployment tasks
+3. monitoring (grafana, kibana, prometheus)
+
+### game assets
+lives in text file, read on startup and populate.
+consider dedicated table
+- ships
+- goods
+- stations
+- weapons
+- armor
+- etc...

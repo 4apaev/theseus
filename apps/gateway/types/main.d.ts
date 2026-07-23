@@ -29,12 +29,13 @@ export const service: 'gateway'
 export function describeService(): ServiceDescription
 
 export interface GatewayOptions {
-    timeout?: string | number
-    ttl?:     string | number
-    ping?:    string | number
-    port?:    number
-    pool?:    unknown
-    secret?:  string
+    timeout?:    string | number
+    ttl?:        string | number
+    ping?:       string | number
+    port?:       number
+    pool?:       unknown
+    secret?:     string
+    clientPath?: string
 }
 
 export interface Gateway {
