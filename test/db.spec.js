@@ -1,3 +1,4 @@
+import pg     from 'pg'
 import assert from 'node:assert/strict'
 import test   from 'node:test'
 import { setTimeout }   from 'node:timers/promises'
@@ -235,4 +236,12 @@ test('createPool without schema leaves search_path alone', async () => {
     assert.equal(pool.schema, undefined)
     assert.equal(pool.options.options, undefined)
     await pool.end()
+})
+
+test('naive `timestamp` columns (oid 1114) parse as utc regardless of host tz', () => {
+    // every service writes these via Date#toISOString() (always utc) - the
+    // driver must read them back the same way, or a non-utc host silently
+    // shifts every timestamp by its own utc offset
+    const parsed = pg.types.getTypeParser(1114)('2026-07-22 02:54:22.802')
+    assert.equal(parsed.toISOString(), '2026-07-22T02:54:22.802Z')
 })
