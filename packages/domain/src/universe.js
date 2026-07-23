@@ -1,3 +1,4 @@
+import { readEnv } from '@theseus/config'
 import { O, Fail } from 'garage/util'
 
 export class Universe {
@@ -30,6 +31,17 @@ export class Universe {
             ?? Fail.raise(`unknown route: ${ from } → ${ to }`)
     }
 
+    // plain json shape for wire transfer - link() sets both directions,
+    // so 3 links become 6 directed routes, letting a consumer filter
+    // "departures from here" in one line without knowing edges is a Map
+    toJSON() {
+        return {
+            stations: [ ...this.nodes.values() ],
+            routes  : [ ...this.edges ].flatMap(([ from, m ]) =>
+                [ ...m ].map(([ to, ly ]) => ({ from, to, ly }))),
+        }
+    }
+
     #edge(stid) {
         return this.edges.getOrInsertComputed(stid, () => new Map)
     }
@@ -42,23 +54,6 @@ export class Universe {
 
 const universe = new Universe
 export default universe
-
-/*
-    TODO
-        consume/produce
-            station can consume/produce more then one good,
-            not only goods, but also services
-            like repair, security/policing, tech, work force etc...
-            needs more thinking.
-
-        station types
-            trade posts
-            research labs/outposts
-            military bases
-            population centers
-            etc...
-
-*/
 
 universe.node('sol.outpost',    { name: 'Sol Outpost',    produces: { ore: 8   }, consumes: { grain: 5 }})
 universe.node('alpha.exchange', { name: 'Alpha Exchange', produces: { grain: 8 }, consumes: { spice: 5 }})
@@ -85,3 +80,24 @@ export const starterShip = O.ƒ({
     velocity: 0.6,
     capacity: 20,
 })
+
+// ── game mechanics ───────────────────────────────────────────
+// the rules of this specific game - single source of truth,
+// tunable via env (.env.dev shrinks TIME_SCALE for fast tests)
+
+export const TIME_SCALE      = readEnv('TIME_SCALE', 20)
+export const INTEREST_RATE   = readEnv('INTEREST_RATE', 0.05)
+export const STARTER_CREDITS = readEnv('STARTER_CREDITS', 1000)
+
+export const currency = '₢'
+export const universeData = {
+    ...universe.toJSON(),
+    goods,
+    starter: starterShip,
+    constants: {
+        time_scale     : TIME_SCALE,
+        interest_rate  : INTEREST_RATE,
+        starter_credits: STARTER_CREDITS,
+        currency,
+    },
+}
