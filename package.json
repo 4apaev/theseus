@@ -40,8 +40,9 @@
         "test"          : "bash scripts/test.sh",
         "lint"          : "eslint .",
         "tsc"           : "tsc --noEmit",
-
         "check"         : "npm run lint && npm run tsc && npm run test && npm run test int && npm run smoke",
+        "start"         : "bash scripts/start.sh",
+        "stop"          : "bash scripts/stop.sh",
         "infra:up"      : "docker compose -f infra/docker-compose.yml up -d",
         "infra:down"    : "docker compose -f infra/docker-compose.yml down",
         "infra:logs"    : "docker compose -f infra/docker-compose.yml logs -f",
