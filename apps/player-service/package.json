@@ -13,6 +13,7 @@
         "@theseus/config"   : "*",
         "@theseus/contracts": "*",
         "@theseus/db"       : "*",
+        "@theseus/domain"   : "*",
         "@theseus/service"  : "*",
         "@theseus/kafka"    : "*",
         "@theseus/util"     : "*"

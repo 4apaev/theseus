@@ -47,6 +47,22 @@ test('link rejects unknown stations', () => {
     assert.throws(() => u.link('a', 'b', 1), /unknown station/)
 })
 
+test('toJSON flattens stations and both directions of every link', () => {
+    const u = new Universe
+    u.node('a', { name: 'Alpha' })
+    u.node('b', { name: 'Beta' })
+    u.link('a', 'b', 2.5)
+
+    const { stations, routes } = u.toJSON()
+
+    assert.equal(stations.length, 2)
+    assert.equal(stations.find(s => s.stid === 'a').name, 'Alpha')
+    assert.equal(stations.find(s => s.stid === 'b').name, 'Beta')
+    assert.equal(routes.length, 2)
+    assert.ok(routes.some(r => r.from === 'a' && r.to === 'b' && r.ly === 2.5))
+    assert.ok(routes.some(r => r.from === 'b' && r.to === 'a' && r.ly === 2.5))
+})
+
 test('every good is produced somewhere and consumed somewhere else', () => {
     for (const gid of Object.keys(goods)) {
         const makers = universe.nodes.values().filter(n => n.produces?.[ gid ]).toArray()

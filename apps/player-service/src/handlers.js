@@ -1,16 +1,14 @@
 /* eslint-disable camelcase */
 
-import { readEnv } from '@theseus/config'
 import { Outbox  } from '@theseus/db'
 import { guid    } from '@theseus/util'
 import { createEmitter } from '@theseus/kafka'
+import { STARTER_CREDITS } from '@theseus/domain'
 import Crypt       from './crypto.js'
 import {
     eventTree as EVT,
     commandTree as CMD,
 } from '@theseus/contracts'
-
-const STARTER_CREDITS = readEnv('STARTER_CREDITS', 1000)
 
 const emit = createEmitter('player-service')
 

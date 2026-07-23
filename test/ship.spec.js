@@ -1,7 +1,7 @@
 import test             from 'node:test'
 import assert           from 'node:assert/strict'
 import { setImmediate } from 'node:timers/promises'
-import { readEnv      } from '@theseus/config'
+import { TIME_SCALE    } from '@theseus/domain'
 import {
     makeCmd,
     fakeClient,
@@ -11,8 +11,6 @@ import {
 
 import { createHandlers   } from '#ship/handlers.js'
 import { travel, distance } from '#ship/travel.js'
-
-const TIME_SCALE = readEnv('TIME_SCALE', 20)
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

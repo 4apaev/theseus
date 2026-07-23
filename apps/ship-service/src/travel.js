@@ -1,7 +1,4 @@
-import { readEnv  } from '@theseus/config'
-import { universe } from '@theseus/domain'
-
-const TIME_SCALE = readEnv('TIME_SCALE', 20)
+import { universe, TIME_SCALE } from '@theseus/domain'
 
 export default travel
 export function travel(from, to, velocity) {

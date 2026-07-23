@@ -10,9 +10,16 @@ export {
     default as universe,
     goods,
     starterShip,
+    universeData,
+    currency,
+    TIME_SCALE,
+    INTEREST_RATE,
+    STARTER_CREDITS,
     type Good,
+    type Route,
     type Station,
     type StationMeta,
+    type UniverseJSON,
 } from './universe.js'
 
 export {
