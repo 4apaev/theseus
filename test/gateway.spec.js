@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import Sync from 'garage/sync'
 
 import { create } from '@theseus/auth'
+import { TIME_SCALE } from '@theseus/domain'
 import { Codec, echo } from '@theseus/util'
 import { acceptKey, createFrameParser } from '@theseus/ws'
 import {
@@ -204,6 +205,53 @@ test('POST with a broken json body replies 400', async () => {
 
 test('unknown route replies 404', async () => {
     const rs = await Sync.get('/nope').set(bear).then(echo, echo)
+    assert.equal(rs.status, 404)
+})
+
+// ── public: client + universe ───────────────────────────────────────────────
+
+test('GET/ serves the client html without a token', async () => {
+    const rs = await Sync.get('/')
+
+    assert.equal(rs.status, 200)
+    assert.match(rs.head.get('content-type'), /text\/html/)
+    assert.match(rs.body, /theseus/i)
+})
+
+test('GET/style.css and GET/app.js serve clientPath\'s siblings without a token', async () => {
+    const css = await Sync.get('/style.css')
+    const js  = await Sync.get('/app.js')
+
+    assert.equal(css.status, 200)
+    assert.match(css.head.get('content-type'), /text\/css/)
+    assert.match(css.body, /:root/)
+
+    assert.equal(js.status, 200)
+    assert.match(js.head.get('content-type'), /javascript/)
+    assert.match(js.body, /function register/)
+})
+
+test('GET/universe returns the serialized graph without a token', async () => {
+    const rs = await Sync.get('/universe')
+
+    assert.equal(rs.status, 200)
+    assert.equal(rs.body.stations.length, 3)
+    assert.equal(rs.body.routes.length, 6)
+    assert.equal(rs.body.goods.ore.name, 'iron ore')
+    assert.equal(rs.body.starter.stid, 'sol.outpost')
+    assert.equal(rs.body.constants.time_scale, TIME_SCALE)
+})
+
+test('GET/garage/:file serves garage\'s browser-safe source without a token', async () => {
+    const rs = await Sync.get('/garage/util.js')
+
+    assert.equal(rs.status, 200)
+    assert.match(rs.head.get('content-type'), /javascript/)
+    assert.match(rs.body, /export function/)
+})
+
+test('GET/garage/:file rejects path traversal outside garage\'s src dir', async () => {
+    const rs = await Sync.get('/garage/..%2f..%2fpackage.json').then(echo, echo)
     assert.equal(rs.status, 404)
 })
 

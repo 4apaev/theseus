@@ -17,10 +17,16 @@ export interface RoutesInput {
         requested_by on outgoing commands,
         garage app name - default 'gateway' */
     service?: string
+    /** absolute or cwd-relative path to the served client html - style.css / app.js are siblings of it */
+    clientPath: string
 }
 
 /**
  * builds the gateway's garage app:
+ * - `GET /` `/style.css` `/app.js` `/universe` - the html client, its
+ *   sibling assets, and stations/routes/goods/constants (public)
+ * - `GET /garage/:file(.*)` - browser-safe subset of the `garage` package's
+ *   source (util/sync/mime/constants), for the client's import map (public)
  * - `POST /register` `/login` - correlated reply over events.player
  * - `POST /travel` `/buy` `/sell` - command → 202 `{ cmd, correlation_id }`, pid from token claims
  * - `GET /me` `/ships` `/cargo/:sid` `/market/:stid` `/trades` - projection reads

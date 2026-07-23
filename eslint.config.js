@@ -25,4 +25,15 @@ export default defineConfig([
             globals: gb.node
         },
     },
+    {
+        rules,
+        plugins: { js },
+        extends: [ 'js/recommended' ],
+        files  : [
+            'client/**/*.js',
+        ],
+        languageOptions: {
+            globals: gb.browser
+        },
+    },
 ])

@@ -1,23 +1,26 @@
 client - the plan
 ================================================
 
-step `9` in [phase.1.md](phase.1.md) - minimal client: **single html file,
-websocket-driven**. status: planned, not started.
+
+step `9` in [phase.1.md](phase.1.md) - minimal client: **html + css + js,
+websocket-driven**. status: done ✔.
 
 closes the phase-1 success criteria: register, get a ship, trade, travel,
 and see it all update live - through a browser. first real consumer of the
 gateway api.
 
 decisions:
-- lives at top-level `client/index.html` - not nested in the gateway app,
-  not an npm package (no deps, nothing imports it). served by a public
-  `GET /` via garage `rs.file()`; path comes from `GATEWAY_CLIENT_PATH`
-  (default `./client/index.html`, relative to cwd - every documented boot
-  command in this repo runs from repo root). same origin as api + ws
-  either way - cors was never about file location, only which process
-  serves the response
+- lives at top-level `client/` (`index.html` + `style.css` + `app.js`) -
+  not nested in the gateway app, not an npm package (no deps, nothing
+  imports it). served by three public GETs via garage `rs.file()`; the
+  html's path comes from `GATEWAY_CLIENT_PATH` (default `./client/index.html`,
+  relative to cwd - every documented boot command in this repo runs from
+  repo root), css/js are resolved as siblings of it, not separately
+  configured. same origin as api + ws either way - cors was never about
+  file location, only which process serves the response
 - scope: the full loop + flavor + retro terminal theme (dark, monospace,
-  phosphor green + amber, css scanlines). no framework, no external assets
+  phosphor green + amber, css scanlines). no framework, no external assets -
+  three local files, no build step, no bundler
 - new public `GET /universe` - client needs stations/routes/goods/constants,
   nothing exposes them yet
 
@@ -84,15 +87,20 @@ const UNIVERSE = {
 
 specs in `test/gateway.spec.js` (no bearer - that IS the public assertion):
 - `GET /` → 200, `text/html`, body matches `/theseus/i`
+- `GET /style.css` `/app.js` → 200, `text/css` / `javascript` content-type
 - `GET /universe` → 200, 3 stations, 6 routes, `goods.ore.name`,
   `starter.stid === 'sol.outpost'`, `constants.time_scale === 20`
 
 
-2 · the file - client/index.html
+2 · the files - client/index.html + style.css + app.js
 ------------------------------------------------
 
-order inside: `<style>` (~200) → markup (~120) → `<script>` (~650).
-`<link rel="icon" href="data:,">` silences the favicon 401.
+markup in `index.html` (~120 lines) links `style.css` (~130) and loads
+`app.js` (~370) at the end of `<body>`, same execution timing as an inline
+`<script>` would have. `<link rel="icon" href="data:,">` silences the
+favicon 401. `app.js` opens with `/* eslint-disable camelcase */` -
+matching every server file - since it mirrors wire field names
+(`event_type`, `price_unit_max`, `years_abs`, ...) verbatim.
 
 ### markup
 
@@ -216,7 +224,9 @@ explicit copy · multiple ships → `ships[0]` defensively
 - `INTEREST_RATE` env is new, only the client preview reads it - keep the
   0.05 default aligned if server-side capital cost ever lands
 - no pending-command timeout - lost command leaves a `…` feed line
-- inline client js unlinted/untyped - manual browser verification, keep it boring
-- `rs.file` sends no cache headers - fine for one dev-stage file
+- `app.js` isn't in eslint's `files` glob yet (would need browser globals
+  added alongside `apps/**`'s node globals) - unlinted/untyped for now,
+  manual browser verification, keep it boring
+- `rs.file` sends no cache headers - fine for three dev-stage files
 - roles (permissions.md "plumb before client") deliberately deferred -
   client treats a missing role claim as player, nothing to unwind later
