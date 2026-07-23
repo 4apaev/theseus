@@ -4,10 +4,10 @@
 #   npm stop
 
 shopt -s nullglob
-files=(.pids/*.pid)
+files=(.logs/*.pid)
 
 if [ ${#files[@]} -eq 0 ]; then
-    echo "nothing running (no .pids/*.pid found)"
+    echo "nothing running (no .logs/*.pid found)"
     exit 0
 fi
 

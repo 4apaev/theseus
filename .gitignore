@@ -6,3 +6,4 @@ dist
 *.sqlite*
 todos.*
 docs/dacrap
+.logs/
