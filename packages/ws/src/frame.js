@@ -132,15 +132,6 @@ export function encodeFrame(payload, {
 }
 
 /**
- * @typedef { Object  } Frame
- * @prop    { Buffer  } payload
- * @prop    { boolean } masked
- * @prop    { boolean } fin
- * @prop    { number  } size
- * @prop    { number  } opcode
- */
-
-/**
  * @description
  *      stateful: accumulates partial tcp chunks, emits complete frames.
  *
@@ -217,3 +208,12 @@ function readFrame(buf) {
 
     return { fin, opcode, masked, payload, size }
 }
+
+/**
+ * @typedef { Object  } Frame
+ * @prop    { Buffer  } payload
+ * @prop    { boolean } masked
+ * @prop    { boolean } fin
+ * @prop    { number  } size
+ * @prop    { number  } opcode
+ */
