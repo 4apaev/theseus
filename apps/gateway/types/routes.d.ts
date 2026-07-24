@@ -25,6 +25,8 @@ export interface RoutesInput {
  * builds the gateway's garage app:
  * - `GET /` `/style.css` `/app.js` `/universe` - the html client, its
  *   sibling assets, and stations/routes/goods/constants (public)
+ * - `GET /js/:file(.*)` - clientPath's directory served generically, not
+ *   yet used by the single-file client (public)
  * - `GET /garage/:file(.*)` - browser-safe subset of the `garage` package's
  *   source (util/sync/mime/constants), for the client's import map (public)
  * - `POST /register` `/login` - correlated reply over events.player

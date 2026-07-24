@@ -48,6 +48,7 @@ reply waiter and the websocket fanout.
 | `GET /`            |  -   | the html client, `rs.file(clientPath)`                              |
 | `GET /style.css`   |  -   | `style.css`, a sibling of `clientPath`                               |
 | `GET /app.js`      |  -   | `app.js`, a sibling of `clientPath`                                  |
+| `GET /js/:file(.*)` | -   | `clientPath`'s directory, served generically - not yet used by the single-file client, ready for when it splits into modules |
 | `GET /universe`    |  -   | stations / routes / goods / starter ship / constants, serialized once |
 | `GET /garage/:file(.*)` | - | browser-safe `garage` source (util/sync/mime/constants), backs the client's import map |
 | `POST /register`   |  -   | `player.register.requested` → waits for reply: 201 created, 409 taken, 202 `{cmd, correlation_id}` on timeout |

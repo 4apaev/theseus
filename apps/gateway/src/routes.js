@@ -102,8 +102,11 @@ export function createRoutes({
 
     // ── public: client + universe ───────────────────────────
 
-    // style.css / app.js are siblings of clientPath, not separately configured
-    const clientDir = Pt.dirname(clientPath)
+    // style.css / app.js are siblings of clientPath, not separately
+    // configured - resolved to absolute so the /js/:file traversal guard
+    // below (a plain string prefix check) is comparing like with like,
+    // since clientPath itself is usually relative
+    const clientDir = Pt.resolve(Pt.dirname(clientPath))
 
     gw.use(log)
 
@@ -111,6 +114,15 @@ export function createRoutes({
     gw.get('/style.css', (rq, rs) => rs.file(Pt.join(clientDir, 'style.css')))
     gw.get('/app.js'   , (rq, rs) => rs.file(Pt.join(clientDir, 'app.js')))
     gw.get('/universe' , (rq, rs) => rs.json(200, universeData))
+
+    // serves the same clientDir as a directory - /app.js above stays until
+    // the client actually splits into multiple files and starts using this
+    gw.get('/js/:file(.*)', (rq, rs) => {
+        const path = Pt.resolve(clientDir, rq.params.file)
+        return path.startsWith(clientDir + Pt.sep)
+            ? rs.file(path)
+            : rs.send(404, 'not found')
+    })
 
     gw.get('/garage/:file(.*)', (rq, rs) => {
         const path = Pt.resolve(GARAGE_DIR, rq.params.file)
