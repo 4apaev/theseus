@@ -46,11 +46,9 @@ reply waiter and the websocket fanout.
 | route              | auth | behavior                                                            |
 |--------------------|------|---------------------------------------------------------------------|
 | `GET /`            |  -   | the html client, `rs.file(clientPath)`                              |
-| `GET /style.css`   |  -   | `style.css`, a sibling of `clientPath`                               |
-| `GET /app.js`      |  -   | `app.js`, a sibling of `clientPath`                                  |
-| `GET /js/:file(.*)` | -   | `clientPath`'s directory, served generically - not yet used by the single-file client, ready for when it splits into modules |
+| `GET /pub/:file(.*)` | -  | `clientPath`'s directory, served generically - css/js/img siblings, incl. the client's module graph |
 | `GET /universe`    |  -   | stations / routes / goods / starter ship / constants, serialized once |
-| `GET /garage/:file(.*)` | - | browser-safe `garage` source (util/sync/mime/constants), backs the client's import map |
+| `GET /garage/:file(.*)` | - | browser-safe `garage` source (util/sync/mime/constants/use), backs the client's import map |
 | `POST /register`   |  -   | `player.register.requested` → waits for reply: 201 created, 409 taken, 202 `{cmd, correlation_id}` on timeout |
 | `POST /login`      |  -   | `player.login.requested` → 200 `{token, pid, handle}`, 401 bad creds, 504 timeout |
 | `POST /travel`     |  ✓   | `ship.travel.requested` → 202 `{cmd, correlation_id}`               |

@@ -1,12 +1,11 @@
 /* eslint-disable camelcase */
 import Pt from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { styleText as styl } from 'node:util'
 
-import { Garage } from 'garage'
-import { Is, Fail, guid } from '@theseus/util'
+import { Garage              } from 'garage'
+import { O, Is, Fail, guid   } from '@theseus/util'
+import { universeData        } from '@theseus/domain'
 import { createCommandRecord } from '@theseus/kafka'
-import { universeData } from '@theseus/domain'
 import {
     commandTree as CMD,
     eventTree as EVT,
@@ -44,16 +43,18 @@ export function createRoutes({
 
     // ── middleware ───────────────────────────────────────────
 
+    const PUB_DIR = Pt.resolve(Pt.dirname(clientPath))
+
     /** @type { MWare } */
     async function log(rq, rs, next) {
         const start = performance.now()
         await next()
-        // (new Date).toLocaleString('en-gb', { hour12: false }),
         console.log(
-            styl('bgCyan', (performance.now() - start).toFixed(2).padEnd(8)),
-            styl(rs.status > 399 ? 'red' : 'green', `${ rs.status }`),
-            styl('yellow', rq.method.padEnd(8)),
+            // (new Date).toLocaleString('en-gb', { hour12: false }),
+            rs.status,
+            rq.method,
             rq.url,
+            (performance.now() - start).toFixed(1).padEnd(4),
         )
     }
 
@@ -76,6 +77,21 @@ export function createRoutes({
 
         Is.o(rq.body) || Fail.raise(400, 'invalid json body')
         return next()
+    }
+    /**
+     * @param  { string  }  base
+     * @param  { Record<string, string> } [dict]
+     * @return { MWare }
+     */
+    function frontend(base, dict) {
+        O.setPrototypeOf(dict ??= {}, null)
+
+        return (rq, rs) => {
+            const path = Pt.join(base, dict[ rq.params.file ] ?? rq.params.file)
+            return path.startsWith(base + Pt.sep)
+                ? rs.file(path)
+                : rs.send(404, 'not found')
+        }
     }
 
     // ── commands ─────────────────────────────────────────────
@@ -102,36 +118,24 @@ export function createRoutes({
 
     // ── public: client + universe ───────────────────────────
 
-    // style.css / app.js are siblings of clientPath, not separately
-    // configured - resolved to absolute so the /js/:file traversal guard
-    // below (a plain string prefix check) is comparing like with like,
-    // since clientPath itself is usually relative
-    const clientDir = Pt.resolve(Pt.dirname(clientPath))
-
     gw.use(log)
 
-    gw.get('/'         , (rq, rs) => rs.file(clientPath))
-    gw.get('/style.css', (rq, rs) => rs.file(Pt.join(clientDir, 'style.css')))
-    gw.get('/app.js'   , (rq, rs) => rs.file(Pt.join(clientDir, 'app.js')))
     gw.get('/universe' , (rq, rs) => rs.json(200, universeData))
 
-    // serves the same clientDir as a directory - /app.js above stays until
-    // the client actually splits into multiple files and starts using this
-    gw.get('/js/:file(.*)', (rq, rs) => {
-        const path = Pt.resolve(clientDir, rq.params.file)
-        return path.startsWith(clientDir + Pt.sep)
-            ? rs.file(path)
-            : rs.send(404, 'not found')
-    })
+    // ── static ───────────────────────────────────────────────
 
-    gw.get('/garage/:file(.*)', (rq, rs) => {
-        const path = Pt.resolve(GARAGE_DIR, rq.params.file)
-        return path.startsWith(GARAGE_DIR)
-            ? rs.file(path.replace(/(\.js)?$/, '.js'))
-            : rs.send(404, 'not found')
-    })
+    gw.get('/', (rq, rs) => rs.file(clientPath))
+    gw.get('/pub/:file(.*)', frontend(PUB_DIR))
+    gw.get('/garage/:file(.*)', frontend(GARAGE_DIR, {
+        constants : '/constants.js',
+        mime      : '/mime.js',
+        sync      : '/sync.js',
+        use       : '/use.js',
+        util      : '/util.js',
+    }))
 
-    // use json for every post route
+    // ── json  ────────────────────────────────────────────────
+
     gw.post(json)
 
     gw.post('/register', async (rq, rs) => {
@@ -165,7 +169,8 @@ export function createRoutes({
         rs.json(200, { token: jwt.sign({ pid, handle: h }), pid, handle: h })
     })
 
-    // use auth for every other route
+    // ── auth  ────────────────────────────────────────────────
+
     gw.use(auth)
 
     // pid always comes from the token, never from the body
