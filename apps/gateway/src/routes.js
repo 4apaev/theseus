@@ -74,17 +74,6 @@ export function createRoutes({
         if (rq.error)
             throw rq.error
 
-        // TODO: rq.reader() should parse automaticly
-        // if content-type is json.
-        // looks like duplicate
-        if (Is.s(rq.body) || Is.B(rq.body)) {
-            try {
-                rq.body = JSON.parse(rq.body)
-            }
-            catch {
-                Fail.raise(400, 'invalid json body')
-            }
-        }
         Is.o(rq.body) || Fail.raise(400, 'invalid json body')
         return next()
     }
