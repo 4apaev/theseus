@@ -209,6 +209,9 @@ btw, player should be able to see other players at least in same station
 - player should be able to trade with other players
 
 ### ship types & upgrades
+player should be able to rename ships
+player should be able upgrade ship's capacity
+player should be able upgrade ship's velocity
 
 introduce ship classes / types / kinds
 

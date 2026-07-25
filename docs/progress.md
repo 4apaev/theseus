@@ -173,6 +173,10 @@ decisions log
 
 tech debth & refactors
 ------------------------------------------------
+### ship update
+should be able to rename player's ships
+
+
 ### permissions - roles and visibility
 design note in [permissions.md](permissions.md) - `players.role` →
 login reply → JWT claim → `requireRole('admin')` middleware, role-aware
