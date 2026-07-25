@@ -23,7 +23,7 @@ $('#travelBody').addEventListener('click', e => {
     g?.classList.contains('reachable') && travel(g.dataset.stid)
 })
 
-$('#marketBody').addEventListener('click', e => {
+$('#game').addEventListener('click', e => {
     const btn = e.target.closest('.tradeBtn')
     btn && openTradeDialog(btn.dataset.side, btn.dataset.gid)
 })

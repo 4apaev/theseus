@@ -111,10 +111,17 @@ export function updateTradeTotal() {
 }
 
 export function renderCargo() {
-    const body = $('#cargoBody')
+    const body   = $('#cargoBody')
+    const docked = state.ship?.status === 'docked'
+
     body.innerHTML = state.cargo.length
-        ? `<table><tr><th>GOOD</th><th>QTY</th></tr>${
-            state.cargo.map(c => `<tr><td>${ esc(good(c.gid)) }</td><td>${ c.quantity }</td></tr>`).join('')
+        ? `<table><tr><th>GOOD</th><th>QTY</th><th>SELL</th></tr>${
+            state.cargo.map(c => {
+                const row = docked && state.market.find(m => m.gid === c.gid)
+                return `<tr><td>${ esc(good(c.gid)) }</td><td>${ c.quantity }</td><td>${
+                    row ? tradeBtn('sell', c.gid, row.price_sell) : ''
+                }</td></tr>`
+            }).join('')
         }</table>`
         : '<p class="dim">hold empty</p>'
 }
