@@ -1,77 +1,81 @@
 <!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>⛩ theseus terminal</title>
-    <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="/style.css">
-</head>
-<body>
 
-<header>
-    <span class="brand">⛩ THESEUS<span class="cursor">▮</span></span>
-    <span id="conn" class="dim">OFFLINE</span>
-    <span id="who" class="who"></span>
-    <button id="logoutBtn" hidden>LOGOUT</button>
-</header>
+    <head>
+        <meta charset="utf-8">
+        <meta name=viewport content="width=device-width, initial-scale=1">
+        <meta name=description content="theseus interstellar trade game" />
 
-<main id="auth" class="auth">
-    <h2>DOCKING CLEARANCE</h2>
-    <input id="handle" placeholder="handle" autocomplete="username">
-    <input id="password" type="password" placeholder="password" autocomplete="current-password">
-    <button id="registerBtn" type="button">REGISTER</button>
-    <button id="loginBtn" type="button">LOGIN</button>
-    <p id="authMsg" class="authMsg"></p>
-</main>
+        <title>⛩ theseus terminal</title>
+        <link rel=icon type="image/svg+xml" href="/pub/img/favicon.svg"/> <!-- href="data:," -->
+        <link rel=stylesheet href="/pub/css/style.css">
+    </head>
 
-<main id="game" class="game" hidden>
-    <section id="walletPanel">
-        <h2>WALLET</h2>
-        <div id="walletBody"></div>
-    </section>
+    <body>
+        <header>
+            <span class=brand>⛩ THESEUS<span class=cursor>▮</span></span>
+            <span class=dim id=conn>OFFLINE</span>
+            <span class=who id=who></span>
+            <button hidden  id=logoutBtn>LOGOUT</button>
+        </header>
 
-    <section id="shipPanel">
-        <h2>SHIP</h2>
-        <div id="shipBody"></div>
-    </section>
+        <main id=auth class=auth>
+            <h2>DOCKING CLEARANCE</h2>
 
-    <section id="travelPanel">
-        <h2>NAV</h2>
-        <div id="travelBody"></div>
-    </section>
+            <input required id=handle   type=text     placeholder=handle   autocomplete=username>
+            <input required id=password type=password placeholder=password autocomplete="current-password">
 
-    <section id="marketPanel">
-        <h2>MARKET</h2>
-        <div id="marketBody"></div>
-        <form id="tradeForm" class="tradeForm" hidden>
-            <select id="tradeGood"></select>
-            <input id="tradeQty" type="number" min="1" value="1">
-            <button type="button" id="buyBtn">BUY</button>
-            <button type="button" id="sellBtn">SELL</button>
-            <span id="tradeHint" class="dim"></span>
-        </form>
-    </section>
+            <button id=registerBtn type=button>REGISTER</button>
+            <button id=loginBtn    type=button>LOGIN</button>
+            <p id=authMsg class=authMsg></p>
+        </main>
 
-    <section id="cargoPanel">
-        <h2>CARGO</h2>
-        <div id="cargoBody"></div>
-    </section>
+        <main id=game class=game hidden>
+            <section id=walletPanel>
+                <h2>WALLET</h2>
+                <div id=walletBody></div>
+            </section>
 
-    <section id="tradesPanel">
-        <h2>LEDGER</h2>
-        <div id="tradesBody"></div>
-    </section>
+            <section id=shipPanel>
+                <h2>SHIP</h2>
+                <div id=shipBody></div>
+            </section>
 
-    <section id="logPanel" class="logPanel">
-        <h2>FEED</h2>
-        <div id="feed" class="feed"></div>
-    </section>
-</main>
+            <section id=travelPanel>
+                <h2>NAV</h2>
+                <div id=travelBody></div>
+            </section>
 
-<script type="importmap">
-{ "imports": { "garage/": "/garage/" } }
-</script>
-<script type="module" src="/app.js"></script>
-</body>
+            <section id=marketPanel>
+                <h2>MARKET</h2>
+                <div id=marketBody></div>
+                <form id=tradeForm class=tradeForm hidden>
+                    <select id=tradeGood></select>
+                    <input  id=tradeQty  type=number min=1 value=1>
+                    <button id=buyBtn    type=button  >BUY</button>
+                    <button id=sellBtn   type=button  >SELL</button>
+                    <span   id=tradeHint class=dim></span>
+                </form>
+            </section>
+
+            <section id=cargoPanel>
+                <h2>CARGO</h2>
+                <div id=cargoBody></div>
+            </section>
+
+            <section id=tradesPanel>
+                <h2>LEDGER</h2>
+                <div id=tradesBody></div>
+            </section>
+
+            <section id=logPanel class=logPanel>
+                <h2>FEED</h2>
+                <div id=feed class=feed></div>
+            </section>
+        </main>
+
+        <script type=importmap> { "imports": { "garage/": "/garage/" }}</script>
+        <script type=module src="/pub/js/app.js"></script>
+    </body>
+
 </html>

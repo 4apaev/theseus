@@ -208,11 +208,75 @@ input::placeholder {
         }
     }
 
-    .travelBtn {
+    .map {
         width: 100%;
-        display: block;
-        text-align: left;
-        margin-bottom: .4rem;
+        height: auto;
+        aspect-ratio: 4 / 3;
+        overflow: visible;
+
+        text {
+            font-family: inherit;
+        }
+
+        .mapRoute {
+            stroke: var(--dim);
+            stroke-width: 1;
+        }
+
+        .mapLy {
+            fill: var(--dimtext);
+            font-size: 8px;
+            text-anchor: middle;
+        }
+
+        .mapStation {
+            circle {
+                fill: var(--bg);
+                stroke: var(--dimtext);
+            }
+
+            .mapLabel {
+                fill: var(--dimtext);
+                font-size: 9px;
+                text-anchor: middle;
+                text-transform: uppercase;
+            }
+
+            &.here {
+                circle {
+                    fill: var(--amber);
+                    stroke: var(--amber);
+                }
+
+                .mapLabel {
+                    fill: var(--amber);
+                }
+            }
+
+            &.reachable {
+                cursor: pointer;
+
+                circle {
+                    stroke: var(--fg);
+                }
+
+                &:hover {
+                    circle {
+                        fill: var(--fg);
+                    }
+
+                    .mapLabel {
+                        fill: var(--fg);
+                    }
+                }
+            }
+        }
+
+        .shipMarker {
+            fill: var(--fg);
+            filter: drop-shadow(0 0 3px var(--fg));
+            transition: cx .25s linear, cy .25s linear;
+        }
     }
 }
 
