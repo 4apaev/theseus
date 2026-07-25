@@ -11,8 +11,8 @@ log(Market)
 log(Projection)
 
 function log(srv) {
-    const { service, role, owns, uptime } = srv.describeService()
-    console.log('\n%s uptime:', service, uptime || 0, 'ms')
+    const { service, role, owns } = srv.describeService()
+    console.log('\n%s', service)
     console.log('\trole:', role)
     console.log('\towns:', ...owns)
 }
