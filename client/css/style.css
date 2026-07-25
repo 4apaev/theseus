@@ -196,18 +196,6 @@ input::placeholder {
         }
     }
 
-    .tradeForm {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        margin-top: .75rem;
-        gap: .5rem;
-
-        &[hidden] {
-            display: none;
-        }
-    }
-
     .map {
         width: 100%;
         height: auto;
@@ -277,6 +265,32 @@ input::placeholder {
             filter: drop-shadow(0 0 3px var(--fg));
             transition: cx .25s linear, cy .25s linear;
         }
+    }
+}
+
+.tradeDialog {
+    color: var(--fg);
+    border: 1px solid var(--fg);
+    background: var(--bg);
+    text-shadow: inherit;
+    margin: auto;
+    padding: 1rem;
+    min-width: 16rem;
+
+    &[open] {
+        display: flex;
+        flex-direction: column;
+        gap: .6rem;
+    }
+
+    &::backdrop {
+        background: rgba(0, 0, 0, .6);
+    }
+
+    .tradeActions {
+        display: flex;
+        justify-content: flex-end;
+        gap: .5rem;
     }
 }
 

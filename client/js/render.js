@@ -69,42 +69,45 @@ function fmtCountdown(ms) {
 
 export function renderMarket() {
     const body = $('#marketBody')
-    const form = $('#tradeForm')
 
-    if (!state.ship || state.ship.status !== 'docked') {
-        body.innerHTML = '<p class="dim">— in transit · market offline —</p>'
-        return form.hidden = true
-    }
+    if (!state.ship || state.ship.status !== 'docked')
+        return body.innerHTML = '<p class="dim">— in transit · market offline —</p>'
 
-    form.hidden = false
     body.innerHTML = state.market.length
         ? `<table><tr><th>GOOD</th><th>BUY</th><th>SELL</th></tr>${
             state.market.map(m => `<tr><td>${
                 esc(good(m.gid)) }</td><td>${
-                cr(m.price_buy)  }</td><td>${
-                cr(m.price_sell)
+                tradeBtn('buy',  m.gid, m.price_buy)  }</td><td>${
+                tradeBtn('sell', m.gid, m.price_sell)
             }</td></tr>`).join('')
         }</table>`
         : '<p class="dim">— no goods quoted —</p>'
-
-    const sel  = $('#tradeGood')
-    const prev = sel.value
-    sel.innerHTML = state.market.map(m =>`<option value="${
-        esc(m.gid) }">${
-        esc(good(m.gid))
-    }</option>`).join('')
-
-    if (state.market.some(m => m.gid === prev))
-        sel.value = prev
-
-    updateHint()
 }
 
-export function updateHint() {
-    const row = state.market.find(m => m.gid === $('#tradeGood').value)
-    $('#tradeHint').textContent = row
-        ? `buy ≤ ${ cr(row.price_buy * 1.1) } · sell ≥ ${ cr(row.price_sell * 0.9) }`
-        : ''
+function tradeBtn(side, gid, price) {
+    return `<button type="button" class="tradeBtn" data-side="${
+        side }" data-gid="${ esc(gid) }">${ cr(price) }</button>`
+}
+
+export function openTradeDialog(side, gid) {
+    const row = state.market.find(m => m.gid === gid)
+    if (!row) return
+
+    const dialog = $('#tradeDialog')
+    dialog.dataset.side = side
+    dialog.dataset.gid  = gid
+
+    $('#tradeTitle').textContent = `${ good(gid) } — ${ side.toUpperCase() }`
+    $('#tradeQty').value = 1
+    updateTradeTotal()
+    dialog.showModal()
+}
+
+export function updateTradeTotal() {
+    const { side, gid } = $('#tradeDialog').dataset
+    const row = state.market.find(m => m.gid === gid)
+    const qty = Math.max(1, +$('#tradeQty').value || 1)
+    $('#tradeTotal').textContent = row ? cr(row[ 'price_' + side ] * qty) : ''
 }
 
 export function renderCargo() {

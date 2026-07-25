@@ -118,8 +118,9 @@ disable comment doesn't carry across module boundaries.
 
 header (brand + blinking cursor, `#conn` ONLINE/OFFLINE, handle, logout) ·
 `#auth` "DOCKING CLEARANCE" (handle/password, REGISTER / LOGIN) ·
-`#game` css grid: WALLET · SHIP · NAV · MARKET (+ static trade form) ·
-CARGO · LEDGER · FEED (full-width scrolling event log)
+`#game` css grid: WALLET · SHIP · NAV · MARKET · CARGO · LEDGER · FEED
+(full-width scrolling event log) · `#tradeDialog`, a native `<dialog>`
+outside the grid, opened from a market row's buy/sell button
 
 ### state - one object
 
@@ -178,13 +179,20 @@ departed feed flavor: `you age ${years_rel}yr, the galaxy ages ${years_abs}yr`
 
 `send(path, body, label)` → amber `→ label …` feed line, 202
 `correlation_id` into pending. travel `{ sid, from: ship.stid, to }` ·
-buy `price_unit_max = price_buy · 1.1` · sell `price_unit_min = price_sell · 0.9`.
-all action buttons disabled unless `status === 'docked'`.
+trade `price_unit_max = price_buy · 1.1` / `price_unit_min = price_sell · 0.9`
+(headroom for price drift between quote and execution - the dialog itself
+shows and sends plain `price · quantity`). market rows (and so the trade
+buttons) only exist while `status === 'docked'` - nothing to click otherwise.
 
 ### render
 
-per-panel `renderX()` → innerHTML of `*Body` divs; the trade form is static
-dom, never re-rendered (input preservation). NAV is an inline SVG map
+per-panel `renderX()` → innerHTML of `*Body` divs; `#tradeDialog` is a
+sibling of `#game`, never touched by `renderMarket()`'s re-render, so it
+keeps whatever the user's mid-typing (input preservation). each market row
+gets a buy and a sell `<button data-gid data-side>` showing that price;
+click → `openTradeDialog(side, gid)` sets the title/qty/total and
+`showModal()`s it, qty input live-updates the total, confirm → `commands.js`'s
+`confirmTrade()` reads the dialog's own `dataset` and closes it. NAV is an inline SVG map
 (`map.js`) - stations laid out on a generated circle (no coordinate data
 exists or is stored; layout is computed from station count, not hardcoded),
 routes as lines with `ly` labels, current station marked `.here`, reachable

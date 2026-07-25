@@ -49,13 +49,6 @@
             <section id=marketPanel>
                 <h2>MARKET</h2>
                 <div id=marketBody></div>
-                <form id=tradeForm class=tradeForm hidden>
-                    <select id=tradeGood></select>
-                    <input  id=tradeQty  type=number min=1 value=1>
-                    <button id=buyBtn    type=button  >BUY</button>
-                    <button id=sellBtn   type=button  >SELL</button>
-                    <span   id=tradeHint class=dim></span>
-                </form>
             </section>
 
             <section id=cargoPanel>
@@ -73,6 +66,16 @@
                 <div id=feed class=feed></div>
             </section>
         </main>
+
+        <dialog id=tradeDialog class=tradeDialog>
+            <p id=tradeTitle class=money></p>
+            <label>QTY <input id=tradeQty type=number min=1 value=1></label>
+            <p>total <span id=tradeTotal class=money></span></p>
+            <div class=tradeActions>
+                <button id=tradeCancelBtn  type=button>CANCEL</button>
+                <button id=tradeConfirmBtn type=button>CONFIRM</button>
+            </div>
+        </dialog>
 
         <script type=importmap> { "imports": { "garage/": "/garage/" }}</script>
         <script type=module src="/pub/js/app.js"></script>
