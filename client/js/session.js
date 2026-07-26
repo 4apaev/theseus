@@ -41,6 +41,8 @@ export async function login() {
         const { body } = await Sync.post('/login', { handle, password })
 
         localStorage.setItem(KEY, state.token = body.token)
+        Sync.head.set('authorization', 'Bearer ' + state.token)
+
         $('#authMsg').textContent = ''
         return enterGame()
     }
@@ -88,12 +90,18 @@ export async function hydrate() {
 export function connect() {
     if (!state.alive) return
 
-    const ws    = state.ws = new WebSocket(`${
+    if (state.ws) {
+
+        state.ws.onclose = void 0   // a stale socket's own reconnect loop would race this one
+        state.ws.close()
+    }
+
+    const ws = state.ws = new WebSocket(`${
         location.protocol.replace(/http/, 'ws') }//${
         location.host }/?token=${
         state.token }`)
 
-    ws.onopen   = () => setConn('ONLINE', state.wsTries = 0)
+    ws.onopen = () => setConn('ONLINE', state.wsTries = 0)
     ws.onmessage = m  => dispatch(JSON.parse(m.data))
     ws.onclose = () => {
         setConn('OFFLINE')
@@ -102,10 +110,14 @@ export function connect() {
         const wait = Math.min(1000 * 2 ** state.wsTries++, 10000)
         setTimeout(async () => {
             if (!state.alive) return
-            try { await hydrate() }
-            catch (e) { feedLine('err', 're-sync failed: ' + e.message) }
-            if (!state.alive) return   // hydrate's 401 path may have logged out
-            connect()
+            try {
+                await hydrate()
+            }
+            catch (e) {
+                feedLine('err', 're-sync failed: ' + e.message)
+            }
+
+            state.alive && connect() // hydrate's 401 path may have logged out
         }, wait)
     }
 }
