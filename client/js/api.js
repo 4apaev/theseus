@@ -9,8 +9,8 @@ export async function api(path, body) {
         ? Sync.get(path)
         : Sync.post(path, body)
 
-    state.token
-        && rq.set('authorization', 'Bearer ' + state.token)
+    // state.token
+    //     && rq.set('authorization', 'Bearer ' + state.token)
 
     try {
         return (await rq).body
@@ -33,7 +33,10 @@ export function logout(msg) {
     state.alive = false
     state.ws?.close()
     state.token = null
+
+    Sync.head.delete('authorization')
     localStorage.removeItem(KEY)
+
     showAuth(msg)
 }
 

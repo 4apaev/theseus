@@ -9,7 +9,8 @@ import { travel, confirmTrade } from './commands.js'
 import { tickEta, openTradeDialog, updateTradeTotal } from './render.js'
 
 Sync.base = location.origin
-Sync.head.set('content-type', 'application/json')
+Sync.head.set('content-type', 'application/json'); state.token &&
+Sync.head.set('authorization', 'Bearer ' + state.token)
 
 // ── wiring + boot ─────────────────────────────────────────────────────────
 
