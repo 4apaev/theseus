@@ -22,25 +22,6 @@ export function $() {
         : el.querySelector(query)
 }
 
-// Object.defineProperty(Element.prototype, 'html', {
-//     value(...a) {
-//         if (!a.length)
-//             return this.innerHTML
-//         this.replaceChildren()
-//         this.innerHTML = raw.apply(this, arguments)
-//         return this
-//     },
-// })
-
-// Object.defineProperty(Node.prototype, 'txt', {
-//     value(...a) {
-//         if (!a.length)
-//             return this.textContent
-//         this.textContent = raw.apply(this, arguments)
-//         return this
-//     },
-// })
-
 $.of = node
 export function node(tag, attr, ...children) {
     const el = document.createElement(tag)
