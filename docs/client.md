@@ -190,8 +190,12 @@ per-panel `renderX()` → innerHTML of `*Body` divs; `#tradeDialog` is a
 sibling of `#game`, never touched by `renderMarket()`'s re-render, so it
 keeps whatever the user's mid-typing (input preservation). each market row
 gets a buy and a sell `<button data-gid data-side>` showing that price;
-click → `openTradeDialog(side, gid)` sets the title/qty/total and
-`showModal()`s it, qty input live-updates the total, confirm → `commands.js`'s
+cargo rows get a sell button only (same `tradeBtn()` helper, station's
+`price_sell` for that gid, docked only - no button for a good the
+station doesn't quote). one delegated click listener on `#game` (not
+`#marketBody`/`#cargoBody` separately) catches every `.tradeBtn` →
+`openTradeDialog(side, gid)` sets the title/qty/total and `showModal()`s
+it, qty input live-updates the total, confirm → `commands.js`'s
 `confirmTrade()` reads the dialog's own `dataset` and closes it. NAV is an inline SVG map
 (`map.js`) - stations laid out on a generated circle (no coordinate data
 exists or is stored; layout is computed from station count, not hardcoded),
