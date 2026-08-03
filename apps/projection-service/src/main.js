@@ -8,6 +8,7 @@ export class Projection extends Service {
     static schema     = 'projection'
     static service    = 'projection-service'
     static outbox     = false   // consume only - read models emit nothing
+    static logEvents  = true    // event_log feeds scripts/rebuild.js
     static migrations = new URL('../migrations', import.meta.url)
     /*
         the concrete topics, NOT events.all: outbox rows carry a single
@@ -21,6 +22,8 @@ export class Projection extends Service {
         return createHandlers(this.pool)
     }
 }
+
+export { createHandlers } from './handlers.js'
 
 export const service = Projection.service
 export const describeService = () => Projection.describe()

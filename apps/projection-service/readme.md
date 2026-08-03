@@ -18,7 +18,8 @@
 
 
 ### exports
-- `src/main.js`     - `Projection extends Service` (no outbox) - consumer of the concrete event topics, NOT `events.all`
+- `src/main.js`     - `Projection extends Service` (no outbox) - consumer of the concrete event topics, NOT `events.all`;
+                      `logEvents = true`, re-exports `createHandlers`
 - `src/handlers.js` - dispatch map: one upsert per event type
 
 ------------------------------------------------------------------------------------------------
@@ -30,6 +31,7 @@
 - `004_cargo.sql`         : (sid, gid) pk, quantity, updated
 - `005_market_prices.sql` : (stid, gid) pk, price_buy, price_sell, updated
 - `006_trade_history.sql` : tid pk, gid, pid, sid, stid, quantity, price_*, side, created
+- `007_event_log.sql`     : eid pk, event_type, payload jsonb, occurred, received - replay source for `scripts/rebuild.js`
 
 full column detail in [migrations/](./migrations/), schema overview in [docs/phase.1.md](../../docs/phase.1.md)
 
@@ -40,7 +42,13 @@ full column detail in [migrations/](./migrations/), schema overview in [docs/pha
 - **event ordering** - events are processed in order, but out of order delivery is possible.
   with FKs, a `wallet.created` arriving before `player.created` would violate a constraint
   even though the data is logically consistent.
-- **rebuild / replay** - truncate + replay would force careful table ordering during truncation.
+- **rebuild / replay** (step 10) - `logEvents = true` makes `Service.start()` append every
+  consumed event to `event_log` before dispatch. `npm run rebuild` truncates the 6 read-model
+  tables in one statement (zero FKs between them, so no ordering to get right) and replays
+  `event_log` ordered by `received, eid` through the exact same handler map - `event_log` only
+  covers what's been consumed since the service last started with logging on, so a rebuild
+  before then would silently discard history outside that window (see `docs/progress.md`,
+  step 10).
 - **source of truth is the write side** - referential integrity is enforced there
   (can't create a wallet for a non-existent player at command time).
 - the projection just mirrors what already passed validation.
@@ -50,4 +58,5 @@ full column detail in [migrations/](./migrations/), schema overview in [docs/pha
 
 ### tests
 - [ ] unit: handlers upsert per event type
-- [ ] integration: projection rebuild - truncate + replay (step 9)
+- [x] integration: projection rebuild - `test/projection.rebuild.integration.spec.js`,
+      full loop → snapshot 6 tables → rebuild → snapshot again → `assert.deepEqual` (step 10)
