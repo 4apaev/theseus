@@ -10,17 +10,18 @@ and see it all update live - through a browser. first real consumer of the
 gateway api.
 
 decisions:
-- lives at top-level `client/` (`index.html` + `style.css` + `app.js`) -
+- lives at top-level `client/` (`index.html`, `css/`, `js/`, `img/`) -
   not nested in the gateway app, not an npm package (no deps, nothing
-  imports it). served by three public GETs via garage `rs.file()`; the
-  html's path comes from `GATEWAY_CLIENT_PATH` (default `./client/index.html`,
+  imports it). html served by `GET /`, everything else by one generic
+  `GET /pub/:file(.*)` (see `apps/gateway/readme.md`); the html's path
+  comes from `GATEWAY_CLIENT_PATH` (default `./client/index.html`,
   relative to cwd - every documented boot command in this repo runs from
-  repo root), css/js are resolved as siblings of it, not separately
+  repo root), css/js/img are resolved as siblings of it, not separately
   configured. same origin as api + ws either way - cors was never about
   file location, only which process serves the response
 - scope: the full loop + flavor + retro terminal theme (dark, monospace,
-  phosphor green + amber, css scanlines). no framework, no external assets -
-  three local files, no build step, no bundler
+  phosphor green + amber, css scanlines). no framework, no external assets,
+  no build step, no bundler
 - new public `GET /universe` - client needs stations/routes/goods/constants,
   nothing exposes them yet
 
@@ -92,22 +93,34 @@ specs in `test/gateway.spec.js` (no bearer - that IS the public assertion):
   `starter.stid === 'sol.outpost'`, `constants.time_scale === 20`
 
 
-2 · the files - client/index.html + style.css + app.js
+2 · the files - client/index.html + css/js/img module graph
 ------------------------------------------------
 
-markup in `index.html` (~120 lines) links `style.css` (~130) and loads
-`app.js` (~370) at the end of `<body>`, same execution timing as an inline
-`<script>` would have. `<link rel="icon" href="data:,">` silences the
-favicon 401. `app.js` opens with `/* eslint-disable camelcase */` -
-matching every server file - since it mirrors wire field names
-(`event_type`, `price_unit_max`, `years_abs`, ...) verbatim.
+markup in `index.html` links `css/style.css` and loads `js/app.js` as a
+native ES module (`<script type="module">`) at the end of `<body>`. app.js
+is a slim entry point - `Sync` setup + all `addEventListener` wiring + boot
+- that imports the rest of the client from sibling modules, each named
+after the concern it owns: `dom.js` ($, $.of, esc, raw, format helpers),
+`state.js` (the state object + station/good lookups), `feed.js`
+(feedLine/mark), `api.js` (api/logout/showAuth/refreshMarket - grouped
+together to avoid an import cycle, see below), `map.js` (the NAV panel's
+SVG universe map), `render.js` (every other panel render + the eta/marker
+tick), `events.js` (flavor/mutate/dispatch), `session.js` (register/login/
+enterGame/hydrate/connect), `commands.js` (send/travel/buy/sell). Served by
+the gateway's `GET /pub/:file(.*)` (a directory route, not one hardcoded
+route per file - see `apps/gateway/readme.md`), same as `css/style.css`
+and `img/favicon.svg`. Every module that touches wire-format fields
+(`event_type`, `price_unit_max`, `years_abs`, ...) opens with
+`/* eslint-disable camelcase */` - matching every server file - since the
+disable comment doesn't carry across module boundaries.
 
 ### markup
 
 header (brand + blinking cursor, `#conn` ONLINE/OFFLINE, handle, logout) ·
 `#auth` "DOCKING CLEARANCE" (handle/password, REGISTER / LOGIN) ·
-`#game` css grid: WALLET · SHIP · NAV · MARKET (+ static trade form) ·
-CARGO · LEDGER · FEED (full-width scrolling event log)
+`#game` css grid: WALLET · SHIP · NAV · MARKET · CARGO · LEDGER · FEED
+(full-width scrolling event log) · `#tradeDialog`, a native `<dialog>`
+outside the grid, opened from a market row's buy/sell button
 
 ### state - one object
 
@@ -166,18 +179,35 @@ departed feed flavor: `you age ${years_rel}yr, the galaxy ages ${years_abs}yr`
 
 `send(path, body, label)` → amber `→ label …` feed line, 202
 `correlation_id` into pending. travel `{ sid, from: ship.stid, to }` ·
-buy `price_unit_max = price_buy · 1.1` · sell `price_unit_min = price_sell · 0.9`.
-all action buttons disabled unless `status === 'docked'`.
+trade `price_unit_max = price_buy · 1.1` / `price_unit_min = price_sell · 0.9`
+(headroom for price drift between quote and execution - the dialog itself
+shows and sends plain `price · quantity`). market rows (and so the trade
+buttons) only exist while `status === 'docked'` - nothing to click otherwise.
 
 ### render
 
-per-panel `renderX()` → innerHTML of `*Body` divs; the trade form is static
-dom, never re-rendered (input preservation). NAV lists
-`routes.filter(r => r.from === ship.stid)` with `ly · eta preview`
-(`abs = ly/v` · `rel = abs·√(1−v²)` · `secs = abs·time_scale`) + capital
-cost one-liner via `interest_rate`. countdown: one `setInterval(tick, 250)`
-writing only `#eta` from `arrives − now`, clamped to "arriving…" - never
-flips state locally, waits for `ship.arrived.v1`.
+per-panel `renderX()` → innerHTML of `*Body` divs; `#tradeDialog` is a
+sibling of `#game`, never touched by `renderMarket()`'s re-render, so it
+keeps whatever the user's mid-typing (input preservation). each market row
+gets a buy and a sell `<button data-gid data-side>` showing that price;
+cargo rows get a sell button only (same `tradeBtn()` helper, station's
+`price_sell` for that gid, docked only - no button for a good the
+station doesn't quote). one delegated click listener on `#game` (not
+`#marketBody`/`#cargoBody` separately) catches every `.tradeBtn` →
+`openTradeDialog(side, gid)` sets the title/qty/total and `showModal()`s
+it, qty input live-updates the total, confirm → `commands.js`'s
+`confirmTrade()` reads the dialog's own `dataset` and closes it. NAV is an inline SVG map
+(`map.js`) - stations laid out on a generated circle (no coordinate data
+exists or is stored; layout is computed from station count, not hardcoded),
+routes as lines with `ly` labels, current station marked `.here`, reachable
+stations `.reachable` (clickable, `travel(stid)`) with the old ly/eta/age/
+capital-cost preview now on a native `<title>` hover tooltip instead of
+button text. countdown + ship-marker position share one
+`setInterval(tick, 250)`: `#eta` text from `arrives − now`, clamped to
+"arriving…"; marker position from `arrives`/`years_abs`/`time_scale`
+(derived transit-start instant, no separate "departed at" field needed) via
+a CSS `transition` on the marker's `cx`/`cy` for a smooth glide between
+ticks. Never flips state locally, waits for `ship.arrived.v1`.
 
 ### theme
 
@@ -224,9 +254,6 @@ explicit copy · multiple ships → `ships[0]` defensively
 - `INTEREST_RATE` env is new, only the client preview reads it - keep the
   0.05 default aligned if server-side capital cost ever lands
 - no pending-command timeout - lost command leaves a `…` feed line
-- `app.js` isn't in eslint's `files` glob yet (would need browser globals
-  added alongside `apps/**`'s node globals) - unlinted/untyped for now,
-  manual browser verification, keep it boring
-- `rs.file` sends no cache headers - fine for three dev-stage files
+- `rs.file` sends no cache headers - fine for a handful of dev-stage files
 - roles (permissions.md "plumb before client") deliberately deferred -
   client treats a missing role claim as player, nothing to unwind later

@@ -21,6 +21,8 @@ import { Ship }       from '@theseus/ship-service'
 import { Market }     from '@theseus/market-service'
 import { Projection } from '@theseus/projection-service'
 
+import { globalSetup } from './reset-test-db.js'
+
 /*
     the phase 1 loop against the REAL broker - compose kafka + pg:
 
@@ -60,12 +62,10 @@ for (const [ name, host, port ] of [
     }
 }
 
-// ── fresh economy, real client, all four services ────────────
+// ── fresh test db, real client, all four services ─────────────
 
-const admin = DB.create()
-await admin.query('drop schema if exists market cascade')
-await admin.end()
-say('market schema dropped - deterministic quotes')
+await globalSetup()
+say('test db reset - deterministic quotes')
 
 const client = createKafkaClient({
     clientId: 'smoke',

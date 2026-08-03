@@ -5,8 +5,9 @@ const timeout = readEnv('HEALTH_TIMEOUT', 1500)
 
 const checks = await Promise.all([
     check('kafka'   , readEnv('KAFKA_HOST'   , '127.0.0.1'), readEnv('KAFKA_PORT'   , 9092)),
-    check('postgres', readEnv('PG_HOST'      , '127.0.0.1'), readEnv('PG_PORT'      , 5432)),
     check('kafka-ui', readEnv('KAFKA_UI_HOST', '127.0.0.1'), readEnv('KAFKA_UI_PORT', 8080)),
+    check('postgres', readEnv('PG_HOST'      , '127.0.0.1'), readEnv('PG_PORT'      , 5432)),
+    check('pgadmin' , readEnv('PGADMIN_HOST' , '127.0.0.1'), readEnv('PGADMIN_PORT' , 5050)),
 ])
 
 for (let x of checks) {

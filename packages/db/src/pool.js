@@ -9,13 +9,13 @@ import { readEnv, requireEnv } from '@theseus/config'
     utc offset. force utc interpretation - matches what's actually stored */
 pg.types.setTypeParser(1114, str => new Date(str + 'Z'))
 
-export function createPool({ schema } = {}) {
+export function createPool({ schema, database } = {}) {
     const pool = new pg.Pool({
         host    : requireEnv('PG_HOST'),
         port    : requireEnv('PG_PORT'),
         user    : requireEnv('PG_USER'),
         password: requireEnv('PG_PASS'),
-        database: requireEnv('PG_DB'),
+        database: database ?? requireEnv('PG_DB'),
         max     : readEnv('PG_POOL_MAX', 10),
         options : schema && `-c search_path=${ schema }`,
     })

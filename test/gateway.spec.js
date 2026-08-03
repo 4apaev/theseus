@@ -96,10 +96,10 @@ let kafka, gw
 test.before(async () => {
     kafka = createMemoryKafka()
     fakePlayerService(kafka)
-    gw    = await start(kafka, { pool: projectionPool(), secret: SECRET, port: 0, timeout: 300 })
+    gw = await start(kafka, { pool: projectionPool(), secret: SECRET, port: 0, timeout: 300 })
 
     Sync.base = 'http://127.0.0.1:' + gw.port
-    Sync.head = new Headers({ 'content-type': 'application/json' })
+    Sync.head.set('content-type', 'application/json')
 })
 
 test.after(() => gw.stop())
@@ -218,9 +218,9 @@ test('GET/ serves the client html without a token', async () => {
     assert.match(rs.body, /theseus/i)
 })
 
-test('GET/style.css and GET/app.js serve clientPath\'s siblings without a token', async () => {
-    const css = await Sync.get('/style.css')
-    const js  = await Sync.get('/app.js')
+test('GET/pub/:file serves clientPath\'s directory (css/js/img) without a token', async () => {
+    const css = await Sync.get('/pub/css/style.css')
+    const js  = await Sync.get('/pub/js/app.js')
 
     assert.equal(css.status, 200)
     assert.match(css.head.get('content-type'), /text\/css/)
@@ -228,7 +228,20 @@ test('GET/style.css and GET/app.js serve clientPath\'s siblings without a token'
 
     assert.equal(js.status, 200)
     assert.match(js.head.get('content-type'), /javascript/)
-    assert.match(js.body, /function register/)
+    assert.match(js.body, /addEventListener/)
+})
+
+test('GET/pub/:file serves the full client module graph, e.g. session.js', async () => {
+    const rs = await Sync.get('/pub/js/session.js')
+
+    assert.equal(rs.status, 200)
+    assert.match(rs.head.get('content-type'), /javascript/)
+    assert.match(rs.body, /function register/)
+})
+
+test('GET/pub/:file rejects path traversal outside the client dir', async () => {
+    const rs = await Sync.get('/pub/..%2fpackage.json').then(echo, echo)
+    assert.equal(rs.status, 404)
 })
 
 test('GET/universe returns the serialized graph without a token', async () => {

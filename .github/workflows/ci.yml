@@ -46,7 +46,7 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_DB: theseus
+          POSTGRES_DB: theseus_test
           POSTGRES_USER: theseus
           POSTGRES_PASSWORD: theseus
         ports:
@@ -82,4 +82,4 @@ jobs:
           PG_PORT: 5432
           PG_USER: theseus
           PG_PASS: theseus
-          PG_DB: theseus
+          PG_DB: theseus_test

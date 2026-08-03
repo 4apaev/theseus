@@ -43,22 +43,24 @@
         "check"         : "npm run lint && npm run tsc && npm run test && npm run test int && npm run smoke",
         "start"         : "bash scripts/start.sh",
         "stop"          : "bash scripts/stop.sh",
+        "re"            : "bash scripts/reboot.sh",
         "infra:up"      : "docker compose -f infra/docker-compose.yml up -d",
         "infra:down"    : "docker compose -f infra/docker-compose.yml down",
         "infra:logs"    : "docker compose -f infra/docker-compose.yml logs -f",
         "infra:ps"      : "docker compose -f infra/docker-compose.yml ps",
         "infra:health"  : "node scripts/infra-health.js",
         "services:check": "node scripts/services-check.js",
-        "smoke"         : "node --env-file=./.env --env-file=./.env.dev scripts/smoke.js"
+        "smoke"         : "node --env-file=./.env --env-file=./.env.dev scripts/smoke.js",
+        "test:db:reset" : "node --env-file=./.env --env-file=./.env.dev scripts/reset-test-db.js"
     },
     "dependencies": {
         "garage": "github:4apaev/garage"
     },
     "devDependencies": {
         "typescript" : "^7.0.2",
-        "globals"    : "^17.7.0",
-        "eslint"     : "^10.7.0",
+        "globals"    : "^17.9.0",
+        "eslint"     : "^10.8.0",
         "@eslint/js" : "^10.0.1",
-        "@types/node": "^26.1.1"
+        "@types/node": "^26.1.2"
     }
 }

@@ -10,7 +10,70 @@ full step list
 current - step 10: projection rebuild
 ------------------------------------------------
 
-truncate + replay from the event log - not started
+truncate + replay from the event log - not started, but scoped and ready to build.
+
+**why now**: hit it for real - `market.ships` (market-service's mirror,
+rebuilt from `events.ship`) only had the 2 ships created after today's
+`npm run start`; every older ship (going back a day+ in `ship.ships`,
+ship-service's authoritative table) is invisible to it and trades against
+those ships reject with `ship unknown`. root cause: a consumer group
+resumes from its committed offset on restart rather than replaying
+(`apps/gateway/src/main.js`'s own comment says as much) - if a projection
+table ever gets emptied independently of that offset, it can never
+self-heal. **scope decided**: build it for `projection-service` only
+(matches phase.1.md's step 10 wording exactly, and it's the clean case -
+zero FKs across all 6 migrations, zero saga state, everything genuinely
+derivable by replay). `market-service`'s mirror has the identical exposure
+but mixes pure mirrors (`ships`/`cargo`) with saga-owned tables
+(`station_inventory`, `trades`) that a blanket truncate+replay would
+wrongly wipe - leave that as a documented gap on
+[market-service's readme](../apps/market-service/readme.md), not fixed
+here.
+
+**second data point, same day**: while verifying the cargo sell button,
+`projection.market_prices` turned out stale too - `market.markets` had
+sol.outpost/grain at `price_buy 68.75` but `projection.market_prices` was
+still showing `41.04` (last written 2026-07-24 23:29, well before the
+real price moved), so a buy at the client-displayed price got rejected
+server-side as `price above limit` (the 10% headroom wasn't enough to
+cover the drift). same mirror-goes-stale-and-never-heals shape as the
+`ship unknown` case above, just hitting `market_prices` instead of
+`ships` - another concrete argument for building step 10 exactly as
+scoped (projection-service's tables) rather than treating today's
+`ship unknown` as a one-off.
+
+**design** (matches the sketch in `docs/dacrap/steps.p.md`'s old step 9,
+and `permissions.md`'s "this is step 10" note): each opted-in service
+keeps its own durable, append-only `event_log` (not a Kafka replay - kafka
+has no offset-reset/admin capability in `packages/kafka` today, and topics
+aren't infinite-retention anyway). rebuild = truncate the read-model
+tables + replay `event_log` ordered by `occurred`, through the exact same
+handler map the live consumer uses - never touches kafka/inbox at all.
+
+- [ ] `packages/service/src/index.js` - `static logEvents = false` (opt-in
+      per service), `Service.start()` writes every consumed event to
+      `event_log` before dispatch when the subclass sets it `true`
+- [ ] `apps/projection-service/migrations/007_event_log.sql` - `eid` pk,
+      `event_type`, `payload` jsonb, `occurred`, `received`
+- [ ] `apps/projection-service/src/main.js` - `logEvents = true`, export
+      `createHandlers` (needed by the rebuild script, package `exports`
+      map only exposes `main.js` today)
+- [ ] `scripts/rebuild.js` + `npm run rebuild` - truncate `players` /
+      `wallets` / `ships` / `cargo` / `market_prices` / `trade_history`,
+      replay `event_log` through `createHandlers()`'s dispatch map. run
+      with projection-service stopped (documented, not enforced)
+- [ ] readme/phase.1.md/progress.md updates once built + verified (play
+      the loop, snapshot the 6 tables, rebuild, snapshot again, diff -
+      business columns should match, `updated`/`received` timestamps
+      legitimately won't)
+- [ ] `apps/market-service/readme.md` - doc note on the same staleness
+      risk, explicitly out of scope for this pass
+
+admin-gated `POST /admin/rebuild` from `permissions.md` stays separate -
+depends on role plumbing (`players.role`, `requireRole`, JWT claim) which
+doesn't exist yet either (confirmed: no `role` column, no `requireRole`,
+no admin routes anywhere in the repo). this step ships as a plain script
+first, matching `services:check`/`infra:health`/`smoke`.
 
 ------------------------------------------------
 step 9: minimal client - done ✔
@@ -173,6 +236,10 @@ decisions log
 
 tech debth & refactors
 ------------------------------------------------
+### ship update
+should be able to rename player's ships
+
+
 ### permissions - roles and visibility
 design note in [permissions.md](permissions.md) - `players.role` →
 login reply → JWT claim → `requireRole('admin')` middleware, role-aware

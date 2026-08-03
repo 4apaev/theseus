@@ -1,12 +1,11 @@
 /* eslint-disable camelcase */
 import Pt from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { styleText as styl } from 'node:util'
 
-import { Garage } from 'garage'
-import { Is, Fail, guid } from '@theseus/util'
+import { Garage              } from 'garage'
+import { O, Is, Fail, guid   } from '@theseus/util'
+import { universeData        } from '@theseus/domain'
 import { createCommandRecord } from '@theseus/kafka'
-import { universeData } from '@theseus/domain'
 import {
     commandTree as CMD,
     eventTree as EVT,
@@ -44,16 +43,18 @@ export function createRoutes({
 
     // ── middleware ───────────────────────────────────────────
 
+    const PUB_DIR = Pt.resolve(Pt.dirname(clientPath))
+
     /** @type { MWare } */
     async function log(rq, rs, next) {
         const start = performance.now()
         await next()
-        // (new Date).toLocaleString('en-gb', { hour12: false }),
         console.log(
-            styl('bgCyan', (performance.now() - start).toFixed(2).padEnd(8)),
-            styl(rs.status > 399 ? 'red' : 'green', `${ rs.status }`),
-            styl('yellow', rq.method.padEnd(8)),
+            // (new Date).toLocaleString('en-gb', { hour12: false }),
+            rs.status,
+            rq.method,
             rq.url,
+            (performance.now() - start).toFixed(1).padEnd(4),
         )
     }
 
@@ -74,19 +75,23 @@ export function createRoutes({
         if (rq.error)
             throw rq.error
 
-        // TODO: rq.reader() should parse automaticly
-        // if content-type is json.
-        // looks like duplicate
-        if (Is.s(rq.body) || Is.B(rq.body)) {
-            try {
-                rq.body = JSON.parse(rq.body)
-            }
-            catch {
-                Fail.raise(400, 'invalid json body')
-            }
-        }
         Is.o(rq.body) || Fail.raise(400, 'invalid json body')
         return next()
+    }
+    /**
+     * @param  { string  }  base
+     * @param  { Record<string, string> } [dict]
+     * @return { MWare }
+     */
+    function frontend(base, dict) {
+        O.setPrototypeOf(dict ??= {}, null)
+
+        return (rq, rs) => {
+            const path = Pt.join(base, dict[ rq.params.file ] ?? rq.params.file)
+            return path.startsWith(base + Pt.sep)
+                ? rs.file(path)
+                : rs.send(404, 'not found')
+        }
     }
 
     // ── commands ─────────────────────────────────────────────
@@ -113,24 +118,24 @@ export function createRoutes({
 
     // ── public: client + universe ───────────────────────────
 
-    // style.css / app.js are siblings of clientPath, not separately configured
-    const clientDir = Pt.dirname(clientPath)
-
     gw.use(log)
 
-    gw.get('/'         , (rq, rs) => rs.file(clientPath))
-    gw.get('/style.css', (rq, rs) => rs.file(Pt.join(clientDir, 'style.css')))
-    gw.get('/app.js'   , (rq, rs) => rs.file(Pt.join(clientDir, 'app.js')))
     gw.get('/universe' , (rq, rs) => rs.json(200, universeData))
 
-    gw.get('/garage/:file(.*)', (rq, rs) => {
-        const path = Pt.resolve(GARAGE_DIR, rq.params.file)
-        return path.startsWith(GARAGE_DIR)
-            ? rs.file(path.replace(/(\.js)?$/, '.js'))
-            : rs.send(404, 'not found')
-    })
+    // ── static ───────────────────────────────────────────────
 
-    // use json for every post route
+    gw.get('/', (rq, rs) => rs.file(clientPath))
+    gw.get('/pub/:file(.*)', frontend(PUB_DIR))
+    gw.get('/garage/:file(.*)', frontend(GARAGE_DIR, {
+        constants : '/constants.js',
+        mime      : '/mime.js',
+        sync      : '/sync.js',
+        use       : '/use.js',
+        util      : '/util.js',
+    }))
+
+    // ── json  ────────────────────────────────────────────────
+
     gw.post(json)
 
     gw.post('/register', async (rq, rs) => {
@@ -164,7 +169,8 @@ export function createRoutes({
         rs.json(200, { token: jwt.sign({ pid, handle: h }), pid, handle: h })
     })
 
-    // use auth for every other route
+    // ── auth  ────────────────────────────────────────────────
+
     gw.use(auth)
 
     // pid always comes from the token, never from the body
