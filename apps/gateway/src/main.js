@@ -24,6 +24,7 @@ export const service = 'gateway'
 export function describeService() {
     return {
         service,
+        uptime: process.uptime(),
         role: 'http api and websocket gateway',
         owns: [],
     }
