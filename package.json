@@ -51,7 +51,8 @@
         "infra:health"  : "node scripts/infra-health.js",
         "services:check": "node scripts/services-check.js",
         "smoke"         : "node --env-file=./.env --env-file=./.env.dev scripts/smoke.js",
-        "test:db:reset" : "node --env-file=./.env --env-file=./.env.dev scripts/reset-test-db.js"
+        "test:db:reset" : "node --env-file=./.env --env-file=./.env.dev scripts/reset-test-db.js",
+        "rebuild"       : "node --env-file=./.env scripts/rebuild.js"
     },
     "dependencies": {
         "garage": "github:4apaev/garage"

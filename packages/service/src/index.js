@@ -1,3 +1,5 @@
+/* eslint-disable camelcase */
+
 import { fileURLToPath } from 'node:url'
 
 import {
@@ -32,6 +34,7 @@ export default class Service {
     static service    = ''      // consumer group + boot log name
     static migrations = ''      // path to the app's migrations dir
     static outbox     = true    // projection-style consumers set false
+    static logEvents  = false   // append every consumed event to event_log (rebuild replay source)
     static topics     = []      // kafka topics to consume
     static owns       = []
     static role       = ''      // for describe()
@@ -64,6 +67,7 @@ export default class Service {
         }
 
         const dispatch = this.handlers()
+        const pool     = this.pool
 
         this.consumer = createConsumer({
             store  : this.store,
@@ -71,6 +75,7 @@ export default class Service {
             groupId: ctor.service,
             topics : ctor.topics,
             async handler({ value }) {
+                ctor.logEvents && await logEvent(pool, value)
                 const fx = dispatch[ value?.command_type ?? value?.event_type ]
                 fx && await fx(value)
             },
@@ -124,4 +129,13 @@ export default class Service {
         process.once('SIGTERM', stop)
         return service
     }
+}
+
+function logEvent(pool, { eid, event_type, payload, occurred }) {
+    return pool.query(
+        `insert into event_log (eid, event_type, payload, occurred)
+         values ($1, $2, $3, $4)
+         on conflict (eid) do nothing`,
+        [ eid, event_type, JSON.stringify(payload), occurred ],
+    )
 }

@@ -17,6 +17,7 @@ declare class Service {
     static service: string
     static migrations: string | URL
     static outbox: boolean
+    static logEvents: boolean
     static topics: string[]
     static owns: string[]
     static role: string

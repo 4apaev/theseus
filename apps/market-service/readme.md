@@ -78,6 +78,20 @@ wallet rejection returns the cargo.
 
 ------------------------------------------------------------------------------------------------
 
+### known gap - mirror staleness, no rebuild here
+
+`ships` and `cargo` are pure mirrors of `events.ship` / `events.cargo`, exposed to the
+same failure as `projection-service` before its step 10 fix: a consumer group resumes
+from its committed offset on restart, not by replay, so a mirror emptied independently
+of that offset can never self-heal (hit for real once - see `docs/progress.md`, step 10).
+`projection-service` got a truncate + `event_log` replay for this; **`market-service`
+does not** - `ships` / `cargo` sit in the same schema as saga-owned state
+(`station_inventory`, `trades`), and a blanket truncate + replay would wrongly wipe the
+trade state machine along with the mirrors. left as a documented gap, not fixed in this
+pass.
+
+------------------------------------------------------------------------------------------------
+
 ### tests
 - [x] unit: `test/market.spec.js` - 21 tests: quotes, seed, every rejection reason,
       reserve, settle, compensation, side mismatch, ships mirror

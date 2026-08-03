@@ -7,12 +7,12 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
-current - step 10: projection rebuild
+step 10: projection rebuild - done ✔
 ------------------------------------------------
 
-truncate + replay from the event log - not started, but scoped and ready to build.
+truncate + replay from the event log.
 
-**why now**: hit it for real - `market.ships` (market-service's mirror,
+**why**: hit it for real - `market.ships` (market-service's mirror,
 rebuilt from `events.ship`) only had the 2 ships created after today's
 `npm run start`; every older ship (going back a day+ in `ship.ships`,
 ship-service's authoritative table) is invisible to it and trades against
@@ -47,32 +47,48 @@ and `permissions.md`'s "this is step 10" note): each opted-in service
 keeps its own durable, append-only `event_log` (not a Kafka replay - kafka
 has no offset-reset/admin capability in `packages/kafka` today, and topics
 aren't infinite-retention anyway). rebuild = truncate the read-model
-tables + replay `event_log` ordered by `occurred`, through the exact same
-handler map the live consumer uses - never touches kafka/inbox at all.
+tables + replay `event_log` ordered by `received, eid` - this service's
+own write order, not the producer-side `occurred` clock (different
+producers' clocks aren't guaranteed monotonic relative to each other;
+`received` is assigned by this one consumer writing sequentially, so it
+matches true consumption order) - through the exact same handler map the
+live consumer uses - never touches kafka/inbox at all.
 
-- [ ] `packages/service/src/index.js` - `static logEvents = false` (opt-in
+- [x] `packages/service/src/index.js` - `static logEvents = false` (opt-in
       per service), `Service.start()` writes every consumed event to
       `event_log` before dispatch when the subclass sets it `true`
-- [ ] `apps/projection-service/migrations/007_event_log.sql` - `eid` pk,
+- [x] `apps/projection-service/migrations/007_event_log.sql` - `eid` pk,
       `event_type`, `payload` jsonb, `occurred`, `received`
-- [ ] `apps/projection-service/src/main.js` - `logEvents = true`, export
-      `createHandlers` (needed by the rebuild script, package `exports`
-      map only exposes `main.js` today)
-- [ ] `scripts/rebuild.js` + `npm run rebuild` - truncate `players` /
+- [x] `apps/projection-service/src/main.js` - `logEvents = true`, exports
+      `createHandlers` (package `exports` map only exposed `main.js` before)
+- [x] `scripts/rebuild.js` + `npm run rebuild` - truncate `players` /
       `wallets` / `ships` / `cargo` / `market_prices` / `trade_history`,
       replay `event_log` through `createHandlers()`'s dispatch map. run
       with projection-service stopped (documented, not enforced)
-- [ ] readme/phase.1.md/progress.md updates once built + verified (play
-      the loop, snapshot the 6 tables, rebuild, snapshot again, diff -
-      business columns should match, `updated`/`received` timestamps
-      legitimately won't)
-- [ ] `apps/market-service/readme.md` - doc note on the same staleness
+- [x] `test/projection.rebuild.integration.spec.js` - full loop through
+      real handlers (player → ship → market buy/travel/sell), snapshot the
+      6 tables' business columns, rebuild, snapshot again,
+      `assert.deepEqual` - identical every time; also re-ran
+      `npm run rebuild` back-to-back by hand against `theseus_test` to
+      confirm the truncate+replay itself is idempotent
+- [x] `apps/market-service/readme.md` - doc note on the same staleness
       risk, explicitly out of scope for this pass
+
+**important gap, not a bug**: `event_log` only fills going forward from the
+moment a service restarts with `logEvents = true` - it cannot backfill
+events consumed before that. once the table exists, `npm run rebuild`
+truncates and replays unconditionally - if `event_log` covers less than
+the read models' full history, everything outside that window is silently
+gone, no warning. the only free pass is before the table exists at all
+(the transaction then rolls back on the missing-relation error, a no-op).
+**do not run `npm run rebuild` against the real `theseus` db** until
+`projection-service` has been running continuously on this code for at
+least as long as the oldest row worth keeping.
 
 admin-gated `POST /admin/rebuild` from `permissions.md` stays separate -
 depends on role plumbing (`players.role`, `requireRole`, JWT claim) which
 doesn't exist yet either (confirmed: no `role` column, no `requireRole`,
-no admin routes anywhere in the repo). this step ships as a plain script
+no admin routes anywhere in the repo). this step shipped as a plain script
 first, matching `services:check`/`infra:health`/`smoke`.
 
 ------------------------------------------------
