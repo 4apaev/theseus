@@ -80,12 +80,12 @@ export function formatTime(x) {
 
 // ─────────────────────────────────────────────────────────────
 
-export function poll(fx, ms) {
+export function poll(fx, ms, ...args) {
     ms = formatTime(ms ?? 0)
     let rs, tid, stopped = 0
 
     async function tick() {
-        rs = await fx()
+        rs = await fx(...args)
         stopped || (tid = setTimeout(tick, ms))
     }
     tick()
