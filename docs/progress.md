@@ -7,6 +7,65 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+travel timer persistence - done ✔
+------------------------------------------------
+
+phase 1 (steps 0-10) was done. this was the first phase 1.5+ item, picked
+because it was a real bug: `apps/ship-service/src/handlers.js` scheduled
+ship arrival with a raw in-process `setTimeout(arrive, trip.ms, ...)`.
+restart ship-service while a ship was in transit and that timer was gone -
+nothing ever called `arrive()` again, the ship sat at `status = 'transit'`
+forever, `ship.arrived` never fired.
+
+ship travel was the only deferred/timed state transition anywhere in this
+codebase. `packages/db/src/outbox.js`'s `pollOutbox()` was the one
+existing precedent for the fix shape - state lives in postgres, a periodic
+loop claims what's due - so that's the shape this used, no new pattern.
+
+- [x] `apps/ship-service/migrations/002_ships_correlation.sql` - `ships`
+      gains nullable `causation_id`/`correlation_id` columns, persisted for
+      the duration of a trip so a restart-recovered arrival can still
+      correlate `ship.arrived` back to the original travel command
+- [x] `apps/ship-service/src/handlers.js` - travel-request handler's
+      `update ships` also writes `causation_id`/`correlation_id`; the
+      `setTimeout` line and the module-level `arrive()` function are gone
+- [x] `apps/ship-service/src/arrivals.js` (new) - `pollArrivals(pool,
+      transact, {interval})` wraps `@theseus/util`'s `poll()` around one
+      atomic `update ships set status='docked', stid="to", arrived=arrives
+      where status='transit' and arrives <= now() returning ...` - one
+      statement, not select-then-loop-update, so two overlapping pollers
+      (e.g. mid-deploy) can't double-claim the same row
+- [x] `apps/ship-service/src/main.js` - `Ship` overrides `start()`/`stop()`
+      to own the poller's lifecycle; no changes to the shared
+      `packages/service` base class, this is ship-specific
+- [x] `.env.dev` - `SHIP_ARRIVAL_INTERVAL=25`, same rationale as
+      `OUTBOX_INTERVAL=25` right above it
+- [x] `test/ship.spec.js` - removed the 2 tests asserting the old
+      `setTimeout`/mock-timers mechanism, added a `pollArrivals` section
+      mirroring `test/db.spec.js`'s `pollOutbox` tests
+- [x] `test/ship.integration.spec.js` - unchanged, still passes (already
+      waited on events generically, unaware of the scheduling mechanism)
+- [x] verified live: real broker + real postgres, killed ship-service
+      mid-transit (`bash scripts/reboot.sh ship`), confirmed the row
+      survived untouched and the fresh process's first poll tick docked it
+      and published `ship.arrived.v1` through to the projection - the one
+      scenario that was actually broken, with no automated test for
+      "process died and came back" specifically
+- [x] `apps/ship-service/readme.md`, `docs/game.md` - TODOs dropped
+
+**real bug found while building this, not just the one it fixed**: the
+first version emitted `ship.arrived` using the `arrived` column straight
+off the `RETURNING` clause. `packages/db/src/pool.js` registers a custom
+type parser for `timestamp` columns that returns a `Date` object, not a
+string - but the event schema requires `field.isoTime` (a string).
+`emit()` validates synchronously and throws, inside the transaction, so it
+rolled back - meaning the ship silently stayed stuck in `transit` and the
+poller died on its very first real arrival (an uncaught rejection inside
+`poll()`'s tick loop stops rescheduling). caught immediately by running
+`npm run test int` for real rather than trusting the design read-through;
+fixed with `ship.arrived.toISOString()`.
+
+------------------------------------------------
 step 10: projection rebuild - done ✔
 ------------------------------------------------
 

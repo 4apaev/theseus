@@ -33,21 +33,14 @@ export function createHandlers(pool, transact) {
                         aggregate_id     : sid,
                         aggregate_type   : 'ship',
                         aggregate_version: 1,
-                        payload          : {
-                            sid,
-                            pid     : p.pid,
-                            stid    : starterShip.stid,
-                            name    : starterShip.name,
-                            capacity: starterShip.capacity,
-                            velocity: starterShip.velocity,
-                        },
+                        payload          : { sid, pid: p.pid, ...starterShip },
                     }),
                 ])
             })
         },
 
         async [ CMD.ship.travel.requested ]({ cmd: causation_id, correlation_id, payload: p }) {
-            const trip = await transact(pool, async client => {
+            await transact(pool, async client => {
 
                 const { rows: [ ship ] } = await client.query('select * from ships where sid = $1', [ p.sid ])
 
@@ -57,7 +50,6 @@ export function createHandlers(pool, transact) {
                 if (p.from === p.to)          return reject(client, { reason: 'origin and destination are the same', causation_id, correlation_id, p })
 
                 const {
-                    ms,
                     arrives,
                     years_abs,
                     years_rel,
@@ -71,14 +63,16 @@ export function createHandlers(pool, transact) {
 
                 await client.query(`
                 update ships
-                   set status  = 'transit',
-                       "from"  = $2,
-                       "to"    = $3,
-                       departs = $4,
-                       arrives = $5,
-                       updated = now()
+                   set status         = 'transit',
+                       "from"         = $2,
+                       "to"           = $3,
+                       departs        = $4,
+                       arrives        = $5,
+                       causation_id   = $6,
+                       correlation_id = $7,
+                       updated        = now()
                  where sid = $1
-            `, [ p.sid, p.from, p.to, departed, arrives ])
+            `, [ p.sid, p.from, p.to, departed, arrives, causation_id, correlation_id ])
 
                 await Outbox.write(client, [
                     emit(EVT.ship.departed, {
@@ -99,42 +93,9 @@ export function createHandlers(pool, transact) {
                         },
                     }),
                 ])
-                return { ms, ship, to: p.to, arrives }
             })
-
-            // schedule only after the transaction commits - a rollback must not dock the ship
-            trip && setTimeout(arrive, trip.ms, pool, transact, { causation_id, correlation_id, ...trip })
         },
     }
-}
-
-async function arrive(pool, transact, { ship, arrives, to, ...data }) {
-    await transact(pool, async client => {
-        await client.query(`
-            update ships
-               set status  = 'docked',
-                   stid    = $2,
-                   arrived = $3,
-                   updated = now()
-             where sid = $1
-        `, [ ship.sid, to, arrives ])
-
-        await Outbox.write(client, [
-            emit(EVT.ship.arrived, {
-                causation_id     : data.causation_id,
-                correlation_id   : data.correlation_id,
-                aggregate_id     : ship.sid,
-                aggregate_type   : 'ship',
-                aggregate_version: 1,
-                payload          : {
-                    sid    : ship.sid,
-                    pid    : ship.pid,
-                    stid   : to,
-                    arrived: arrives,
-                },
-            }),
-        ])
-    })
 }
 
 async function reject(client, { reason, causation_id, correlation_id, p }) {

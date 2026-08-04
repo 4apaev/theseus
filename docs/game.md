@@ -136,8 +136,6 @@ not only goods, but also services like:
 ### universe growth
 - `Universe.path(from, to)` - dijkstra multi-hop routing once the map
   outgrows the fully-connected triangle
-- travel timer persistence - in-process `setTimeout` doesn't survive
-  restarts; postgres as durable schedule or redis
 
 
 

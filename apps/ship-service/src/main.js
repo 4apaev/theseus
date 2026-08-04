@@ -1,8 +1,9 @@
 import { DB } from '@theseus/db'
-import { isMain } from '@theseus/config'
+import { isMain, readEnv } from '@theseus/config'
 import { commandTopics, eventTopics } from '@theseus/contracts'
 import Service from '@theseus/service'
 import { createHandlers } from './handlers.js'
+import { pollArrivals } from './arrivals.js'
 
 export class Ship extends Service {
     static schema     = 'ship'
@@ -14,6 +15,21 @@ export class Ship extends Service {
 
     handlers() {
         return createHandlers(this.pool, DB.transact)
+    }
+
+    // ships stay 'transit' across a restart - the poll re-derives due
+    // arrivals from the row itself, no separate recovery step needed
+    async start() {
+        await super.start()
+        this.arrivals = pollArrivals(this.pool, DB.transact, {
+            interval: readEnv('SHIP_ARRIVAL_INTERVAL', 1000),
+        })
+        return this
+    }
+
+    stop() {
+        this.arrivals?.stop()
+        super.stop()
     }
 }
 

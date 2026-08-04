@@ -1,7 +1,7 @@
-import test             from 'node:test'
-import assert           from 'node:assert/strict'
-import { setImmediate } from 'node:timers/promises'
-import { TIME_SCALE    } from '@theseus/domain'
+import test           from 'node:test'
+import assert         from 'node:assert/strict'
+import { setTimeout } from 'node:timers/promises'
+import { TIME_SCALE  } from '@theseus/domain'
 import {
     makeCmd,
     fakeClient,
@@ -11,6 +11,7 @@ import {
 
 import { createHandlers   } from '#ship/handlers.js'
 import { travel, distance } from '#ship/travel.js'
+import { pollArrivals     } from '#ship/arrivals.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,9 +90,7 @@ for (const [ reason, over, cmd ] of [
 
 // ── travelRequested - departed ────────────────────────────────────────────────
 
-test('travelRequested updates ship to transit and emits ship.departed', async t => {
-    t.mock.timers.enable({ apis: [ 'setTimeout' ]})
-
+test('travelRequested updates ship to transit and emits ship.departed', async () => {
     const client   = fakeClient(dockedShip())
     const handlers = createHandlers({}, fakeTransact(client))
 
@@ -100,6 +99,8 @@ test('travelRequested updates ship to transit and emits ship.departed', async t 
     const update = client.log.find(({ sql }) => sql.includes('update ships'))
     assert.ok(update, 'ship updated')
     assert.match(update.sql, /status\s+= 'transit'/)
+    assert.equal(update.params[ 5 ], 'cmd-test', 'causation_id persisted')
+    assert.equal(update.params[ 6 ], 'corr-test', 'correlation_id persisted')
 
     const events = outboxEvents(client)
     assert.equal(events.length, 1)
@@ -112,45 +113,6 @@ test('travelRequested updates ship to transit and emits ship.departed', async t 
     assert.equal(e.payload.to, 'alpha.exchange')
     assert.equal(e.payload.years_abs, 4.3 / 0.6)
     assert.equal(e.payload.years_rel, 4.3 / 0.6 * Math.sqrt(1 - 0.6 ** 2))
-})
-
-test('travelRequested docks ship at destination and emits ship.arrived after timeout', async t => {
-    t.mock.timers.enable({ apis: [ 'setTimeout' ]})
-
-    const client   = fakeClient(dockedShip())
-    const handlers = createHandlers({}, fakeTransact(client))
-
-    await handlers[ 'ship.travel.requested.v1' ](trip)
-
-    const { ms } = travel('sol.outpost', 'alpha.exchange', 0.6)
-    t.mock.timers.tick(ms + 1)
-    await setImmediate()  // let async arrive() drain
-
-    const update = client.log.findLast(({ sql }) => sql.includes('update ships'))
-    assert.match(update.sql, /status\s+= 'docked'/)
-    assert.equal(update.params[ 1 ], 'alpha.exchange', 'stid = destination')
-
-    const events = outboxEvents(client)
-    assert.equal(events.length, 2)
-    assert.equal(events[ 1 ].event_type, 'ship.arrived.v1')
-    assert.equal(events[ 1 ].payload.stid, 'alpha.exchange')
-    assert.equal(events[ 1 ].payload.sid, 's1')
-    assert.equal(events[ 1 ].causation_id, 'cmd-test')
-})
-
-test('travelRequested schedules no arrival on rejection', async t => {
-    t.mock.timers.enable({ apis: [ 'setTimeout' ]})
-
-    const client   = fakeClient(dockedShip({ status: 'transit' }))
-    const handlers = createHandlers({}, fakeTransact(client))
-
-    await handlers[ 'ship.travel.requested.v1' ](trip)
-
-    t.mock.timers.tick(1e9)
-    await setImmediate()
-
-    const events = outboxEvents(client)
-    assert.equal(events.length, 1, 'only the rejection, no arrival')
 })
 
 // ── player.created - starter ship saga ────────────────────────────────────────
@@ -180,4 +142,62 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
     assert.equal(e.payload.name, 'far treasure')
     assert.equal(e.payload.capacity, 20)
     assert.equal(e.payload.velocity, 0.6)
+})
+
+// ── arrivals - poll & dock due ships ────────────────────────────────────────
+
+const docked = `'docked'`
+
+test('pollArrivals docks a due ship and emits ship.arrived', async () => {
+    const due = [{
+        sid : 's1',
+        pid : 'p1',
+        stid: 'alpha.exchange',
+        arrived        : new Date('2026-01-01T00:00:00.000Z'), // pg returns Date for timestamp cols
+        causation_id   : 'cmd-test',
+        correlation_id : 'corr-test',
+    }]
+
+    const client = fakeClient({
+        [ docked ]: () => ({ rows: due.splice(0) }),
+    })
+
+    const poller = pollArrivals({}, fakeTransact(client), { interval: 10 })
+    await setTimeout(20)
+    poller.stop()
+
+    const events = outboxEvents(client)
+    assert.equal(events.length, 1)
+    assert.equal(events[ 0 ].event_type, 'ship.arrived.v1')
+    assert.equal(events[ 0 ].causation_id, 'cmd-test')
+    assert.equal(events[ 0 ].correlation_id, 'corr-test')
+    assert.equal(events[ 0 ].payload.sid, 's1')
+    assert.equal(events[ 0 ].payload.stid, 'alpha.exchange')
+    assert.equal(events[ 0 ].payload.arrived, '2026-01-01T00:00:00.000Z', 'Date coerced to isoTime string')
+})
+
+test('pollArrivals leaves not-yet-due ships alone', async () => {
+    const client = fakeClient({
+        [ docked ]: () => ({ rows: []}),
+    })
+
+    const poller = pollArrivals({}, fakeTransact(client), { interval: 10 })
+    await setTimeout(20)
+    poller.stop()
+
+    assert.equal(outboxEvents(client).length, 0)
+})
+
+test('pollArrivals stop prevents further polling', async () => {
+    let ticks = 0
+    const client = fakeClient({
+        [ docked ]() { ticks++; return { rows: []} },
+    })
+
+    const poller = pollArrivals({}, fakeTransact(client), { interval: 10 })
+    await setTimeout(5)
+    poller.stop()
+    const snapshot = ticks
+    await setTimeout(50)
+    assert.equal(ticks, snapshot)
 })
