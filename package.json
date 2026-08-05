@@ -36,6 +36,7 @@
     },
     "scripts": {
         "env:update"    : "bash scripts/hooks/pre-push",
+        "bump"          : "node scripts/bump.js",
 
         "tsc"           : "tsc --noEmit",
         "lint"          : "eslint .",
