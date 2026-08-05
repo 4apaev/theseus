@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# tell git where to look for hooks
+# git config core.hooksPath scripts/hooks
+
+
 # if .env doesn't exist yet (fresh clone), the script will create an empty .env.example and exit 0
 [ -f .env ] || { echo "pre-push: .env not found"; exit 1; }
 
