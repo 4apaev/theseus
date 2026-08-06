@@ -1,7 +1,7 @@
 import Pt from 'node:path'
 import Fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { withClient } from '@theseus/util'
+import { withClient } from './query.js'
 
 const DEFAULT_DIR = fileURLToPath(new URL('../migrations', import.meta.url))
 

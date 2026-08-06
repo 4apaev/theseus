@@ -1,8 +1,8 @@
 import net from 'node:net'
 
-import { DB } from '@theseus/db'
+import { DB, Query } from '@theseus/db'
 import { readEnv, requireEnv } from '@theseus/config'
-import { Query, decodeJson } from '@theseus/util'
+import { decodeJson } from '@theseus/util'
 import { createKafkaClient, createProducer } from '@theseus/kafka'
 
 import {

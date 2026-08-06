@@ -1,7 +1,8 @@
 /* eslint-disable camelcase */
 
 import { eventTree as EVT } from '@theseus/contracts'
-import { O, Query } from '@theseus/util'
+import { O }     from '@theseus/util'
+import { Query } from '@theseus/db'
 
 export function createHandlers(pool) {
     const sql = Query(pool)

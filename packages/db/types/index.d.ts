@@ -20,3 +20,10 @@ export {
 } from './pool.js'
 
 export { default as migrate } from './migrate.js'
+
+export {
+    withClient,
+    where,
+    selectWhere,
+    Query,
+} from './query.js'

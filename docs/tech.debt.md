@@ -4,7 +4,6 @@ tech debt
 
 debt
 ----------------
-### npm version bump + git tag
 
 ### infra: deploy
 
@@ -21,38 +20,42 @@ add `NODE_ENV = dev | prod | test`
 turn off logging in gateway if `NODE_ENV == test`
 `NODE_ENV` should affect `garage/compose` - add test.
 
-### db helpers
-
-move db related helpers from @theseus/util to @theseus/db
-
 ### ws
 
 move `@theseus/ws` package to `garage`
 
-### refactor apps
+### handlers naming style refactor
 
 in each service `apps/{service}/src/handlers.js`
+
 replace:
 ```js
 export function createHandlers(pool, transact) {
     return {
-        [ CMD.service.action ]() {...},
-        [ EVT.service.event ]() {...},
+        [ EVT.ship.created ]() {...},
+        [ CMD.market.buy.requested ]() {...},
     }
 }
 ```
-
 with:
 ```js
 export function createHandlers(pool, transact) {
     function appAction() { /*...*/ }
     function appEvent() { /*...*/ }
     return {
-        [ CMD.app.action ]: appAction,
-        [ EVT.app.event  ]: appEvent,
+        [ EVT.ship.created ]: shipCreated,
+        [ CMD.market.buy.requested  ]: marketBuyRequested,
     }
 }
 ```
+
+need a good name for those functions to.
+- `EVT.ship.created`         > `shipCreated`
+- `CMD.market.buy.requested` > `marketBuyRequested`
+
+if name collides, append `Evt` or `Cmd` to the function name
+
+
 
 nice to have
 ----------------

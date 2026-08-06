@@ -2,9 +2,8 @@ import test   from 'node:test'
 import assert from 'node:assert/strict'
 import Crypto from 'node:crypto'
 
-import { DB }    from '@theseus/db'
-import { Query } from '@theseus/util'
-import * as Kfk  from '@theseus/kafka'
+import { DB, Query } from '@theseus/db'
+import * as Kfk      from '@theseus/kafka'
 
 import {
     guid,

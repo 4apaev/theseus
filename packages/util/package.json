@@ -11,8 +11,5 @@
     },
     "dependencies": {
         "garage": "github:4apaev/garage"
-    },
-    "devDependencies": {
-        "@types/pg": "^8.20.3"
     }
 }

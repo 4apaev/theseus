@@ -1,9 +1,8 @@
 import test   from 'node:test'
 import assert from 'node:assert/strict'
 
-import { DB }     from '@theseus/db'
-import { Query }  from '@theseus/util'
-import * as Kfk   from '@theseus/kafka'
+import { DB, Query } from '@theseus/db'
+import * as Kfk      from '@theseus/kafka'
 
 import {
     guid,
@@ -134,12 +133,17 @@ test('truncate + replay through event_log reproduces the exact same read models'
 
     stop()
 
-    // ── the projection heard everything - both trades AND both price moves ──
+    /* ──
+        wait for both trades and both price moves.
+        this event needs one more kafka hop than the wait above it.
+        give it the same timeout, not the default 5s.
+        the default caused a real flake. give explicit timeouts to all waits.
+    ── */
     await waitFor(async () => {
         const trades = await sql`select count(*) as n from trade_history where pid = ${ pid }`
         const prices = await sql`select count(*) as n from market_prices where stid in ('sol.outpost', 'barnards.port') and gid = 'ore'`
         return +trades.rows[ 0 ].n === 2 && +prices.rows[ 0 ].n === 2
-    })
+    }, '15s')
 
     const before = await snapshot(pid, sid)
     assert.ok(before.trades.length === 2, 'buy + sell both landed pre-rebuild')

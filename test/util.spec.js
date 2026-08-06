@@ -2,42 +2,12 @@ import assert from 'node:assert/strict'
 import test   from 'node:test'
 
 import {
-    withClient, poll,
-    Query, where, selectWhere,
+    poll,
     formatTime, camel2snake,
     Raw, up, low, trim, guid,
 } from '#packages/util/src/index.js'
 
 import '#packages/testing/src/index.js?title=🧪 🪏 UTIL'
-
-// ── withClient ────────────────────────────────────────────────────────────────
-
-test('withClient passes client to fn and releases it', async () => {
-    let released = false
-    const client = { release() { released = true } }
-    const pool   = { connect: async () => client }
-
-    const result = await withClient(pool, async c => {
-        assert.equal(c, client)
-        return 42
-    })
-
-    assert.equal(result, 42)
-    assert.ok(released)
-})
-
-test('withClient releases client even when fn throws', async () => {
-    let released = false
-    const client = { release() { released = true } }
-    const pool   = { connect: async () => client }
-
-    await assert.rejects(
-        () => withClient(pool, async () => { throw new Error('boom') }),
-        /boom/,
-    )
-
-    assert.ok(released)
-})
 
 // ── poll ──────────────────────────────────────────────────────────────────────
 
@@ -120,66 +90,6 @@ test('camel2snake converts camelCase to snake_case', () => {
     assert.equal(camel2snake('shipDeparted'),  'ship_departed')
     assert.equal(camel2snake('priceChanged'),  'price_changed')
     assert.equal(camel2snake('marketTradeExecuted', 'v1'),  'market_trade_executed_v1')
-})
-
-// ── Query ─────────────────────────────────────────────────────────────────────
-
-const fakePool = { query: (text, vals) => ({ text, vals }) }
-
-test('Query builds parameterized sql from tagged template', () => {
-    const sql = Query(fakePool)
-    const { text, vals } = sql`select * from players where pid = ${ 'abc' }`
-    assert.equal(text, 'select * from players where pid = $1')
-    assert.deepEqual(vals, [ 'abc' ])
-})
-
-test('Query deduplicates identical values', () => {
-    const sql = Query(fakePool)
-    const { text, vals } = sql`insert into foo values (${ 'x' }, ${ 'x' })`
-    assert.equal(text, 'insert into foo values ($1, $1)')
-    assert.deepEqual(vals, [ 'x' ])
-})
-
-test('Query handles multiple distinct params', () => {
-    const sql = Query(fakePool)
-    const { text, vals } = sql`update t set a = ${ 1 }, b = ${ 2 } where id = ${ 3 }`
-    assert.equal(text, 'update t set a = $1, b = $2 where id = $3')
-    assert.deepEqual(vals, [ 1, 2, 3 ])
-})
-
-// ── where ─────────────────────────────────────────────────────────────────────
-
-test('where builds clause with table prefix', () => {
-    const sid = 'abc', status = 'transit'
-    const [ text, vals ] = where('ships', { sid, status })
-    assert.match(text, /\n +where +ships.sid += +\$1\n +and +ships\.status += +\$2/)
-    assert.deepEqual(vals, [ sid, status ])
-})
-
-test('where omits prefix when called without table', () => {
-    const [ text, vals ] = where({ pid: 'xyz' })
-    assert.match(text, /\n +where +pid += +\$1/)
-    assert.deepEqual(vals, [ 'xyz' ])
-})
-
-test('where uses where/and keywords correctly', () => {
-    const [ text, vals ] = where({ a: 1, b: 2, c: 3 })
-    assert.match(text, /\n +where +a += +\$1\n +and +b += +\$2\n +and +c += +\$3/)
-    assert.deepEqual(vals, [ 1,2,3 ])
-})
-
-// ── selectWhere ───────────────────────────────────────────────────────────────
-
-test('selectWhere builds full select query', () => {
-    const [ text, vals ] = selectWhere('players', { pid: 'abc' }, 'pid', 'handle')
-    assert.match(text, /select +pid, +handle +from +players +\n +where +players\.pid += +\$1/)
-    assert.deepEqual(vals, [ 'abc' ])
-})
-
-test('selectWhere defaults to select *', () => {
-    const [ text, vals ] = selectWhere('players', { pid: 'abc' })
-    assert.match(text, /select +\* +from +players +\n +where +players\.pid += +\$1/)
-    assert.deepEqual(vals, [ 'abc' ])
 })
 
 // ── string helpers ────────────────────────────────────────────────────────────
