@@ -1,5 +1,6 @@
-import test   from 'node:test'
-import assert from 'node:assert/strict'
+import test           from 'node:test'
+import assert         from 'node:assert/strict'
+import { setTimeout } from 'node:timers/promises'
 
 import {
     makeCmd,
@@ -11,6 +12,7 @@ import {
 
 import { createHandlers } from '#market/handlers.js'
 import { seed, quote    } from '#market/seed.js'
+import { pollDrift      } from '#market/drift.js'
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -294,4 +296,82 @@ test('ships mirror follows created / departed / arrived', async () => {
     assert.match(dep.sql, /SET status = 'transit'/)
     assert.match(arr.sql, /SET status = 'docked'/)
     assert.equal(arr.params[ 1 ], 'barnards.port')
+})
+
+// ── living economy - drift ───────────────────────────────────────────────────
+
+test('pollDrift regens producers and drains consumers, republishes quotes', async () => {
+    const seen = new Set
+
+    const client = fakeClient({
+        'UPDATE station_inventory'([ stid, gid, delta ]) {
+            const key = `${ stid }:${ gid }`
+            if (seen.has(key)) return { rows: []} // this pair drifted once. settle now.
+            seen.add(key)
+            return { rows: [{ stock: 100 + delta, target: 100 }]}
+        },
+    })
+
+    const poller = pollDrift({}, fakeTransact(client), { interval: 10 })
+    await setTimeout(20)
+    poller.stop()
+
+    const events = outboxEvents(client)
+    assert.equal(events.length, 6, 'every produce/consume pair drifted exactly once')
+    assert.ok(events.every(e => e.event_type === 'market.price.changed.v1'))
+
+    const bump = (stid, gid) => client.log.find(q =>
+        q.sql.includes('UPDATE station_inventory')
+        && q.params[ 0 ] === stid
+        && q.params[ 1 ] === gid)
+
+    assert.equal(bump('sol.outpost', 'ore').params[ 2 ], 8, 'sol.outpost produces ore')
+    assert.equal(bump('sol.outpost', 'grain').params[ 2 ], -5, 'sol.outpost consumes grain')
+
+    const evt = (stid, gid) => events.find(e => e.payload.stid === stid && e.payload.gid === gid)
+    assert.deepEqual(
+        { price_buy: evt('sol.outpost', 'ore').payload.price_buy, price_sell: evt('sol.outpost', 'ore').payload.price_sell },
+        quote('ore', 108, 100),
+    )
+
+    assert.ok(client.log.some(q => q.sql.includes('UPDATE markets')), 'quote board updated')
+})
+
+test('pollDrift leaves settled stations alone', async () => {
+    const client = fakeClient({
+        'UPDATE station_inventory': () => ({ rows: []}), // clamp guard. stock did not move.
+    })
+
+    const poller = pollDrift({}, fakeTransact(client), { interval: 10 })
+    await setTimeout(20)
+    poller.stop()
+
+    assert.equal(outboxEvents(client).length, 0)
+    assert.ok(!client.log.some(q => q.sql.includes('UPDATE markets')), 'no quote republished')
+})
+
+test('pollDrift with interval 0 never starts', async () => {
+    const client = fakeClient({
+        'UPDATE station_inventory'() { throw new Error('drift must not run') },
+    })
+
+    const poller = pollDrift({}, fakeTransact(client), { interval: 0 })
+    await setTimeout(20)
+    poller.stop()
+
+    assert.equal(client.log.length, 0)
+})
+
+test('pollDrift stop prevents further polling', async () => {
+    let ticks = 0
+    const client = fakeClient({
+        'UPDATE station_inventory'() { ticks++; return { rows: []} },
+    })
+
+    const poller = pollDrift({}, fakeTransact(client), { interval: 10 })
+    await setTimeout(5)
+    poller.stop()
+    const snapshot = ticks
+    await setTimeout(50)
+    assert.equal(ticks, snapshot)
 })
