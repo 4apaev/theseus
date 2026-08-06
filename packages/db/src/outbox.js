@@ -2,8 +2,9 @@ import {
     guid,
     poll,
     Codec,
-    withClient,
 } from '@theseus/util'
+
+import { withClient } from './query.js'
 
 export default {
     write: writeOutbox,

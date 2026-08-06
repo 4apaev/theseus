@@ -1,5 +1,5 @@
 import pg from 'pg'
-import { Query, withClient   } from '@theseus/util'
+import { Query, withClient   } from './query.js'
 import { readEnv, requireEnv } from '@theseus/config'
 
 /*  pg's default parser for `timestamp` (no tz, oid 1114) reads the naive

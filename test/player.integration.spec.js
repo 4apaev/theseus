@@ -3,9 +3,8 @@ import assert from 'node:assert/strict'
 import Crypto from 'node:crypto'
 import { setTimeout } from 'node:timers/promises'
 
-import { DB }                                from '@theseus/db'
+import { DB, Query }                         from '@theseus/db'
 import { readEnv }                           from '@theseus/config'
-import { Query }                             from '@theseus/util'
 import { createProducer, createMemoryKafka } from '@theseus/kafka'
 
 import {

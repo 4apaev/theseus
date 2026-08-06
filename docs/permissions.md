@@ -1,7 +1,8 @@
 permissions
 ================================================
 
-design note, phase 1.5 - roles and visibility. status: **open, not started**.
+design note, [phase 2](phase.2.md) step 2.2 - roles and visibility.
+status: **open, not started**.
 what exists today is implicit: every authenticated player is equal, no admin.
 
 

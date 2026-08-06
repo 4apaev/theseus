@@ -129,14 +129,22 @@ not only goods, but also services like:
 - etc...
 
 ### more economy
-- price drift over time - markets breathe even without players
-- station stock regenerates from `produces`, drains from `consumes`
-- interest rate as a game lever (raise it → long routes stop paying)
+
+scheduled - see [phase.2.md](phase.2.md) step 2.1.
 
 ### universe growth
-- `Universe.path(from, to)` - dijkstra multi-hop routing once the map
-  outgrows the fully-connected triangle
+`Universe.path(from, to)` dijkstra routing - scheduled, see
+[phase.2.md](phase.2.md) step 2.4. the full solar-system station buildout
+above stays an idea, not scheduled.
 
+
+eve online
+------------------------------------------------
+
+looking at you [eveonline!](https://www.eveonline.com/)     \
+make a reasearch of, learn about architecture of this game. \
+reading list: [eve.md](eve.md).
+> some day maybe even add 3D client.
 
 
 ideas
@@ -178,9 +186,22 @@ let player decide about:
 - acceleration / blaming,  duration / power
 - fuel / mass calculation
 
+### orbital mechanics
+
 let player ability to mess with orbital mechanics (kerbal space program).
 in other words give user ship control,
 maybe even develop some piloting skills (RPG)
+
+#### system map
+for travels inside specific star system
+show interactive map with orbits.
+let user play with orbital mechanics, gravity assist
+some time mechanics needed in flight, slow `TIME_SCALSE`
+so user can react to ship maneuvers & adjust ship course
+
+1. ship burn calcs + gravity
+2. ship orbit changes as a result
+
 
 ### stations
 
@@ -200,11 +221,10 @@ some kind of `ansible` device that enables faster then light speed coms.
 but still with delay, no instant / immediate message transfer.
 btw, player should be able to see other players at least in same station
 
-- ship traffic should be visible.
-- player should be able to see other ships (at least those docked in the same port)
-- player should be able to publish travel manifests
-- player should be able to switch off his ship transponder (not by default, but after a ship upgrade or some other game mechanism)
-- player should be able to trade with other players
+- ship traffic visible, publishing travel manifests, switching off a ship's
+  transponder - scheduled, see [phase.2.md](phase.2.md) steps 2.3 and 2.4
+- player should be able to trade with other players - still an idea, not
+  scheduled (phase 1 explicitly kept player-to-player markets out)
 
 ### ship types & upgrades
 player should be able to rename ships

@@ -16,85 +16,88 @@ const emit = createEmitter('ship-service')
 
 export function createHandlers(pool, transact) {
     return {
-        // saga: every new player gets the starter ship, docked at sol.outpost
-        async [ EVT.player.created ]({ eid: causation_id, correlation_id, payload: p }) {
-            const sid = guid('ship')
+        [ EVT.player.created        ]: playerCreated,
+        [ CMD.ship.travel.requested ]: shipTravelRequested,
+    }
 
-            await transact(pool, async client => {
-                await client.query(`
-                    insert into ships (sid, pid, stid, name, capacity, velocity)
-                    values ($1, $2, $3, $4, $5, $6)
-                `, [ sid, p.pid, starterShip.stid, starterShip.name, starterShip.capacity, starterShip.velocity ])
+    // saga: every new player gets the starter ship, docked at sol.outpost
+    async function playerCreated({ eid: causation_id, correlation_id, payload: p }) {
+        const sid = guid('ship')
 
-                await Outbox.write(client, [
-                    emit(EVT.ship.created, {
-                        causation_id,
-                        correlation_id,
-                        aggregate_id     : sid,
-                        aggregate_type   : 'ship',
-                        aggregate_version: 1,
-                        payload          : { sid, pid: p.pid, ...starterShip },
-                    }),
-                ])
-            })
-        },
+        await transact(pool, async client => {
+            await client.query(`
+                insert into ships (sid, pid, stid, name, capacity, velocity)
+                values ($1, $2, $3, $4, $5, $6)
+            `, [ sid, p.pid, starterShip.stid, starterShip.name, starterShip.capacity, starterShip.velocity ])
 
-        async [ CMD.ship.travel.requested ]({ cmd: causation_id, correlation_id, payload: p }) {
-            await transact(pool, async client => {
+            await Outbox.write(client, [
+                emit(EVT.ship.created, {
+                    causation_id,
+                    correlation_id,
+                    aggregate_id     : sid,
+                    aggregate_type   : 'ship',
+                    aggregate_version: 1,
+                    payload          : { sid, pid: p.pid, ...starterShip },
+                }),
+            ])
+        })
+    }
 
-                const { rows: [ ship ] } = await client.query('select * from ships where sid = $1', [ p.sid ])
+    async function shipTravelRequested({ cmd: causation_id, correlation_id, payload: p }) {
+        await transact(pool, async client => {
 
-                if (!ship)                    return reject(client, { reason: 'ship not found'                     , causation_id, correlation_id, p })
-                if (ship.status !== 'docked') return reject(client, { reason: 'ship not docked'                    , causation_id, correlation_id, p })
-                if (ship.stid !== p.from)     return reject(client, { reason: 'ship not at origin'                 , causation_id, correlation_id, p })
-                if (p.from === p.to)          return reject(client, { reason: 'origin and destination are the same', causation_id, correlation_id, p })
+            const { rows: [ ship ] } = await client.query('select * from ships where sid = $1', [ p.sid ])
 
-                const {
-                    arrives,
-                    years_abs,
-                    years_rel,
-                } = travel(
-                    p.from,
-                    p.to,
-                    ship.velocity,
-                )
+            if (!ship)                    return reject(client, { reason: 'ship not found'                     , causation_id, correlation_id, p })
+            if (ship.status !== 'docked') return reject(client, { reason: 'ship not docked'                    , causation_id, correlation_id, p })
+            if (ship.stid !== p.from)     return reject(client, { reason: 'ship not at origin'                 , causation_id, correlation_id, p })
+            if (p.from === p.to)          return reject(client, { reason: 'origin and destination are the same', causation_id, correlation_id, p })
 
-                const departed = (new Date).toISOString()
+            const {
+                arrives,
+                years_abs,
+                years_rel,
+            } = travel(
+                p.from,
+                p.to,
+                ship.velocity,
+            )
 
-                await client.query(`
-                update ships
-                   set status         = 'transit',
-                       "from"         = $2,
-                       "to"           = $3,
-                       departs        = $4,
-                       arrives        = $5,
-                       causation_id   = $6,
-                       correlation_id = $7,
-                       updated        = now()
-                 where sid = $1
-            `, [ p.sid, p.from, p.to, departed, arrives, causation_id, correlation_id ])
+            const departed = (new Date).toISOString()
 
-                await Outbox.write(client, [
-                    emit(EVT.ship.departed, {
-                        causation_id,
-                        correlation_id,
-                        aggregate_id     : p.sid,
-                        aggregate_type   : 'ship',
-                        aggregate_version: 1,
-                        payload          : {
-                            sid : p.sid,
-                            pid : p.pid,
-                            from: p.from,
-                            to  : p.to,
-                            departed,
-                            arrives,
-                            years_abs,
-                            years_rel,
-                        },
-                    }),
-                ])
-            })
-        },
+            await client.query(`
+            update ships
+               set status         = 'transit',
+                   "from"         = $2,
+                   "to"           = $3,
+                   departs        = $4,
+                   arrives        = $5,
+                   causation_id   = $6,
+                   correlation_id = $7,
+                   updated        = now()
+             where sid = $1
+        `, [ p.sid, p.from, p.to, departed, arrives, causation_id, correlation_id ])
+
+            await Outbox.write(client, [
+                emit(EVT.ship.departed, {
+                    causation_id,
+                    correlation_id,
+                    aggregate_id     : p.sid,
+                    aggregate_type   : 'ship',
+                    aggregate_version: 1,
+                    payload          : {
+                        sid : p.sid,
+                        pid : p.pid,
+                        from: p.from,
+                        to  : p.to,
+                        departed,
+                        arrives,
+                        years_abs,
+                        years_rel,
+                    },
+                }),
+            ])
+        })
     }
 }
 

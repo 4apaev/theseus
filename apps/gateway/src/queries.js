@@ -1,4 +1,4 @@
-import { Query } from '@theseus/util'
+import { Query } from '@theseus/db'
 
 // read-only lookups against the projection schema.
 // cargo joins ships so a player can only see their own holds.

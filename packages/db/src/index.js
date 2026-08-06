@@ -18,3 +18,10 @@ export {
 export {
     default as migrate,
 } from './migrate.js'
+
+export {
+    withClient,
+    Query,
+    where,
+    selectWhere,
+} from './query.js'

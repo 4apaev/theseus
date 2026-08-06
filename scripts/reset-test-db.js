@@ -1,6 +1,6 @@
-import { DB                 } from '@theseus/db'
+import { DB, withClient     } from '@theseus/db'
 import { isMain, requireEnv } from '@theseus/config'
-import { Fail, withClient   } from '@theseus/util'
+import { Fail               } from '@theseus/util'
 
 // drops + recreates PG_DB from scratch - only ever against a disposable
 // integration-test database, never the real dev one (see the guard below)

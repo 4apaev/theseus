@@ -1,6 +1,6 @@
 {
     "name"       : "theseus",
-    "version"    : "0.0.0",
+    "version"    : "0.1.0",
     "description": "interstellar trade game",
     "repository" : "github:4apaev/theseus",
     "type"       : "module",
@@ -35,21 +35,26 @@
         "#testing/*"    : "./packages/testing/src/*"
     },
     "scripts": {
-        "prepare"       : "git config core.hooksPath scripts/hooks",
         "env:update"    : "bash scripts/hooks/pre-push",
-        "test"          : "bash scripts/test.sh",
-        "lint"          : "eslint .",
+        "bump"          : "node scripts/bump.js",
+
         "tsc"           : "tsc --noEmit",
+        "lint"          : "eslint .",
         "check"         : "npm run lint && npm run tsc && npm run test && npm run test int && npm run smoke",
+
+        "test"          : "bash scripts/test.sh",
         "start"         : "bash scripts/start.sh",
         "stop"          : "bash scripts/stop.sh",
-        "re"            : "bash scripts/reboot.sh",
+        "restart"       : "bash scripts/reboot.sh",
+
         "infra:up"      : "docker compose -f infra/docker-compose.yml up -d",
         "infra:down"    : "docker compose -f infra/docker-compose.yml down",
         "infra:logs"    : "docker compose -f infra/docker-compose.yml logs -f",
         "infra:ps"      : "docker compose -f infra/docker-compose.yml ps",
         "infra:health"  : "node scripts/infra-health.js",
+
         "services:check": "node scripts/services-check.js",
+
         "smoke"         : "node --env-file=./.env --env-file=./.env.dev scripts/smoke.js",
         "test:db:reset" : "node --env-file=./.env --env-file=./.env.dev scripts/reset-test-db.js",
         "rebuild"       : "node --env-file=./.env scripts/rebuild.js"

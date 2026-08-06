@@ -1,6 +1,6 @@
 {
     "name"   : "@theseus/util",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "type"   : "module",
     "types"  : "./types/index.d.ts",
     "exports": {
@@ -11,8 +11,5 @@
     },
     "dependencies": {
         "garage": "github:4apaev/garage"
-    },
-    "devDependencies": {
-        "@types/pg": "^8.20.3"
     }
 }

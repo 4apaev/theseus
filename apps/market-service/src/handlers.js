@@ -141,221 +141,229 @@ function rejectTrade(client, side, data) {
 
 export function createHandlers(pool, transact) {
     return {
+        [ EVT.ship.created                ]: shipCreated,
+        [ EVT.ship.departed               ]: shipDeparted,
+        [ EVT.ship.arrived                ]: shipArrived,
+        [ CMD.market.buy.requested        ]: marketBuyRequested,
+        [ CMD.market.sell.requested       ]: marketSellRequested,
+        [ EVT.wallet.debited              ]: walletDebited,
+        [ EVT.wallet.credited             ]: walletCredited,
+        [ EVT.wallet.transaction.rejected ]: walletTransactionRejected,
+    }
 
-        // ── ships mirror, from events.ship ───────────────────
+    // ── ships mirror, from events.ship ──────────────────────────
 
-        async [ EVT.ship.created ]({ payload: { sid, pid, stid, capacity }}) {
-            await pool.query(`
-                INSERT INTO ships (sid, pid, stid, status, capacity)
-                     VALUES ($1, $2, $3, 'docked', $4)
-                ON CONFLICT (sid)
-                 DO NOTHING
-            `, [ sid, pid, stid, capacity ])
-        },
+    async function shipCreated({ payload: { sid, pid, stid, capacity }}) {
+        await pool.query(`
+            INSERT INTO ships (sid, pid, stid, status, capacity)
+                 VALUES ($1, $2, $3, 'docked', $4)
+            ON CONFLICT (sid)
+             DO NOTHING
+        `, [ sid, pid, stid, capacity ])
+    }
 
-        async [ EVT.ship.departed ]({ payload: { sid }}) {
-            await pool.query(`
-                 UPDATE ships
-                    SET status = 'transit', stid = null
-                  WHERE sid = $1
-            `, [ sid ])
-        },
+    async function shipDeparted({ payload: { sid }}) {
+        await pool.query(`
+             UPDATE ships
+                SET status = 'transit', stid = null
+              WHERE sid = $1
+        `, [ sid ])
+    }
 
-        async [ EVT.ship.arrived ]({ payload: { sid, stid }}) {
-            await pool.query(`
-                UPDATE ships
-                   SET status = 'docked', stid = $2
+    async function shipArrived({ payload: { sid, stid }}) {
+        await pool.query(`
+            UPDATE ships
+               SET status = 'docked', stid = $2
+             WHERE sid = $1
+        `, [ sid, stid ])
+    }
+
+    // ── buy saga ─────────────────────────────────────────────────
+
+    async function marketBuyRequested({ cmd, correlation_id, payload }) {
+
+        await transact(pool, async client => {
+
+            const reject = reason => rejectTrade(client, 'buy', { cmd, reason, correlation_id, payload })
+
+            const inv = await lockStock(client, payload.stid, payload.gid)
+            if (!inv) return reject('unknown market')
+
+            const ship = await getShip(client, payload.sid)
+            if (!ship) return reject('ship unknown')
+
+            if (ship.status  !== 'docked'
+                || ship.stid !== payload.stid) return reject('ship not docked here')
+
+            if (inv.stock < payload.quantity) return reject('insufficient stock')
+
+            const load = await cargoTotal(client, payload.sid)
+            if (load + payload.quantity > ship.capacity) return reject('over capacity')
+
+            const { price_buy } = quote(payload.gid, inv.stock, inv.target)
+            if (price_buy > payload.price_unit_max) return reject('price above limit')
+
+            const tid    = guid('trade')
+            const amount = r2(price_buy * payload.quantity)
+
+            await bumpStock(client, payload.stid, payload.gid, -payload.quantity)
+            await client.query(`
+                INSERT INTO trades (tid, pid, sid, stid, gid, side, quantity, price_unit, price_total)
+                     VALUES ($1, $2, $3, $4, $5, 'buy', $6, $7, $8)
+            `, [ tid, payload.pid, payload.sid, payload.stid, payload.gid, payload.quantity, price_buy, amount ])
+
+            await Outbox.write(client, [
+                command(CMD.wallet.debit.requested, {
+                    correlation_id,
+                    payload: {
+                        pid   : payload.pid,
+                        rfid  : tid,
+                        amount,
+                        reason: `trade ${ tid }`,
+                    },
+                }),
+            ])
+        })
+    }
+
+    // ── sell saga ────────────────────────────────────────────────
+
+    async function marketSellRequested({ cmd, correlation_id, payload }) {
+        await transact(pool, async client => {
+
+            const {
+                pid,
+                sid,
+                stid,
+                gid,
+                quantity,
+                price_unit_min,
+            } = payload
+            const reject = reason => rejectTrade(client, 'sell', { cmd, reason, correlation_id, payload })
+
+            const inv = await lockStock(
+                client,
+                stid,
+                gid,
+            )
+
+            if (!inv) return reject('unknown market')
+
+            const ship = await getShip(
+                client,
+                sid,
+            )
+
+            if (!ship) return reject('ship unknown')
+
+            if (ship.status  !== 'docked'
+                || ship.stid !== stid) return reject('ship not docked here')
+
+            const { rows: [ cargo ] } = await client.query(`
+                SELECT quantity
+                  FROM cargo
                  WHERE sid = $1
-            `, [ sid, stid ])
-        },
+                   AND gid = $2
+                   FOR update
+            `, [
+                sid,
+                gid,
+            ])
 
-        // ── buy saga ─────────────────────────────────────────
+            if (!cargo || cargo.quantity < quantity) return reject('insufficient cargo')
 
-        async [ CMD.market.buy.requested ]({ cmd, correlation_id, payload }) {
+            const { price_sell } = quote(
+                gid,
+                inv.stock,
+                inv.target,
+            )
 
-            await transact(pool, async client => {
+            if (price_sell < price_unit_min)
+                return reject('price below limit')
 
-                const reject = reason => rejectTrade(client, 'buy', { cmd, reason, correlation_id, payload })
+            const tid         = guid('trade')
+            const price_total = r2(price_sell * quantity)
 
-                const inv = await lockStock(client, payload.stid, payload.gid)
-                if (!inv) return reject('unknown market')
+            await client.query(`
+                UPDATE cargo
+                   SET quantity = quantity - $3, updated = now()
+                 WHERE sid = $1
+                   AND gid = $2
+            `, [
+                sid,
+                gid,
+                quantity,
+            ])
 
-                const ship = await getShip(client, payload.sid)
-                if (!ship) return reject('ship unknown')
+            await client.query(`
+                INSERT INTO trades (tid, pid, sid, gid, stid, quantity, price_unit, price_total, side)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sell')
+            `, [
+                tid,
+                pid,
+                sid,
+                gid,
+                stid,
+                quantity,
+                price_sell,
+                price_total,
+            ])
 
-                if (ship.status  !== 'docked'
-                    || ship.stid !== payload.stid) return reject('ship not docked here')
+            await Outbox.write(client, [
+                command(CMD.wallet.credit.requested, {
+                    correlation_id,
+                    payload: {
+                        pid   : payload.pid,
+                        rfid  : tid,
+                        amount: price_total,
+                        reason: `trade ${ tid }`,
+                    },
+                }),
+            ])
+        })
+    }
 
-                if (inv.stock < payload.quantity) return reject('insufficient stock')
+    // ── saga continuation, from events.wallet ───────────────────
 
-                const load = await cargoTotal(client, payload.sid)
-                if (load + payload.quantity > ship.capacity) return reject('over capacity')
+    async function walletDebited(e)  { await settle(pool, transact, 'buy', e) }
+    async function walletCredited(e) { await settle(pool, transact, 'sell', e) }
 
-                const { price_buy } = quote(payload.gid, inv.stock, inv.target)
-                if (price_buy > payload.price_unit_max) return reject('price above limit')
+    // ── compensation ─────────────────────────────────────────────
 
-                const tid    = guid('trade')
-                const amount = r2(price_buy * payload.quantity)
+    async function walletTransactionRejected({ eid: causation_id, correlation_id, payload: { rfid, reason }}) {
+        await transact(pool, async client => {
+            const trade = await pendingTrade(client, rfid)
+            if (!trade) return // not ours
 
-                await bumpStock(client, payload.stid, payload.gid, -payload.quantity)
-                await client.query(`
-                    INSERT INTO trades (tid, pid, sid, stid, gid, side, quantity, price_unit, price_total)
-                         VALUES ($1, $2, $3, $4, $5, 'buy', $6, $7, $8)
-                `, [ tid, payload.pid, payload.sid, payload.stid, payload.gid, payload.quantity, price_buy, amount ])
-
-                await Outbox.write(client, [
-                    command(CMD.wallet.debit.requested, {
-                        correlation_id,
-                        payload: {
-                            pid   : payload.pid,
-                            rfid  : tid,
-                            amount,
-                            reason: `trade ${ tid }`,
-                        },
-                    }),
-                ])
-            })
-        },
-
-        // ── sell saga ────────────────────────────────────────
-
-        async [ CMD.market.sell.requested ]({ cmd, correlation_id, payload }) {
-            await transact(pool, async client => {
-
-                const {
-                    pid,
-                    sid,
-                    stid,
-                    gid,
-                    quantity,
-                    price_unit_min,
-                } = payload
-                const reject = reason => rejectTrade(client, 'sell', { cmd, reason, correlation_id, payload })
-
-                const inv = await lockStock(
+            if (trade.side === 'buy') /* release the reserved stock */ {
+                await bumpStock(
                     client,
-                    stid,
-                    gid,
+                    trade.stid,
+                    trade.gid,
+                    trade.quantity,
                 )
-
-                if (!inv) return reject('unknown market')
-
-                const ship = await getShip(
-                    client,
-                    sid,
-                )
-
-                if (!ship) return reject('ship unknown')
-
-                if (ship.status  !== 'docked'
-                    || ship.stid !== stid) return reject('ship not docked here')
-
-                const { rows: [ cargo ] } = await client.query(`
-                    SELECT quantity
-                      FROM cargo
-                     WHERE sid = $1
-                       AND gid = $2
-                       FOR update
-                `, [
-                    sid,
-                    gid,
-                ])
-
-                if (!cargo || cargo.quantity < quantity) return reject('insufficient cargo')
-
-                const { price_sell } = quote(
-                    gid,
-                    inv.stock,
-                    inv.target,
-                )
-
-                if (price_sell < price_unit_min)
-                    return reject('price below limit')
-
-                const tid         = guid('trade')
-                const price_total = r2(price_sell * quantity)
-
+            }
+            else /* hand the cargo back */ {
                 await client.query(`
                     UPDATE cargo
-                       SET quantity = quantity - $3, updated = now()
+                       SET quantity = quantity + $3, updated = now()
                      WHERE sid = $1
                        AND gid = $2
                 `, [
-                    sid,
-                    gid,
-                    quantity,
+                    trade.sid,
+                    trade.gid,
+                    trade.quantity,
                 ])
+            }
 
-                await client.query(`
-                    INSERT INTO trades (tid, pid, sid, gid, stid, quantity, price_unit, price_total, side)
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sell')
-                `, [
-                    tid,
-                    pid,
-                    sid,
-                    gid,
-                    stid,
-                    quantity,
-                    price_sell,
-                    price_total,
-                ])
-
-                await Outbox.write(client, [
-                    command(CMD.wallet.credit.requested, {
-                        correlation_id,
-                        payload: {
-                            pid   : payload.pid,
-                            rfid  : tid,
-                            amount: price_total,
-                            reason: `trade ${ tid }`,
-                        },
-                    }),
-                ])
+            await settleTrade(client, trade.tid, 'rejected')
+            await rejectTrade(client, trade.side, {
+                reason,
+                causation_id,
+                correlation_id,
+                payload: trade,
             })
-        },
-
-        // ── saga continuation, from events.wallet ────────────
-
-        async [ EVT.wallet.debited ](e)  { await settle(pool, transact, 'buy', e) },
-        async [ EVT.wallet.credited ](e) { await settle(pool, transact, 'sell', e) },
-
-        // ── compensation ─────────────────────────────────────
-
-        async [ EVT.wallet.transaction.rejected ]({ eid: causation_id, correlation_id, payload: { rfid, reason }}) {
-            await transact(pool, async client => {
-                const trade = await pendingTrade(client, rfid)
-                if (!trade) return // not ours
-
-                if (trade.side === 'buy') /* release the reserved stock */ {
-                    await bumpStock(
-                        client,
-                        trade.stid,
-                        trade.gid,
-                        trade.quantity,
-                    )
-                }
-                else /* hand the cargo back */ {
-                    await client.query(`
-                        UPDATE cargo
-                           SET quantity = quantity + $3, updated = now()
-                         WHERE sid = $1
-                           AND gid = $2
-                    `, [
-                        trade.sid,
-                        trade.gid,
-                        trade.quantity,
-                    ])
-                }
-
-                await settleTrade(client, trade.tid, 'rejected')
-                await rejectTrade(client, trade.side, {
-                    reason,
-                    causation_id,
-                    correlation_id,
-                    payload: trade,
-                })
-            })
-        },
+        })
     }
 }
 

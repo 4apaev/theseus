@@ -1,10 +1,11 @@
 import { DB } from '@theseus/db'
-import { isMain } from '@theseus/config'
+import { isMain, readEnv } from '@theseus/config'
 import { commandTopics, eventTopics } from '@theseus/contracts'
 import Service from '@theseus/service'
 
 import { seed as seedMarkets } from './seed.js'
 import { createHandlers } from './handlers.js'
+import { pollDrift } from './drift.js'
 
 export class Market extends Service {
     static schema     = 'market'
@@ -20,6 +21,21 @@ export class Market extends Service {
 
     handlers() {
         return createHandlers(this.pool, DB.transact)
+    }
+
+    // stock drifts on its own, from each station's produce / consume
+    // profile. this happens even with no trades. see drift.js.
+    async start() {
+        await super.start()
+        this.drift = pollDrift(this.pool, DB.transact, {
+            interval: readEnv('MARKET_DRIFT_INTERVAL', 1000),
+        })
+        return this
+    }
+
+    stop() {
+        this.drift?.stop()
+        super.stop()
     }
 }
 
