@@ -1,48 +1,67 @@
-import { execFileSync }            from 'node:child_process'
-import { readFileSync, readdirSync } from 'node:fs'
+import fs from 'node:fs'
+import pt from 'node:path'
+import ch from 'node:child_process'
 
+import { Fail }   from '@theseus/util'
 import { isMain } from '@theseus/config'
-import { Fail }    from '@theseus/util'
 
-// bump root + every workspace to the same version, one commit, one tag -
-// theseus isn't published and every internal @theseus/* dep is "*", so
-// there's no cross-package range to keep in sync, just one version number
-export function bump(kind = 'patch') {
-    const files = versionFiles()
+// bump root + every workspace to the same version, one commit, one tag
+export default function bump(kind = 'patch') {
+    const files = [
+        'package.json',
+        ...collect('apps'),
+        ...collect('packages'),
+    ]
+
     assertClean(files)
 
-    execFileSync('npm', [
-        'version', kind,
-        '--workspaces', '--include-workspace-root',
-        '--no-git-tag-version',
-    ], { stdio: 'inherit' })
+    const v = next(kind)
+    files.forEach(f => patch(f, v))
 
-    const tag = `v${ readVersion() }`
+    const tag = 'v' + v
 
-    execFileSync('git', [ 'add', ...files ])
-    execFileSync('git', [ 'commit', '-m', `chore: bump to ${ tag }` ])
-    execFileSync('git', [ 'tag', '-a', tag, '-m', tag ])
+    git('add', ...files)
+    git('commit', '-m', `chore: bump to ${ tag }`)
+    git('tag', '-a', tag, '-m', tag)
 
-    console.log(`bumped to ${ tag }`)
+    console.log('bumped to', tag)
     return tag
 }
 
-function versionFiles() {
-    return [
-        'package.json',
-        ...[ 'apps', 'packages' ].flatMap(dir => readdirSync(dir, { withFileTypes: true })
-            .filter(d => d.isDirectory())
-            .map(d => `${ dir }/${ d.name }/package.json`)),
-    ]
+// ─────────────────────────────────────────────────────────────────────────────
+
+function next(kind) {
+    // only ask npm to compute the next semver, preserv current format style.
+    // prints a bare vX.Y.Z
+    const out = npm('version', kind, '--no-git-tag-version')
+    git('checkout', '--', 'package.json')
+    return out.trim().replace(/^v/, '')
+}
+
+function patch(file, version) {
+    const src = fs.readFileSync(file, 'utf8')
+    fs.writeFileSync(file, src.replace(
+        /"version"( *: *)"[^"]*"/,
+        `"version"$1"${ version }"`,
+    ))
+}
+
+function collect(dir) {
+    return fs.readdirSync(dir, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => pt.join(dir, d.name, 'package.json'))
 }
 
 function assertClean(files) {
-    const dirty = execFileSync('git', [ 'status', '--porcelain', '--', ...files ], { encoding: 'utf8' })
-    dirty.trim() && Fail.raise(`refusing to bump - uncommitted changes in:\n${ dirty }`)
+    const dirty = git('status', '--porcelain', '--', ...files)
+    dirty.trim() && Fail.raise(`bump refused - uncommitted changes in:\n${ dirty }`)
 }
 
-function readVersion() {
-    return JSON.parse(readFileSync('package.json', 'utf8')).version
-}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function git(...a) { return ch.execFileSync('git', a, { encoding: 'utf8' }) }
+function npm(...a) { return ch.execFileSync('npm', a, { encoding: 'utf8' }) }
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
 
 isMain(import.meta.url) && bump(process.argv[ 2 ])
