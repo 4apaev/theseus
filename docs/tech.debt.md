@@ -24,37 +24,6 @@ turn off logging in gateway if `NODE_ENV == test`
 
 move `@theseus/ws` package to `garage`
 
-### handlers naming style refactor
-
-in each service `apps/{service}/src/handlers.js`
-
-replace:
-```js
-export function createHandlers(pool, transact) {
-    return {
-        [ EVT.ship.created ]() {...},
-        [ CMD.market.buy.requested ]() {...},
-    }
-}
-```
-with:
-```js
-export function createHandlers(pool, transact) {
-    function appAction() { /*...*/ }
-    function appEvent() { /*...*/ }
-    return {
-        [ EVT.ship.created ]: shipCreated,
-        [ CMD.market.buy.requested  ]: marketBuyRequested,
-    }
-}
-```
-
-need a good name for those functions to.
-- `EVT.ship.created`         > `shipCreated`
-- `CMD.market.buy.requested` > `marketBuyRequested`
-
-if name collides, append `Evt` or `Cmd` to the function name
-
 
 
 nice to have
