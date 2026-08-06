@@ -2,7 +2,8 @@ theseus - progress
 ================================================
 
 full step list
-- reference: [phase.1.md](phase.1.md)
+- phase 2 (current): [phase.2.md](phase.2.md)
+- phase 1 (done): [phase.1.md](phase.1.md)
 - game design: [game.md](game.md)
 - roles design: [permissions.md](permissions.md)
 

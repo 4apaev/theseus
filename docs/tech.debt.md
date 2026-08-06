@@ -4,44 +4,55 @@ tech debt
 
 debt
 ----------------
-- add `NODE_ENV = dev | prod | test`
-    - turn off logging in gateway if `NODE_ENV == test`
-    - `NODE_ENV` should affect `garage/compose` - add test
+### npm version bump + git tag
 
-- move db related helpers from @theseus/util to @theseus/db
-- refactor apps/{service}/src/handlers.js
-    replace
-    ```js
-    export function createHandlers(pool, transact) {
-        return {
-            [ CMD.service.action ]() {...},
-            [ EVT.service.event ]() {...},
-        }
+### infra: deploy
+
+dockerize the game. need a real plan for this.
+
+### infra: services health script
+
+whos online, status etc
+
+
+### NODE_ENV
+
+add `NODE_ENV = dev | prod | test`
+turn off logging in gateway if `NODE_ENV == test`
+`NODE_ENV` should affect `garage/compose` - add test.
+
+### db helpers
+
+move db related helpers from @theseus/util to @theseus/db
+
+### ws
+
+move `@theseus/ws` package to `garage`
+
+### refactor apps
+
+in each service `apps/{service}/src/handlers.js`
+replace:
+```js
+export function createHandlers(pool, transact) {
+    return {
+        [ CMD.service.action ]() {...},
+        [ EVT.service.event ]() {...},
     }
-    ```
+}
+```
 
-    with
-    ```js
-    export function createHandlers(pool, transact) {
-        return {
-            [ CMD.service.action ]: fxServiceAction,
-            [ EVT.service.event  ]: fxServiceEvent,
-
-            function fxServiceAction() {...}
-            function fxServiceEvent() {...}
-        }
+with:
+```js
+export function createHandlers(pool, transact) {
+    function appAction() { /*...*/ }
+    function appEvent() { /*...*/ }
+    return {
+        [ CMD.app.action ]: appAction,
+        [ EVT.app.event  ]: appEvent,
     }
-    ```
-
-
-
-eve online
-----------------
-looking at you [eveonline!](https://www.eveonline.com/)     \
-make a reasearch of, learn about architecture of this game. \
-find good sources/articles to read about.
-> some day maybe even add 3D client.
-
+}
+```
 
 nice to have
 ----------------
@@ -55,19 +66,23 @@ nice to have
 
 ### frontend lib
 react like or custom elements [lit.dev](https://lit.dev/)
-with template dialect like jade/pug.
+with template syntax like jade/pug for html.
+and stylus/sass syntax for css.
+could be dedicated library, not nesessery part of `theseus`, but as repo
 
 
-```jade
+
+```pug
 body
+    //- stylus/sass like syntax for css
     style
         body
             color       $fg
             background  $bg
             font        14px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace
             padding     1rem
-            min-height  100vh
-            text-shadow 0 0 6px rgba(51, 255, 102, .35)
+            height      100vh
+            shadow      0 0 6px rgba(51, 255, 102, .35)
 
         h2
             color     $dimtext

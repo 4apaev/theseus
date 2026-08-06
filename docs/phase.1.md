@@ -3,7 +3,8 @@ phase 1 - vertical slice
 
 a playable vertical slice, not infrastructure cosplay: one loop where a player
 registers, gets a ship, travels, trades, and sees live updates. what the game
-is and why - see [game.md](game.md). current work - see [progress.md](progress.md).
+is and why - see [game.md](game.md). done - phase 2 is current, see
+[phase.2.md](phase.2.md); day-to-day work in [progress.md](progress.md).
 
 
 steps
