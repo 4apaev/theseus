@@ -17,6 +17,7 @@ import { createFeed    } from './feed.js'
 import { createRoutes  } from './routes.js'
 import { createQueries } from './queries.js'
 import { createReplies } from './replies.js'
+import { rebuild       } from '../../../scripts/rebuild.js'
 
 export { createRoutes, createQueries, createReplies }
 export const service = 'gateway'
@@ -43,7 +44,15 @@ export async function start(client, opt = {}) {
     const queries    = createQueries(pool)
     const clientPath = opt.clientPath ?? readEnv('GATEWAY_CLIENT_PATH', './client/index.html')
 
-    const app    = createRoutes({ producer, jwt, queries, waiter, service, clientPath })
+    const app    = createRoutes({
+        producer,
+        jwt,
+        queries,
+        waiter,
+        service,
+        clientPath,
+        rebuild: opt.rebuild ?? rebuild,
+    })
     const server = app.init()
     server.on('upgrade', (rq, socket) => feed.handleUpgrade(rq, socket))
 

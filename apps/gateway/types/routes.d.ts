@@ -13,6 +13,7 @@ export interface RoutesInput {
     jwt: Auth
     waiter: Replies
     queries: Queries
+    rebuild: () => Promise<number>  // truncate + replay projections, POST /admin/rebuild
     producer: RoutesProducer  /*
         requested_by on outgoing commands,
         garage app name - default 'gateway' */
@@ -31,6 +32,9 @@ export interface RoutesInput {
  * - `POST /register` `/login` - correlated reply over events.player
  * - `POST /travel` `/buy` `/sell` - command → 202 `{ cmd, correlation_id }`, pid from token claims
  * - `GET /me` `/ships` `/cargo/:sid` `/market/:stid` `/trades` - projection reads
+ * - `GET /admin/players` `/admin/events` `/admin/inventory/:stid`
+ *   `POST /admin/rebuild` - admin-role reads + rebuild trigger
  * - bearer-jwt auth middleware, `Fail.code` → http status (417 → 400)
+ * - `requireRole('admin')` guards every `/admin/*` route
  */
 export function createRoutes(input: RoutesInput): Garage

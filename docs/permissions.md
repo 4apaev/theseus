@@ -2,8 +2,7 @@ permissions
 ================================================
 
 design note, [phase 2](phase.2.md) step 2.2 - roles and visibility.
-status: **open, not started**.
-what exists today is implicit: every authenticated player is equal, no admin.
+status: **done ✔** - see [progress.md](progress.md).
 
 
 what is already enforced
@@ -59,6 +58,13 @@ we don't want yet.
 mutating admin ops (credit a wallet, restock a station) go through the
 existing commands later - `requested_by` is the audit trail.
 
+### admin bootstrap
+
+`ADMIN_HANDLES` env var, a comma-separated list of handles. player-service
+checks it at `login.succeeded` time and sets `role = 'admin'` for a match.
+same pattern as `STARTER_CREDITS` / `TIME_SCALE` / `INTEREST_RATE` - no
+schema change, no db flag.
+
 
 decided
 ------------------------------------------------
@@ -74,19 +80,14 @@ decided
   the read side filters on it, admin still sees everything. gameplay
   hooks later: running dark could cost something or carry risk
 
+  _note_: player must be with transponder on, to dock at any station.
+  wich means - transponder can be switched off only in transit, not when docking.
+- **other players are visible by handle only** - a public-safe players
+  view (handle, no balance). net worth stays private, matching the
+  "owner: wallet" tier above. a net-worth leaderboard stays an idea, not
+  scheduled.
+- **admin powers, phase 1, are read-only + rebuild** - the 4 routes
+  above. mutating admin ops wait for a later phase.
+- **admin bootstrap is an env allowlist** - `ADMIN_HANDLES`, above.
 
-open questions - decide before building
-------------------------------------------------
-
-1. **are other players visible beyond the trade feed?** handles + net
-   worth for a leaderboard vs only what public transactions reveal.
-   decides whether the projection needs a public-safe players view
-   (handle yes, balance no).
-2. **admin powers in phase 1** - read-only + rebuild (proposed) or also
-   mutations through commands?
-3. **admin bootstrap** - `ADMIN_HANDLES` env list (cheapest) vs a DB flag
-   flipped by hand (most honest).
-
-sequencing: the role plumbing is worth doing before the html client
-(step 9) so the client can branch on `claims.role` from day one.
-questions 1 and 2 change schemas - decide those first.
+nothing blocks the build now.

@@ -5,7 +5,9 @@ import { createWss, encodeFrame } from '@theseus/ws'
 /*  the game-specific half of the websocket feed: @theseus/ws does the
     protocol (handshake, frames, keepalive), this decides who gets what -
     jwt-verified pid is the connection's identity, events routed to
-    their owner, market.price.changed broadcast to everyone */
+    their owner, market.price.changed broadcast to everyone.
+    an admin socket skips the pid filter. an admin socket gets every
+    event. this is a free live debugging tool. */
 
 export function createFeed({ jwt, ping } = {}) {
     const wss = createWss({
@@ -33,9 +35,11 @@ export function createFeed({ jwt, ping } = {}) {
 
             const pid = e?.payload?.pid
             wss.each((claims, socket) => {
-                if (pid
-                    ? claims.pid === pid
-                    : e.event_type === EVT.market.price.changed)
+
+                if (claims.role === 'admin'
+                    || (pid
+                        ? claims.pid === pid
+                        : e.event_type === EVT.market.price.changed))
                     wss.send(socket, frame)
             })
         },

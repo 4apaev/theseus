@@ -25,8 +25,8 @@ first, not a dependency chain.
 
 | step | what                                                          | status      |
 |------|----------------------------------------------------------------|-------------|
-| 2.1  | living economy - price drift, stock regen, interest rate lever | not started |
-| 2.2  | roles & visibility - `permissions.md`                          | not started |
+| 2.1  | living economy - price drift, stock regen, interest rate lever | done ✔      |
+| 2.2  | roles & visibility - `permissions.md`                          | done ✔      |
 | 2.3  | player presence - ship traffic, transponders                   | not started |
 | 2.4  | universe growth - dijkstra routing, travel manifests            | not started |
 

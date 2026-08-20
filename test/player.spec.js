@@ -127,14 +127,58 @@ test('loginPlayer emits login.succeeded on correct password', async () => {
     const stored   = await hash('secret')
 
     await login(producer, {
-        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored }]}),
+        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'player' }]}),
     }, { handle: 'alice', password: 'secret' })
 
     const [ e ] = producer.events()
     assert.equal(e.event_type, 'player.login.succeeded.v1')
     assert.equal(e.causation_id, 'cmd-test')
     assert.equal(e.correlation_id, 'corr-test')
-    assert.deepEqual(e.payload, { pid: 'p1', handle: 'alice' })
+    assert.deepEqual(e.payload, { pid: 'p1', handle: 'alice', role: 'player' })
+})
+
+test('loginPlayer promotes an ADMIN_HANDLES match, persists it, rides in the payload', async () => {
+    const producer = fakeProducer()
+    const stored   = await hash('secret')
+    const pool     = fakePool({
+        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'player' }]}),
+    })
+    const handlers = createHandlers(pool, fakeTransact(pool.client), producer)
+
+    process.env.ADMIN_HANDLES = 'alice'
+    try {
+        await handlers[ 'player.login.requested.v1' ](makeCmd({ handle: 'alice', password: 'secret' }))
+    }
+    finally {
+        delete process.env.ADMIN_HANDLES
+    }
+
+    const update = pool.client.log.find(({ sql }) => sql.includes('update players'))
+    assert.deepEqual(update.params, [ 'admin', 'p1' ])
+
+    const [ e ] = producer.events()
+    assert.equal(e.payload.role, 'admin')
+})
+
+test('loginPlayer does not re-persist role for an already-admin player', async () => {
+    const producer = fakeProducer()
+    const stored   = await hash('secret')
+    const pool     = fakePool({
+        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'admin' }]}),
+    })
+    const handlers = createHandlers(pool, fakeTransact(pool.client), producer)
+
+    process.env.ADMIN_HANDLES = 'alice'
+    try {
+        await handlers[ 'player.login.requested.v1' ](makeCmd({ handle: 'alice', password: 'secret' }))
+    }
+    finally {
+        delete process.env.ADMIN_HANDLES
+    }
+
+    assert.ok(!pool.client.log.some(({ sql }) => sql.includes('update players')), 'already admin - no write')
+    const [ e ] = producer.events()
+    assert.equal(e.payload.role, 'admin')
 })
 
 test('loginPlayer emits login.rejected on wrong password', async () => {
