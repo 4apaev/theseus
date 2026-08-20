@@ -176,6 +176,18 @@ cargo load / unload animations / repairs
 
 ### delta v mechanics
 
+[relativistic travel calculator](https://www.overvieweffekt.com/tools/relativistic-travel-calculator)
+
+[brachistochrone rocket calculator](https://www.overvieweffekt.com/tools/brachistochrone-rocket-calculator) - how fast could you travel between planets with continuous acceleration and deceleration? ("expanse" like)
+
+
+[3d interstellar-map playground](https://www.overvieweffekt.com/tools/interstellar-map)
+
+[3d interstellar-map github](https://github.com/kevinsutjijadi/interstellarmap)
+
+[astronexus](https://www.astronexus.com/projects/index)
+
+
 add real delta v calculus to the game.
 let player decide about accelerate + blaming + mass of fuel and mass of the ship + cargo
 
