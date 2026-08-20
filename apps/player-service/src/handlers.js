@@ -1,7 +1,8 @@
 /* eslint-disable camelcase */
 
-import { Outbox  } from '@theseus/db'
-import { guid    } from '@theseus/util'
+import { Outbox   } from '@theseus/db'
+import { guid, trim } from '@theseus/util'
+import { readEnv } from '@theseus/config'
 import { createEmitter } from '@theseus/kafka'
 import { STARTER_CREDITS } from '@theseus/domain'
 import Crypt       from './crypto.js'
@@ -11,6 +12,13 @@ import {
 } from '@theseus/contracts'
 
 const emit = createEmitter('player-service')
+
+// ADMIN_HANDLES is a list of handles, separated by commas.
+// the code checks this list at every login.
+// see the admin bootstrap section in docs/permissions.md.
+function isAdmin(handle) {
+    return readEnv('ADMIN_HANDLES', '').split(',').map(trim).includes(handle)
+}
 
 async function claimRfid(client, { pid, rfid, amount }, type) {
     const { rows } = await client.query(`
@@ -90,11 +98,19 @@ export function createHandlers(pool, transact, producer) {
         keep atomic, and the gateway is waiting on the http request */
     async function loginPlayer({ cmd: causation_id, correlation_id, payload: p }) {
         const { rows: [ player ] } = await pool.query(
-            'select pid, handle, hash from players where handle = $1',
+            'select pid, handle, hash, role from players where handle = $1',
             [ p.handle ],
         )
 
         const ok = !!player && await Crypt.verify(p.password, player.hash)
+
+        // promote the player on a match.
+        // do not demote the player.
+        // an env change alone must not remove admin rights.
+        if (ok && isAdmin(player.handle) && player.role !== 'admin') {
+            await pool.query('update players set role = $1 where pid = $2', [ 'admin', player.pid ])
+            player.role = 'admin'
+        }
 
         await producer.publish(emit(
             ok ? EVT.player.login.succeeded : EVT.player.login.rejected,
@@ -106,7 +122,7 @@ export function createHandlers(pool, transact, producer) {
                 aggregate_version: 1,
 
                 payload: ok
-                    ? { pid: player.pid, handle: player.handle }
+                    ? { pid: player.pid, handle: player.handle, role: player.role ?? 'player' }
                     : { handle: p.handle, reason: 'invalid credentials' },
             },
         ))

@@ -8,6 +8,84 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+step 2.2: roles & visibility - done ✔
+------------------------------------------------
+
+design in [permissions.md](permissions.md) - all 3 open questions
+resolved before the build started (handle-only public visibility,
+read-only + rebuild admin surface, `ADMIN_HANDLES` bootstrap). role
+plumbing follows the doc's own 4-item list exactly.
+
+- [x] `apps/player-service/migrations/004_players_role.sql` - `players`
+      gains `role text not null default 'player'`
+- [x] `apps/player-service/src/handlers.js` - `loginPlayer` reads `role`,
+      promotes to `'admin'` on an `ADMIN_HANDLES` match (never demotes -
+      an env change alone can't strip an existing admin), `role` rides
+      in `player.login.succeeded.v1`'s payload
+- [x] `packages/contracts/src/schemas.js` - `playerLoginSucceeded` gains
+      `role: field.has('player', 'admin')`, required
+- [x] `apps/gateway/src/routes.js` - `/login` signs `role` into the JWT
+      and returns it in the reply body; new `requireRole(role)`
+      middleware; 4 admin routes, all gated:
+      `GET /admin/players` `/admin/events` `/admin/inventory/:stid`,
+      `POST /admin/rebuild`
+- [x] `apps/gateway/src/queries.js` - `allPlayers()` / `eventLog()` /
+      `inventory(stid)`. `inventory` reads `market.station_inventory`
+      directly (schema-qualified) - the projection only mirrors quotes,
+      not raw stock, and stock is the "source of truth" the doc calls for
+- [x] `apps/gateway/src/main.js` - imports the existing `scripts/rebuild.js`
+      (unchanged), injects it into `createRoutes` as `rebuild`, overridable
+      via `opt.rebuild` for tests
+- [x] `apps/gateway/src/feed.js` - ws fanout: `claims.role === 'admin'`
+      skips the pid filter, admin sockets see the full firehose
+- [x] types updated: `packages/contracts/types/events.d.ts`
+      (`player.login.succeeded.v1` gains `role`), `apps/gateway/types/`
+      (`queries.d.ts`, `routes.d.ts`, `main.d.ts`)
+- [x] tests: `test/player.spec.js` (promotion, no-op re-promotion,
+      `role` in the succeeded payload), `test/gateway.spec.js`
+      (403 without the role, all 4 admin routes, admin ws firehose),
+      real end-to-end via `test/gateway.integration.spec.js`'s `/login`
+      call and `npm run smoke`
+
+client stays untouched on purpose - it never read `pid`/`handle`/`role`
+from the login response to begin with, only the token; a role-aware
+client UI is phase 3+ (`phase.2.md` step 2.2 called this optional).
+
+------------------------------------------------
+step 2.1: living economy - done ✔
+------------------------------------------------
+
+`station_inventory`'s `stock`/`target` and `universe.js`'s
+`produces`/`consumes` numbers existed since step 6 but the numbers
+(`ore: 8`, `grain: 5`, …) were never read anywhere - seed.js only used
+their *presence* to place a station at a fixed surplus/scarcity, once,
+at boot. this step is their first real use.
+
+- [x] `apps/market-service/src/drift.js` (new) - `pollDrift(pool,
+      transact, { interval })`, same `poll()` shape as `pollOutbox` /
+      `pollArrivals`. every tick: producers gain stock at their
+      `produces` rate, consumers lose stock at their `consumes` rate,
+      clamped to `[0, target * 2]` - an idle station settles at an
+      extreme and goes quiet (the clamped `UPDATE ... WHERE stock <>
+      ...` returns no row, so a settled pair emits nothing)
+- [x] `apps/market-service/src/main.js` - `Market.start()`/`stop()`
+      mirror ship-service's `arrivals` pattern for `this.drift`
+- [x] `MARKET_DRIFT_INTERVAL` env var, default `1000`ms in production
+- [x] `interval: 0` turns drift off entirely - `poll()` fires its first
+      tick immediately and unstoppably, so a `.stop()` call right after
+      `start()` cannot undo it. integration tests and `smoke` set
+      `MARKET_DRIFT_INTERVAL=0` for this reason; drift's own behavior is
+      covered by unit tests (`test/market.spec.js`) against a fake client
+- [x] `apps/market-service/types/main.d.ts` - `start()`'s resolved type
+      gains `drift: Poller`
+
+bug caught mid-build, not by design review: an early draft called
+`each()` (`garage/util`) with an async callback expecting it to wait -
+`each()` is a synchronous loop, it does not await. `driftTick` returned
+before any row had actually updated. caught by the unit test asserting
+6 events, not by reading the code.
+
+------------------------------------------------
 travel timer persistence - done ✔
 ------------------------------------------------
 

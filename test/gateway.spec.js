@@ -70,7 +70,7 @@ function fakePlayerService(kafka) {
                     aggregate_id  : ok ? 'p1' : p.handle,
                     aggregate_type: 'player',
                     payload       : ok
-                        ? { pid: 'p1', handle: p.handle }
+                        ? { pid: 'p1', handle: p.handle, role: 'player' }
                         : { handle: p.handle, reason: 'invalid credentials' },
                 }))
             }
@@ -90,6 +90,9 @@ function projectionPool() {
 
 const token = jwt.sign({ pid: 'p1', handle: 'alice' })
 const bear  = { authorization: `Bearer ${ token }` } // sync rejects with the parsed payload on non-2xx - .then(echo, echo) settles either way
+
+const adminToken = jwt.sign({ pid: 'admin1', handle: 'root', role: 'admin' })
+const adminBear  = { authorization: `Bearer ${ adminToken }` }
 
 let kafka, gw
 
@@ -143,9 +146,11 @@ test('POST/login returns a verifiable token', async () => {
     assert.equal(rs.status, 200)
     assert.equal(rs.body.pid, 'p1')
     assert.equal(rs.body.handle, 'alice')
+    assert.equal(rs.body.role, 'player')
 
     const claims = jwt.verify(rs.body.token)
     assert.equal(claims.pid, 'p1')
+    assert.equal(claims.role, 'player')
 })
 
 test('POST/login replies 401 on bad credentials', async () => {
@@ -297,6 +302,39 @@ test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async
     assert.equal(trades, void 0)
 })
 
+// ── admin routes ─────────────────────────────────────────────────────────────
+
+test('GET/admin/players without the admin role replies 403', async () => {
+    const rs = await Sync.get('/admin/players').set(bear).then(echo, echo)
+    assert.equal(rs.status, 403)
+})
+
+test('admin routes: players, events, inventory, rebuild', async () => {
+    const pool = fakePool({
+        'ORDER BY p.created'           : () => ({ rows: [{ pid: 'p1', handle: 'alice', created: 'now', balance: 1000 }]}),
+        'FROM event_log'               : () => ({ rows: [{ eid: 'e1', event_type: 'player.created.v1', payload: {}, occurred: 'now', received: 'now' }]}),
+        'FROM market.station_inventory': () => ({ rows: [{ gid: 'ore', stock: 160, target: 100, updated: 'now' }]}),
+    })
+    const rebuild = async () => 3
+    const admin   = await start(createMemoryKafka(), { pool, secret: SECRET, port: 0, rebuild })
+    const base    = `http://127.0.0.1:${ admin.port }`
+
+    try {
+        const players   = await Sync.get(`${ base }/admin/players`).set(adminBear)
+        const events    = await Sync.get(`${ base }/admin/events`).set(adminBear)
+        const inventory = await Sync.get(`${ base }/admin/inventory/sol.outpost`).set(adminBear)
+        const rebuilt   = await Sync.post(`${ base }/admin/rebuild`, {}).set(adminBear)
+
+        assert.deepEqual(players.body, [{ pid: 'p1', handle: 'alice', created: 'now', balance: 1000 }])
+        assert.equal(events.body[ 0 ].event_type, 'player.created.v1')
+        assert.equal(inventory.body[ 0 ].gid, 'ore')
+        assert.deepEqual(rebuilt.body, { replayed: 3 })
+    }
+    finally {
+        await admin.stop()
+    }
+})
+
 // ── replies waiter ──────────────────────────────────────────────────────────
 
 test('waiter resolves a matching reply', async () => {
@@ -379,5 +417,22 @@ test('ws broadcasts market price changes to everyone', async () => {
 
     await waitFor(() => received.length)
     assert.equal(received[ 0 ].event_type, EVT.market.price.changed)
+    socket.destroy()
+})
+
+test('ws admin socket skips the pid filter - full firehose', async () => {
+    const { socket } = await wsConnect(gw.port, `?token=${ adminToken }`)
+    const received   = []
+    const parser     = createFrameParser(f => received.push(Codec.decode(f.payload)))
+    socket.on('data', chunk => parser.push(chunk))
+
+    await kafka.publish(emit(EVT.wallet.credited, {
+        aggregate_id  : 'p2',
+        aggregate_type: 'wallet',
+        payload       : { pid: 'p2', rfid: 'r1', amount: 10, balance: 1010 }, // not admin1's
+    }))
+
+    await waitFor(() => received.length)
+    assert.equal(received[ 0 ].payload.pid, 'p2')
     socket.destroy()
 })

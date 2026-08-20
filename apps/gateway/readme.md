@@ -43,28 +43,34 @@ reply waiter and the websocket fanout.
 
 ### routes
 
-| route              | auth | behavior                                                            |
-|--------------------|------|---------------------------------------------------------------------|
-| `GET /`            |  -   | the html client, `rs.file(clientPath)`                              |
-| `GET /pub/:file(.*)` | -  | `clientPath`'s directory, served generically - css/js/img siblings, incl. the client's module graph |
-| `GET /universe`    |  -   | stations / routes / goods / starter ship / constants, serialized once |
+| route              | auth  | behavior                                                            |
+|--------------------|-------|---------------------------------------------------------------------|
+| `GET /`            |  -    | the html client, `rs.file(clientPath)`                              |
+| `GET /pub/:file(.*)` | -   | `clientPath`'s directory, served generically - css/js/img siblings, incl. the client's module graph |
+| `GET /universe`    |  -    | stations / routes / goods / starter ship / constants, serialized once |
 | `GET /garage/:file(.*)` | - | browser-safe `garage` source (util/sync/mime/constants/use), backs the client's import map |
-| `POST /register`   |  -   | `player.register.requested` → waits for reply: 201 created, 409 taken, 202 `{cmd, correlation_id}` on timeout |
-| `POST /login`      |  -   | `player.login.requested` → 200 `{token, pid, handle}`, 401 bad creds, 504 timeout |
-| `POST /travel`     |  ✓   | `ship.travel.requested` → 202 `{cmd, correlation_id}`               |
-| `POST /buy`        |  ✓   | `market.buy.requested` → 202                                        |
-| `POST /sell`       |  ✓   | `market.sell.requested` → 202                                       |
-| `GET /me`          |  ✓   | player + wallet (404 until projection catches up)                   |
-| `GET /ships`       |  ✓   | player's ships with status / eta                                    |
-| `GET /cargo/:sid`  |  ✓   | ship cargo (joins ships - own ships only)                           |
-| `GET /market/:stid`|  ✓   | prices at station                                                   |
-| `GET /trades`      |  ✓   | trade history, latest 100                                           |
+| `POST /register`   |  -    | `player.register.requested` → waits for reply: 201 created, 409 taken, 202 `{cmd, correlation_id}` on timeout |
+| `POST /login`      |  -    | `player.login.requested` → 200 `{token, pid, handle, role}`, 401 bad creds, 504 timeout |
+| `POST /travel`     |  ✓    | `ship.travel.requested` → 202 `{cmd, correlation_id}`               |
+| `POST /buy`        |  ✓    | `market.buy.requested` → 202                                        |
+| `POST /sell`       |  ✓    | `market.sell.requested` → 202                                       |
+| `GET /me`          |  ✓    | player + wallet (404 until projection catches up)                   |
+| `GET /ships`       |  ✓    | player's ships with status / eta                                    |
+| `GET /cargo/:sid`  |  ✓    | ship cargo (joins ships - own ships only)                           |
+| `GET /market/:stid`|  ✓    | prices at station                                                   |
+| `GET /trades`      |  ✓    | trade history, latest 100                                           |
+| `GET /admin/players` | admin | all players + wallets                                             |
+| `GET /admin/events`  | admin | projection `event_log`, latest 200                                |
+| `GET /admin/inventory/:stid` | admin | station stock, from `market.station_inventory` directly - the source of truth, not the projection's quote mirror |
+| `POST /admin/rebuild` | admin | truncate + replay projections (`scripts/rebuild.js`), 200 `{ replayed }` |
 
 - auth = `authorization: Bearer <jwt>`; `pid` always comes from the token
   claims, never from the body
+- admin = auth, plus `requireRole('admin')` - `claims.role !== 'admin'` → 403
 - command payloads validate against `@theseus/contracts` before publish - 400 on invalid
 - 202 responses carry `{ cmd, correlation_id }` - the eventual result arrives
   on the websocket with the same `correlation_id`
+- role design: [docs/permissions.md](../../docs/permissions.md)
 
 ### websocket
 
@@ -74,6 +80,7 @@ reply waiter and the websocket fanout.
 - push-only: one json text frame per event `{ event_type, correlation_id, occurred, payload }`
 - events with `payload.pid` go to that player's sockets, `market.price.changed`
   broadcasts, client text frames are ignored
+- admin sockets (`claims.role === 'admin'`) skip the pid filter - full firehose
 - ping/pong keepalive (30s), unanswered ping drops the socket
 - backpressure is ignored (`socket.write` return unchecked) - a slow client
   buffers unboundedly; revisit if it ever matters
@@ -95,9 +102,10 @@ probe it: `node --env-file=./.env scripts/ws-probe.js <token>`
 
 - `test/gateway.spec.js` - routes against a live garage app on port 0
   (memory kafka + fake pool + fake player service): `GET /` `/universe`
-  (public, no bearer), `feed.js`'s jwt/pid fanout, reply waiter. rfc 6455
-  protocol mechanics (frame codec, handshake, keepalive) live in
-  `test/ws.spec.js` against `@theseus/ws` directly
+  (public, no bearer), `feed.js`'s jwt/pid fanout, reply waiter, the 4
+  admin routes + `requireRole` 403, admin ws firehose. rfc 6455 protocol
+  mechanics (frame codec, handshake, keepalive) live in `test/ws.spec.js`
+  against `@theseus/ws` directly
 - `test/gateway.integration.spec.js` - memory kafka + real pg: register →
   login → /me through the projection, travel command lands in kafka,
   ws pushes own events only

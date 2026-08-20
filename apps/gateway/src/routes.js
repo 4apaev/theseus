@@ -27,6 +27,7 @@ export function createRoutes({
     jwt,
     waiter,
     queries,
+    rebuild,
     producer,
     service = 'gateway',
     clientPath,
@@ -65,6 +66,17 @@ export function createRoutes({
 
         rq.claims = jwt.verify(token)
         return next()
+    }
+
+    /**
+     * @param  { string } role
+     * @return { MWare  }
+     */
+    function requireRole(role) {
+        return (rq, rs, next) => {
+            rq.claims.role === role || Fail.raise(403, 'forbidden')
+            return next()
+        }
     }
 
     /** @type { MWare } */
@@ -165,8 +177,8 @@ export function createRoutes({
         e                                           || Fail.raise(504, 'login timed out')
         e.event_type === EVT.player.login.succeeded || Fail.raise(401, e.payload.reason)
 
-        const { pid, handle: h } = e.payload
-        rs.json(200, { token: jwt.sign({ pid, handle: h }), pid, handle: h })
+        const { pid, handle: h, role } = e.payload
+        rs.json(200, { token: jwt.sign({ pid, handle: h, role }), pid, handle: h, role })
     })
 
     // ── auth  ────────────────────────────────────────────────
@@ -228,6 +240,24 @@ export function createRoutes({
 
     gw.get('/trades', async (rq, rs) => {
         rs.json(200, await queries.trades(rq.claims.pid))
+    })
+
+    // ── admin ────────────────────────────────────────────────
+
+    gw.get('/admin/players', requireRole('admin'), async (rq, rs) => {
+        rs.json(200, await queries.allPlayers())
+    })
+
+    gw.get('/admin/events', requireRole('admin'), async (rq, rs) => {
+        rs.json(200, await queries.eventLog())
+    })
+
+    gw.get('/admin/inventory/:stid', requireRole('admin'), async (rq, rs) => {
+        rs.json(200, await queries.inventory(rq.params.stid))
+    })
+
+    gw.post('/admin/rebuild', requireRole('admin'), async (rq, rs) => {
+        rs.json(200, { replayed: await rebuild() })
     })
 
     gw.use((rq, rs) => rs.json(404, { error: 'not found' }))

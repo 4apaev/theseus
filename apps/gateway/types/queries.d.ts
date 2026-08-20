@@ -51,12 +51,32 @@ export interface TradeRow {
     created    : Date
 }
 
+export interface EventLogRow {
+    eid       : string
+    event_type: string
+    payload   : unknown
+    occurred  : Date
+    received  : Date
+}
+
+export interface InventoryRow {
+    gid    : string
+    stock  : number
+    target : number
+    updated: Date | null
+}
+
 export interface Queries {
     me(pid: string): Promise<PlayerOverview | undefined>
     ships(pid: string): Promise<ShipRow[]>
     trades(pid: string): Promise<TradeRow[]>
     market(stid: string): Promise<MarketPriceRow[]>
     cargo(sid: string, pid: string): Promise<CargoRow[]>
+
+    // ── admin ────────────────────────────────────────────────
+    allPlayers(): Promise<PlayerOverview[]>
+    eventLog(): Promise<EventLogRow[]>
+    inventory(stid: string): Promise<InventoryRow[]>
 }
 
 export interface QueryPool {

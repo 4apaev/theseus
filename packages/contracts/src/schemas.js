@@ -170,6 +170,7 @@ export const playerLoginSucceeded = new Schema({
     payload: {
         pid   : field.nonEmptyString,
         handle: field.nonEmptyString,
+        role  : field.has('player', 'admin'),
     },
 })
 

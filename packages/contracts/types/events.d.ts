@@ -60,6 +60,7 @@ export interface EventPayloads {
     'player.login.succeeded.v1': {
         handle: string
         pid: string
+        role: 'player' | 'admin'
     }
     'player.login.rejected.v1': {
         handle: string

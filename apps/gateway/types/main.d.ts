@@ -17,6 +17,8 @@ export {
     type CargoRow,
     type MarketPriceRow,
     type TradeRow,
+    type EventLogRow,
+    type InventoryRow,
     createQueries,
 } from './queries.js'
 
@@ -36,6 +38,7 @@ export interface GatewayOptions {
     pool?:       unknown
     secret?:     string
     clientPath?: string
+    rebuild?:    () => Promise<number>
 }
 
 export interface Gateway {
