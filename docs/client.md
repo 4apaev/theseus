@@ -257,3 +257,12 @@ explicit copy · multiple ships → `ships[0]` defensively
 - `rs.file` sends no cache headers - fine for a handful of dev-stage files
 - roles (permissions.md "plumb before client") deliberately deferred -
   client treats a missing role claim as player, nothing to unwind later
+
+
+bugs and improvements
+------------------------------------------------
+
+- remove `good` from cargo if amount is zero.
+- confirm dialog for travel.
+- login inputs: no transform uppercase
+- login inputs: add show password eye button
