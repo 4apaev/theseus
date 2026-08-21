@@ -80,12 +80,22 @@ export function formatTime(x) {
 
 // ─────────────────────────────────────────────────────────────
 
+/*  a poll must survive one bad tick.
+    without the catch, one rejection stops the loop for the life of the
+    process, and nothing reports it. pollOutbox runs on this: a single
+    failed publish would stop every event the service sends.
+    this cost 2 real bugs before the catch existed. */
 export function poll(fx, ms, ...args) {
     ms = formatTime(ms ?? 0)
     let rs, tid, stopped = 0
 
     async function tick() {
-        rs = await fx(...args)
+        try {
+            rs = await fx(...args)
+        }
+        catch (e) {
+            console.error('poll: tick failed, the loop continues', e)
+        }
         stopped || (tid = setTimeout(tick, ms))
     }
     tick()

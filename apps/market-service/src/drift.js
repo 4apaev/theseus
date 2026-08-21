@@ -5,38 +5,37 @@ import { createEmitter       } from '@theseus/kafka'
 import { eventTree   as EVT  } from '@theseus/contracts'
 import { universe    as Uni  } from '@theseus/domain'
 
-import { quote } from './seed.js'
+import { quote, stockFor } from './seed.js'
 
 const emit = createEmitter('market-service')
 
 /*
     living economy.
-    a producer station gains stock. a consumer station loses stock.
-    each station uses its own produce and consume rate, from universe.js.
-    this is the first use of those rates.
-    stock stays in the range [0, target * 2].
-    an idle station settles at this limit and stays there.
-    ------------------------------------------------------------
-    interval 0 turns drift off.
-    poll() always fires fx once, right away.
-    stop() after start() cannot undo that first tick.
+    every station:good has a natural stock level, from seed.js stockFor:
+    a producer sits on a surplus, a consumer runs dry.
+
+    drift is a restoring force. a trade moves stock away from that level.
+    drift brings it back, at the station's own produce or consume rate.
+    it never pushes stock past the level.
+
+    an earlier version drifted to the limits 0 and target * 2, and stopped
+    there. a consumer station then held 0 stock, and
+    price = base * (target / max(stock, 1)) ** elasticity gave 100 ** elasticity
+    times the base price - void spice reached 99000 credits.
 */
 export function pollDrift(pool, transact, { interval = 1000 } = {}) {
     return interval
         ? poll(driftTick, interval, pool, transact)
-        : { stop() {} }
+        : { stop() {} }     // interval 0 turns drift off. poll() always fires once.
 }
 
 function driftTick(pool, transact) {
     return transact(pool, async client => {
         const events = []
 
-        const drift = (stid, vector) => async (gid, rate) =>
-            events.push(await saveDrift(client, stid, gid, vector * rate))
-
-        for (const { stid, produces, consumes } of Uni.nodes.values()) {
-            for (const [ gid, rate ] of Object.entries(produces ?? {})) await drift(stid,  1)(gid, rate)
-            for (const [ gid, rate ] of Object.entries(consumes ?? {})) await drift(stid, -1)(gid, rate)
+        for (const station of Uni.nodes.values()) {
+            for (const [ gid, rate ] of goodsOf(station))
+                events.push(await driftOne(client, station, gid, rate))
         }
 
         const moved = events.filter(Boolean)
@@ -45,19 +44,34 @@ function driftTick(pool, transact) {
     })
 }
 
-// update stock, with the clamp.
-// the query returns no row when stock does not change.
-// a settled station stays quiet.
-async function saveDrift(client, stid, gid, delta) {
+// the goods a station makes or uses. the rate is how fast it recovers.
+function goodsOf({ produces, consumes }) {
+    return [
+        ...Object.entries(produces ?? {}),
+        ...Object.entries(consumes ?? {}),
+    ]
+}
+
+/*  move stock one step toward its natural level, and no further.
+    LEAST/GREATEST clamps the step to the rate, in both directions.
+    the query returns no row when stock already sits at the level, so a
+    quiet market stays quiet and emits nothing.
+
+    the ::int casts are necessary. postgres cannot find the type of an
+    untyped parameter, and `-$4` then fails with
+    "operator is not unique: - unknown". */
+async function driftOne(client, station, gid, rate) {
+    const level = stockFor(station, gid)
+
     const { rows: [ row ] } = await client.query(`
         UPDATE station_inventory
-           SET stock   = LEAST(GREATEST(stock + $3, 0), target * 2),
+           SET stock   = stock + LEAST($4::int, GREATEST(-$4::int, $3::int - stock)),
                updated = now()
          WHERE stid = $1
            AND gid = $2
-           AND stock <> LEAST(GREATEST(stock + $3, 0), target * 2)
+           AND stock <> $3::int
      RETURNING stock, target
-    `, [ stid, gid, delta ])
+    `, [ station.stid, gid, level, rate ])
 
     if (!row) return
 
@@ -68,11 +82,11 @@ async function saveDrift(client, stid, gid, delta) {
            SET price_buy = $3, price_sell = $4, updated = now()
          WHERE stid = $1
            AND gid = $2
-    `, [ stid, gid, price_buy, price_sell ])
+    `, [ station.stid, gid, price_buy, price_sell ])
 
     return emit(EVT.market.price.changed, {
-        aggregate_id  : stid,
+        aggregate_id  : station.stid,
         aggregate_type: 'market',
-        payload       : { stid, gid, price_buy, price_sell },
+        payload       : { stid: station.stid, gid, price_buy, price_sell },
     })
 }

@@ -11,10 +11,12 @@ const TARGET = 100
 
 /**
  * @description
- * stock relative to target:
- * producers sit on a surplus, consumers run dry
+ * the natural stock level of one station:good.
+ * producers sit on a surplus, consumers run dry.
+ * seed puts stock here, and drift.js brings it back here after a trade.
+ * both must use this function, or drift moves stock away from seed.
  */
-function stockFor(station, gid) {
+export function stockFor(station, gid) {
     if (station.produces?.[ gid ]) return TARGET + 60
     if (station.consumes?.[ gid ]) return TARGET - 60
     return TARGET

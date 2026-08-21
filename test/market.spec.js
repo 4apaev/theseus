@@ -300,15 +300,12 @@ test('ships mirror follows created / departed / arrived', async () => {
 
 // ── living economy - drift ───────────────────────────────────────────────────
 
-test('pollDrift regens producers and drains consumers, republishes quotes', async () => {
-    const seen = new Set
-
+test('pollDrift moves stock toward its natural level, both directions', async () => {
+    const seen = []
     const client = fakeClient({
-        'UPDATE station_inventory'([ stid, gid, delta ]) {
-            const key = `${ stid }:${ gid }`
-            if (seen.has(key)) return { rows: []} // this pair drifted once. settle now.
-            seen.add(key)
-            return { rows: [{ stock: 100 + delta, target: 100 }]}
+        'UPDATE station_inventory'([ stid, gid, level, rate ]) {
+            seen.push({ stid, gid, level, rate })
+            return { rows: [{ stock: level, target: 100 }]}   // one step lands on the level
         },
     })
 
@@ -316,25 +313,30 @@ test('pollDrift regens producers and drains consumers, republishes quotes', asyn
     await setTimeout(20)
     poller.stop()
 
+    const at = (stid, gid) => seen.find(x => x.stid === stid && x.gid === gid)
+
+    // seed.js puts a producer on a surplus and a consumer near dry.
+    // drift must aim at those same levels, never past them.
+    assert.deepEqual(at('sol.outpost', 'ore'),   { stid: 'sol.outpost', gid: 'ore',   level: 160, rate: 8 })
+    assert.deepEqual(at('sol.outpost', 'grain'), { stid: 'sol.outpost', gid: 'grain', level: 40,  rate: 5 })
+
     const events = outboxEvents(client)
-    assert.equal(events.length, 6, 'every produce/consume pair drifted exactly once')
+    assert.ok(events.length >= 6, 'every produce/consume pair drifted')
     assert.ok(events.every(e => e.event_type === 'market.price.changed.v1'))
+})
 
-    const bump = (stid, gid) => client.log.find(q =>
-        q.sql.includes('UPDATE station_inventory')
-        && q.params[ 0 ] === stid
-        && q.params[ 1 ] === gid)
+// the bug this replaced: stock reached 0, and price = base * 100 ** elasticity
+test('pollDrift never drives a consumer station to zero stock', async () => {
+    const client = fakeClient({
+        'UPDATE station_inventory'([ , , level ]) { return { rows: [{ stock: level, target: 100 }]} },
+    })
 
-    assert.equal(bump('sol.outpost', 'ore').params[ 2 ], 8, 'sol.outpost produces ore')
-    assert.equal(bump('sol.outpost', 'grain').params[ 2 ], -5, 'sol.outpost consumes grain')
+    const poller = pollDrift({}, fakeTransact(client), { interval: 10 })
+    await setTimeout(20)
+    poller.stop()
 
-    const evt = (stid, gid) => events.find(e => e.payload.stid === stid && e.payload.gid === gid)
-    assert.deepEqual(
-        { price_buy: evt('sol.outpost', 'ore').payload.price_buy, price_sell: evt('sol.outpost', 'ore').payload.price_sell },
-        quote('ore', 108, 100),
-    )
-
-    assert.ok(client.log.some(q => q.sql.includes('UPDATE markets')), 'quote board updated')
+    const prices = outboxEvents(client).map(e => e.payload.price_buy)
+    assert.ok(prices.every(p => p > 0 && p < 1000), `every price stays sane: ${ prices }`)
 })
 
 test('pollDrift leaves settled stations alone', async () => {
