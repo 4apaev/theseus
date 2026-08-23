@@ -238,8 +238,14 @@ btw, player should be able to see other players at least in same station
 - player should be able to trade with other players - still an idea, not
   scheduled (phase 1 explicitly kept player-to-player markets out)
 
+### ships name generator
+every new ship gets a random name
+[culture](https://en.wikipedia.org/wiki/Culture_series) style ship names
+or like item nameing in diablo
+or random words, up to 3,4 words for a name
+
 ### ship types & upgrades
-player should be able to rename ships
+player should be able to rename ships - **done ✔**, see [progress.md](progress.md)
 player should be able upgrade ship's capacity
 player should be able upgrade ship's velocity
 

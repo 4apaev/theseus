@@ -118,14 +118,16 @@ disable comment doesn't carry across module boundaries.
 
 header (brand + blinking cursor, `#conn` ONLINE/OFFLINE, handle, logout) ·
 `#auth` "DOCKING CLEARANCE" (handle/password, REGISTER / LOGIN) ·
-`#game` css grid: WALLET · SHIP · NAV · MARKET · CARGO · LEDGER · FEED
+`#game` css grid: WALLET · SHIP · NAV · PORT · MARKET · CARGO · LEDGER · FEED
 (full-width scrolling event log) · `#tradeDialog`, a native `<dialog>`
-outside the grid, opened from a market row's buy/sell button
+outside the grid, opened from a market row's buy/sell button ·
+`#nameDialog`, the same shape, for naming the ship
 
 ### state - one object
 
 ```js
 { token, me, universe, ship, cargo: [], market: [], trades: [],
+  traffic: new Map,   // sid → another player's ship, from GET /traffic
   pending: new Map,   // correlation_id → { label, el }
   ws, wsTries, alive }
 ```
@@ -149,7 +151,8 @@ stops the reconnect loop.
 
 `/me` retried ~20 × 500ms ("syncing…" - projection lag after register),
 `/universe` once, `/ships` → `ships[0]`, `/cargo/:sid`,
-`/market/:stid` when docked, `/trades` → renderAll.
+`/market/:stid` when docked, `/traffic`, `/trades` → renderAll.
+reconnect calls hydrate, so traffic re-syncs after a dropped socket.
 
 ### ws
 
@@ -164,9 +167,10 @@ raw feed line first; `pending.get(correlation_id)` line marked ✓/✗; then:
 
 | event                          | mutation → render                                        |
 |--------------------------------|----------------------------------------------------------|
-| `ship.created.v1`              | set ship, refetch /ships → ship/nav/market               |
-| `ship.departed.v1`             | transit, from/to/arrives/years, market=[] → ship/nav/market |
-| `ship.arrived.v1`              | docked at stid, fetch /market/:stid → ship/nav/market    |
+| `ship.created.v1`              | own: set ship, refetch /ships. other: add to traffic     |
+| `ship.departed.v1`             | own: transit + market=[]. other: patch traffic → nav     |
+| `ship.arrived.v1`              | own: docked, fetch market. other: patch traffic → nav    |
+| `ship.renamed.v1`              | own: set ship.name. other: patch traffic → ship/nav/port |
 | `cargo.loaded/unloaded.v1`     | upsert ± delta, drop ≤ 0 → cargo                         |
 | `market.trade.executed.v1`     | trades.unshift → ledger                                  |
 | `wallet.debited/credited.v1`   | `me.balance = Number(balance)` → wallet                  |
@@ -174,6 +178,41 @@ raw feed line first; `pending.get(correlation_id)` line marked ✓/✗; then:
 | `*.rejected.v1`                | feed err line only                                       |
 
 departed feed flavor: `you age ${years_rel}yr, the galaxy ages ${years_abs}yr`
+
+### ship name
+
+`POST /rename` → `ship.rename.requested`. the ship name in the SHIP panel
+is the control: click it to open `#nameDialog`. it carries a dashed
+underline, a `rename` tooltip, and an inverting hover - it is the only
+clickable text in the client, so it must look clickable. the name is
+amber while the ship still has its starter name. `commands.js` holds the
+same rule as the contract's `field.shipName`, so a bad name gets an
+answer with no round trip.
+
+the name shows only while docked, so a rename happens in port.
+
+the call to action: `#nameDialog` opens one time when the ship still has
+its starter name. it is tried at 2 points - after `hydrate()`, and again
+when `ship.created` arrives, because a new player has no ship until the
+projection catches up. `LATER` hides it for that tab only
+(`sessionStorage`), and the name stays clickable.
+
+`logout()` calls `resetPlayer()`. without it the next player on the same
+tab keeps the previous player's `state.me`, and `mine()` then reads their
+own ship as another player's.
+
+### whose ship is it - `traffic.js`
+
+the gateway removes the `pid` from another player's ship event. so an
+event that still has a `pid` is our own ship: `mine(p)` is
+`p.pid === state.me?.pid`. **do not compare `sid`** - `state.ship` is
+`undefined` until the first ship exists, and our own `ship.created` would
+then look like a stranger.
+
+every ship handler tests the owner first. without that test another
+player's departure overwrites our own ship.
+
+another player's feed line is `dim`, and never says "you".
 
 ### commands
 
@@ -208,6 +247,15 @@ button text. countdown + ship-marker position share one
 (derived transit-start instant, no separate "departed at" field needed) via
 a CSS `transition` on the marker's `cx`/`cy` for a smooth glide between
 ticks. Never flips state locally, waits for `ship.arrived.v1`.
+
+the map draws one dot per ship **in transit**, plus our own ship always.
+each dot carries `data-sid`, and `tickShipMarkers()` moves all of them -
+`$('.shipMarker')` alone returns the first one only. our dot is brighter
+and keeps its glow.
+
+docked ships are **not** dots. many dots at one station make one pile that
+nobody can read. the station tooltip lists the pilots instead, and the
+station gets a `.busy` class. the PORT panel lists who is docked with us.
 
 ### theme
 

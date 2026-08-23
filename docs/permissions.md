@@ -1,8 +1,11 @@
 permissions
 ================================================
 
-design note, [phase 2](phase.2.md) step 2.2 - roles and visibility.
-status: **done ✔** - see [progress.md](progress.md).
+design note, [phase 2](phase.2.md) steps 2.2 and 2.3.
+roles and visibility: **done ✔**. ship traffic: **done ✔**.
+see [progress.md](progress.md).
+
+the transponder switch is still future. the trade feed is still private.
 
 
 what is already enforced
@@ -16,10 +19,13 @@ what is already enforced
 | own ships only              | `/ships` filters by pid                                   |
 | own cargo only              | `/cargo/:sid` joins ships - foreign sid reads as empty    |
 | market prices public-ish    | `/market/:stid` visible to any authenticated player       |
-| ws privacy                  | events filtered by `payload.pid`, prices broadcast        |
+| ship traffic public         | `/traffic` `/station/:stid/ships` - by handle, never pid  |
+| ws privacy                  | the owner gets the full payload. others get ship movement without the pid |
 
-player-vs-player privacy is mostly done. missing: a **role axis** and a
-decision about which game data is public.
+the gateway removes the private fields. the events on kafka keep them.
+the projection needs `pid` to own a ship, and `event_log` needs the raw
+event to replay. so the bus carries the truth, and the gateway decides
+who sees it.
 
 
 proposed model
@@ -69,11 +75,11 @@ schema change, no db flag.
 decided
 ------------------------------------------------
 
-- **ship traffic is public by default** - who's docked / in transit is
-  visible to everyone: `/station/:stid/ships` can exist, the client can
-  render port traffic
+- **ship traffic is public by default** - done ✔ in step 2.3. who is
+  docked, and who is in transit, is visible to every player.
 - **market transactions are public by default** - the trade feed at a
-  station is open, not just the quotes
+  station is open, not just the quotes. **not built yet.** step 2.3
+  covered ship traffic only.
 - **future mechanic: hide ship movement** - a player can switch off the
   ship's transponder to drop out of the public traffic feed. visibility
   becomes per-ship state (`transponder: on|off`), not a permission tier -
@@ -82,6 +88,10 @@ decided
 
   _note_: player must be with transponder on, to dock at any station.
   wich means - transponder can be switched off only in transit, not when docking.
+
+  _warning_: this docking rule needs a test in ship-service. a `WHERE`
+  clause in the gateway query is not sufficient. the read side is not the
+  whole job.
 - **other players are visible by handle only** - a public-safe players
   view (handle, no balance). net worth stays private, matching the
   "owner: wallet" tier above. a net-worth leaderboard stays an idea, not
@@ -91,3 +101,5 @@ decided
 - **admin bootstrap is an env allowlist** - `ADMIN_HANDLES`, above.
 
 nothing blocks the build now.
+
+what stays open: the transponder switch, and the public trade feed.
