@@ -1,7 +1,7 @@
 import test           from 'node:test'
 import assert         from 'node:assert/strict'
 import { setTimeout } from 'node:timers/promises'
-import { TIME_SCALE  } from '@theseus/domain'
+import { TIME_SCALE, universe } from '@theseus/domain'
 import {
     makeCmd,
     fakeClient,
@@ -38,9 +38,9 @@ const trip = makeCmd({
 // ── travel math ───────────────────────────────────────────────────────────────
 
 test('distance returns mapped light years, order independent', () => {
-    assert.equal(distance('sol.outpost', 'alpha.exchange'), 4.3)
-    assert.equal(distance('alpha.exchange', 'sol.outpost'), 4.3)
-    assert.equal(distance('barnards.port', 'sol.outpost'), 6.0)
+    assert.equal(distance('sol.outpost', 'alpha.exchange'), 4.32)
+    assert.equal(distance('alpha.exchange', 'sol.outpost'), 4.32)
+    assert.equal(distance('barnards.port', 'sol.outpost'), 5.95)
 })
 
 test('distance throws on unknown route', () => {
@@ -52,7 +52,7 @@ test('distance throws on unknown route', () => {
 
 test('travel computes absolute and relativistic years', () => {
     const t   = travel('sol.outpost', 'alpha.exchange', 0.6)
-    const abs = 4.3 / 0.6
+    const abs = 4.32 / 0.6
 
     assert.equal(t.years_abs, abs)
     assert.equal(t.years_rel, abs * Math.sqrt(1 - 0.6 ** 2))
@@ -62,8 +62,32 @@ test('travel computes absolute and relativistic years', () => {
 test('travel converts common-frame years to game milliseconds', () => {
     const t = travel('sol.outpost', 'barnards.port', 0.6)
 
-    assert.equal(t.ms, 6.0 / 0.6 * TIME_SCALE * 1000)
+    assert.equal(t.ms, 5.95 / 0.6 * TIME_SCALE * 1000)
     assert.ok(new Date(t.arrives) > new Date, 'arrives in the future')
+})
+
+// ── the route speed limit ────────────────────────────────────────────────────
+
+test('an in-system route flies at its own speed limit, not the ship velocity', () => {
+    const ly = universe.distance('sol.venus', 'sol.mars')
+    const c  = universe.speedLimit('sol.venus', 'sol.mars')
+    const t  = travel('sol.venus', 'sol.mars', 0.6)
+
+    assert.equal(t.years_abs, ly / c, 'the route caps the ship')
+    assert.ok(t.years_abs > 0.1, `a short hop still takes game time, got ${ t.years_abs }`)
+})
+
+test('a sublight hop ages the pilot and the galaxy by the same amount', () => {
+    const t = travel('sol.venus', 'sol.mars', 0.6)
+    assert.ok(t.years_abs - t.years_rel < 1e-6, 'no dilation below light speed')
+})
+
+test('a route between stars leaves the speed to the ship', () => {
+    const fast = travel('sol.outpost', 'alpha.exchange', 0.9)
+    const slow = travel('sol.outpost', 'alpha.exchange', 0.3)
+
+    assert.equal(fast.years_abs, 4.32 / 0.9)
+    assert.ok(fast.years_abs < slow.years_abs, 'a faster ship arrives sooner')
 })
 
 // ── travelRequested - rejections ─────────────────────────────────────────────
@@ -111,8 +135,8 @@ test('travelRequested updates ship to transit and emits ship.departed', async ()
     assert.equal(e.payload.sid, 's1')
     assert.equal(e.payload.from, 'sol.outpost')
     assert.equal(e.payload.to, 'alpha.exchange')
-    assert.equal(e.payload.years_abs, 4.3 / 0.6)
-    assert.equal(e.payload.years_rel, 4.3 / 0.6 * Math.sqrt(1 - 0.6 ** 2))
+    assert.equal(e.payload.years_abs, 4.32 / 0.6)
+    assert.equal(e.payload.years_rel, 4.32 / 0.6 * Math.sqrt(1 - 0.6 ** 2))
 })
 
 // ── player.created - starter ship saga ────────────────────────────────────────
