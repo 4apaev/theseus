@@ -46,6 +46,11 @@
                 <div id=travelBody></div>
             </section>
 
+            <section id=portPanel>
+                <h2>PORT</h2>
+                <div id=portBody></div>
+            </section>
+
             <section id=marketPanel>
                 <h2>MARKET</h2>
                 <div id=marketBody></div>
@@ -66,6 +71,17 @@
                 <div id=feed class=feed></div>
             </section>
         </main>
+
+        <dialog id=nameDialog class=tradeDialog>
+            <p id=nameTitle class=money>NAME YOUR SHIP</p>
+            <p class=dim>your ship carries this name for every other pilot to see.</p>
+            <label>NAME <input id=nameInput type=text maxlength=24 autocomplete=off></label>
+            <p id=nameMsg class=authMsg></p>
+            <div class=tradeActions>
+                <button id=nameCancelBtn  type=button>LATER</button>
+                <button id=nameConfirmBtn type=button>CONFIRM</button>
+            </div>
+        </dialog>
 
         <dialog id=tradeDialog class=tradeDialog>
             <p id=tradeTitle class=money></p>

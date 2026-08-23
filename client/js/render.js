@@ -1,14 +1,32 @@
 import { $, esc, cr, fmtYears } from './dom.js'
-import { state, station, good } from './state.js'
-import { renderTravel, tickShipMarker } from './map.js'
+import { state, station, good, NAMED } from './state.js'
+import { dockedAt } from './traffic.js'
+import { rename, nameError } from './commands.js'
+import { renderTravel, tickShipMarkers } from './map.js'
 
 export function renderAll() {
     renderWallet()
     renderShip()
     renderTravel()
+    renderPort()
     renderMarket()
     renderCargo()
     renderTrades()
+}
+
+// who else is docked where we are
+export function renderPort() {
+    const body = $('#portBody')
+
+    if (state.ship?.status !== 'docked')
+        return body.innerHTML = '<p class="dim">— in transit —</p>'
+
+    const crew = dockedAt(state.ship.stid)
+    body.innerHTML = crew.length
+        ? `<table><tr><th>PILOT</th><th>SHIP</th></tr>${
+            crew.map(t => `<tr><td>${ esc(t.handle ?? '—') }</td><td>${ esc(t.name) }</td></tr>`).join('')
+        }</table>`
+        : '<p class="dim">no other ships in port</p>'
 }
 
 export function renderWallet() {
@@ -32,7 +50,7 @@ export function renderShip() {
 
     if (ship.status === 'docked') {
         return body.innerHTML = `
-            <p>"${ esc(ship.name) }" · docked at ${ esc(station(ship.stid)) }</p>
+            <p>${ shipName(ship) } · docked at ${ esc(station(ship.stid)) }</p>
             <p class="dim">cap ${ ship.capacity } · v ${ ship.velocity }c ·
                hold ${ state.cargo.reduce((n, c) => n + c.quantity, 0) }/${ ship.capacity }</p>`
     }
@@ -47,10 +65,50 @@ export function renderShip() {
     tickEta()
 }
 
+// a ship keeps its default name until the player picks one
+export function unnamed() {
+    return !!state.ship && state.ship.name === state.universe?.starter?.name
+}
+
+// the name itself opens the dialog. amber while the ship has no name yet.
+function shipName(ship) {
+    return `<span id="renameBtn" class="shipName${ unnamed() ? ' cta' : '' }"
+        title="rename">"${ esc(ship.name) }"</span>`
+}
+
+/*  the call to action after the first login: name your ship.
+    a brand new player has no ship yet when hydrate() finishes - the
+    starter ship arrives later, on ship.created. so this runs at both
+    points, and the first one that finds a ship wins.
+    LATER hides it for this tab only. the name stays clickable. */
+export function callToAction() {
+    if (!unnamed() || sessionStorage.getItem(NAMED)) return
+    sessionStorage.setItem(NAMED, '1')
+    openNameDialog()
+}
+
+export function openNameDialog() {
+    const dialog = $('#nameDialog')
+    $('#nameInput').value = unnamed() ? '' : state.ship?.name ?? ''
+    $('#nameMsg').textContent = ''
+    dialog.showModal()
+    $('#nameInput').focus()
+}
+
+export function confirmName() {
+    const name = $('#nameInput').value.trim()
+    const err  = nameError(name)
+
+    if (err) return $('#nameMsg').textContent = err
+
+    rename(name)
+    $('#nameDialog').close()
+}
+
 export function tickEta() {
-    const ship = state.ship
-    if (ship?.status === 'transit')
-        tickCountdown(ship), tickShipMarker(ship)
+    if (state.ship?.status === 'transit')
+        tickCountdown(state.ship)
+    tickShipMarkers()          // every ship moves, not only ours
 }
 
 function tickCountdown(ship) {

@@ -12,6 +12,7 @@ import {
     walletDebitRequested,
     walletCreditRequested,
     shipTravelRequested,
+    shipRenameRequested,
     cargoLoadRequested,
     cargoUnloadRequested,
     marketBuyRequested,
@@ -24,6 +25,7 @@ const definitions = [
     walletDebitRequested,
     walletCreditRequested,
     shipTravelRequested,
+    shipRenameRequested,
     cargoLoadRequested,
     cargoUnloadRequested,
     marketBuyRequested,
@@ -46,7 +48,8 @@ export const tree = freezer({
         debit : { requested: walletDebitRequested.slug },
         credit: { requested: walletCreditRequested.slug }},
     ship: {
-        travel: { requested: shipTravelRequested.slug }},
+        travel: { requested: shipTravelRequested.slug },
+        rename: { requested: shipRenameRequested.slug }},
     cargo: {
         load  : { requested: cargoLoadRequested.slug },
         unload: { requested: cargoUnloadRequested.slug }},

@@ -2,7 +2,7 @@ import Sync from 'garage/sync'
 import { Fail } from 'garage/util'
 
 import { $ } from './dom.js'
-import { state, KEY } from './state.js'
+import { state, KEY, NAMED, resetPlayer } from './state.js'
 
 export async function api(path, body) {
     const rq = body == null
@@ -36,6 +36,8 @@ export function logout(msg) {
 
     Sync.head.delete('authorization')
     localStorage.removeItem(KEY)
+    sessionStorage.removeItem(NAMED)   // the next player gets their own prompt
+    resetPlayer()
 
     showAuth(msg)
 }

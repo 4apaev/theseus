@@ -26,6 +26,8 @@ export declare const tree: Readonly<{
         created: 'ship.created.v1',
         departed: 'ship.departed.v1',
         arrived: 'ship.arrived.v1',
+        renamed: 'ship.renamed.v1',
+        rename: { rejected: 'ship.rename.rejected.v1' },
         travel: { rejected: 'ship.travel.rejected.v1' },
     },
     cargo: {
@@ -101,6 +103,16 @@ export interface EventPayloads {
         pid: string
         sid: string
         stid: string
+    }
+    'ship.renamed.v1': {
+        name: string
+        pid: string
+        sid: string
+    }
+    'ship.rename.rejected.v1': {
+        pid: string
+        reason: string
+        sid: string
     }
     'ship.travel.rejected.v1': {
         pid: string
@@ -201,6 +213,8 @@ export declare const eventTypes: Readonly<{
     ship_created_v1: 'ship.created.v1'
     ship_departed_v1: 'ship.departed.v1'
     ship_arrived_v1: 'ship.arrived.v1'
+    ship_renamed_v1: 'ship.renamed.v1'
+    ship_rename_rejected_v1: 'ship.rename.rejected.v1'
     ship_travel_rejected_v1: 'ship.travel.rejected.v1'
     cargo_loaded_v1: 'cargo.loaded.v1'
     cargo_unloaded_v1: 'cargo.unloaded.v1'

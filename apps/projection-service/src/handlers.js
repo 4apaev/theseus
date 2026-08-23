@@ -15,6 +15,7 @@ export function createHandlers(pool) {
         [ EVT.ship.created          ]: shipCreated,
         [ EVT.ship.departed         ]: shipDeparted,
         [ EVT.ship.arrived          ]: shipArrived,
+        [ EVT.ship.renamed          ]: shipRenamed,
         [ EVT.cargo.loaded          ]: cargoLoaded,
         [ EVT.cargo.unloaded        ]: cargoUnloaded,
         [ EVT.trade.executed        ]: tradeExecuted,
@@ -80,6 +81,15 @@ export function createHandlers(pool) {
                set stid    = ${ stid },
                    status  = 'docked',
                    arrived = ${ arrived },
+                   updated = now()
+             where sid = ${ sid }
+        `
+    }
+
+    function shipRenamed({ payload: { sid, name }}) {
+        return sql`
+            update ships
+               set name    = ${ name },
                    updated = now()
              where sid = ${ sid }
         `

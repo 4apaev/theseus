@@ -1,5 +1,6 @@
 /* eslint-disable camelcase */
 import { state } from './state.js'
+import { drawnShips, dockedAt } from './traffic.js'
 import {
     $,
     cr,
@@ -7,29 +8,53 @@ import {
     fmtYears,
 } from './dom.js'
 
+// gate on the universe, not on our ship. a player with no ship must
+// still see the map, and the other ships on it.
 export function renderTravel() {
     const body = $('#travelBody')
-    const s    = state.ship
-    if (!s || !state.universe) return body.innerHTML = '<p class="dim">—</p>'
+    if (!state.universe) return body.innerHTML = '<p class="dim">—</p>'
 
     const pos   = stationLayout()
     const edges = uniqueEdges(state.universe.routes)
-    const ship  = shipPos(pos, s)
 
     body.innerHTML = `
         <svg viewBox="0 0 320 240" class="map">
             <g class="mapRoutes">${ routeLines(edges, pos) }</g>
-            <g class="mapStations">${ mapStations(pos, s) }</g>
-            <circle class="shipMarker" cx="${ ship.x }" cy="${ ship.y }" r="4"/>
+            <g class="mapStations">${ mapStations(pos, state.ship) }</g>
+            <g class="mapShips">${ shipMarkers(pos) }</g>
         </svg>`
 }
 
-export function tickShipMarker(s) {
-    const dot = $('.shipMarker')
-    if (!dot || !state.universe) return
-    const p = shipPos(stationLayout(), s)
-    dot.setAttribute('cx', p.x)
-    dot.setAttribute('cy', p.y)
+/*  a dot for each ship in transit, plus our own ship always.
+    docked ships are not dots. many dots at one station make one pile
+    that nobody can read. the station tooltip lists them instead. */
+function shipMarkers(pos) {
+    return drawnShips().map(s => {
+        const p   = shipPos(pos, s)
+        const own = s === state.ship
+        return `<circle
+            class="shipMarker${ own ? ' own' : '' }"
+            data-sid="${ esc(s.sid) }"
+            cx="${ p.x }" cy="${ p.y }" r="${ own ? 4 : 3 }"
+        ><title>${ esc(own ? 'you' : s.handle ?? 'a pilot') }</title></circle>`
+    }).join('')
+}
+
+// move every marker. $('.shipMarker') alone returns the first one only.
+export function tickShipMarkers() {
+    if (!state.universe) return
+
+    const pos  = stationLayout()
+    const ships = new Map(drawnShips().map(s => [ s.sid, s ]))
+
+    for (const dot of $('+.shipMarker')) {
+        const s = ships.get(dot.dataset.sid)
+        if (s?.status !== 'transit') continue
+
+        const p = shipPos(pos, s)
+        dot.setAttribute('cx', p.x)
+        dot.setAttribute('cy', p.y)
+    }
 }
 
 let layoutUniverse, layoutCache
@@ -105,21 +130,29 @@ function routeInfo(route, ship) {
         cr(cost)      } time-cost`
 }
 
+// ship is undefined until the first ship exists - stay safe on every use
 function mapStations(pos, ship) {
-    const docked = ship.status === 'docked'
+    const docked = ship?.status === 'docked'
 
     return state.universe.stations.map(port => {
         const { x, y } = pos.get(port.stid)
         const route = docked && state.universe.routes.find(route =>
             route.from === ship.stid && route.to === port.stid)
 
-        const cls = [ 'mapStation', port.stid === ship.stid && 'here', route && 'reachable' ]
-            .filter(Boolean)
-            .join(' ')
+        const crew = dockedAt(port.stid)
+        const cls  = [
+            'mapStation',
+            port.stid === ship?.stid && 'here',
+            route && 'reachable',
+            crew.length && 'busy',
+        ].filter(Boolean).join(' ')
 
-        const title = route
-            ? `${ esc(port.name) } · ${ esc(routeInfo(route, ship)) }`
-            : esc(port.name)
+        const title = [
+            route
+                ? `${ esc(port.name) } · ${ esc(routeInfo(route, ship)) }`
+                : esc(port.name),
+            crew.length && `in port: ${ esc(crew.map(t => t.handle ?? '—').join(' · ')) }`,
+        ].filter(Boolean).join('\n')
 
         return `<g
         class="${ cls }"

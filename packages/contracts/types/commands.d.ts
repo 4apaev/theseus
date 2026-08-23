@@ -16,7 +16,8 @@ export declare const tree: Readonly<{
         credit: { requested: 'wallet.credit.requested.v1' }
     },
     ship: {
-        travel: { requested: 'ship.travel.requested.v1' }
+        travel: { requested: 'ship.travel.requested.v1' },
+        rename: { requested: 'ship.rename.requested.v1' }
     },
     cargo: {
         load: { requested: 'cargo.load.requested.v1' },
@@ -46,6 +47,11 @@ export interface CommandPayloads {
         pid: string
         sid: string
         to: string
+    }
+    'ship.rename.requested.v1': {
+        name: string
+        pid: string
+        sid: string
     }
     'cargo.load.requested.v1': CargoCommandPayload
     'cargo.unload.requested.v1': CargoCommandPayload
@@ -115,6 +121,7 @@ export declare const commandTypes: Readonly<{
     wallet_debit_requested_v1: 'wallet.debit.requested.v1'
     wallet_credit_requested_v1: 'wallet.credit.requested.v1'
     ship_travel_requested_v1: 'ship.travel.requested.v1'
+    ship_rename_requested_v1: 'ship.rename.requested.v1'
     cargo_load_requested_v1: 'cargo.load.requested.v1'
     cargo_unload_requested_v1: 'cargo.unload.requested.v1'
     market_buy_requested_v1: 'market.buy.requested.v1'

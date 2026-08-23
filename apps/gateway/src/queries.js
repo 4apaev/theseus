@@ -57,6 +57,33 @@ export function createQueries(pool) {
             return rows
         },
 
+        /*  public ship traffic. one query, two routes.
+            no stid gives the whole fleet. a stid gives one station.
+            the result has no pid. a player sees another player by handle.
+
+            CASE: the projection does not clear stid on departure
+            (projection-service/handlers.js shipDeparted), and the column
+            is `not null`, so it cannot be cleared. a ship in transit
+            keeps the station it left. the CASE hides that old value.
+
+            AND status = 'docked': without this test a port list shows
+            ships that departed hours ago.
+
+            ::text: postgres cannot find the type of $1 from `$1 IS NULL`
+            alone. the cast tells it.  */
+        async traffic(stid = null) {
+            const { rows } = await sql`
+                SELECT s.sid, p.handle, s.name, s.status,
+                       CASE WHEN s.status = 'docked' THEN s.stid END AS stid,
+                       s."from", s."to", s.arrives, s.arrived, s.years_abs
+                  FROM ships s
+                  JOIN players p USING (pid)
+                 WHERE ${ stid }::text IS NULL
+                    OR (s.status = 'docked' AND s.stid = ${ stid })
+                 ORDER BY p.handle, s.name`
+            return rows
+        },
+
         // ── admin ────────────────────────────────────────────
 
         async allPlayers() {

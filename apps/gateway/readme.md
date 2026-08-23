@@ -52,6 +52,7 @@ reply waiter and the websocket fanout.
 | `POST /register`   |  -    | `player.register.requested` → waits for reply: 201 created, 409 taken, 202 `{cmd, correlation_id}` on timeout |
 | `POST /login`      |  -    | `player.login.requested` → 200 `{token, pid, handle, role}`, 401 bad creds, 504 timeout |
 | `POST /travel`     |  ✓    | `ship.travel.requested` → 202 `{cmd, correlation_id}`               |
+| `POST /rename`     |  ✓    | `ship.rename.requested` → 202. the name rule lives in the contract, so a bad name is 400 |
 | `POST /buy`        |  ✓    | `market.buy.requested` → 202                                        |
 | `POST /sell`       |  ✓    | `market.sell.requested` → 202                                       |
 | `GET /me`          |  ✓    | player + wallet (404 until projection catches up)                   |
@@ -59,6 +60,8 @@ reply waiter and the websocket fanout.
 | `GET /cargo/:sid`  |  ✓    | ship cargo (joins ships - own ships only)                           |
 | `GET /market/:stid`|  ✓    | prices at station                                                   |
 | `GET /trades`      |  ✓    | trade history, latest 100                                           |
+| `GET /traffic`     |  ✓    | every ship, docked and in transit - by handle, never by pid         |
+| `GET /station/:stid/ships` | ✓ | the ships docked at one station - the same query as `/traffic` |
 | `GET /admin/players` | admin | all players + wallets                                             |
 | `GET /admin/events`  | admin | projection `event_log`, latest 200                                |
 | `GET /admin/inventory/:stid` | admin | station stock, from `market.station_inventory` directly - the source of truth, not the projection's quote mirror |
@@ -78,9 +81,14 @@ reply waiter and the websocket fanout.
   (browsers cannot set headers on `WebSocket`; token-in-url is logged by
   proxies - acceptable here, `Sec-WebSocket-Protocol` smuggling is the alternative)
 - push-only: one json text frame per event `{ event_type, correlation_id, occurred, payload }`
-- events with `payload.pid` go to that player's sockets, `market.price.changed`
-  broadcasts, client text frames are ignored
+- events with `payload.pid` go to that player's sockets in full
+- `ship.created` / `ship.departed` / `ship.arrived` / `ship.renamed` also go to every other
+  socket, in a public shape - `sid` plus movement, no `pid`, no `years_rel`,
+  no `correlation_id`. `ship.travel.rejected` stays private
+- `market.price.changed` broadcasts, client text frames are ignored
 - admin sockets (`claims.role === 'admin'`) skip the pid filter - full firehose
+- the public shape is an allowlist (`PUBLIC` in `feed.js`). a new private
+  field is dropped by default, not leaked
 - ping/pong keepalive (30s), unanswered ping drops the socket
 - backpressure is ignored (`socket.write` return unchecked) - a slow client
   buffers unboundedly; revisit if it ever matters

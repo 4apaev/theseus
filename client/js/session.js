@@ -4,7 +4,8 @@ import { $ } from './dom.js'
 import { state, KEY } from './state.js'
 import { feedLine } from './feed.js'
 import { api, refreshMarket } from './api.js'
-import { renderAll, setConn } from './render.js'
+import { refreshTraffic } from './traffic.js'
+import { renderAll, setConn, callToAction } from './render.js'
 import { dispatch } from './events.js'
 
 export const sleep = ms => new Promise(ok => setTimeout(ok, ms))
@@ -59,6 +60,7 @@ export async function enterGame() {
 
     await hydrate()
     connect()
+    callToAction()
 }
 
 export async function hydrate() {
@@ -82,6 +84,7 @@ export async function hydrate() {
 
     state.cargo = ship ? await api(`/cargo/${ ship.sid }`) : []
     await refreshMarket()
+    await refreshTraffic()   // reconnect calls hydrate, so traffic re-syncs too
     state.trades = await api('/trades')
 
     renderAll()
