@@ -8,6 +8,9 @@ const ignore = new Set([
     'node_modules',
 ])
 
+process.argv.slice(2).forEach(ignore.add, ignore)
+// package.json readme.md types
+
 await walk(process.cwd(), '')
 
 async function walk(dir, prfx) {
