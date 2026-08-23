@@ -5,7 +5,8 @@ mkdir -p .logs
 
 if (( $# == 0 )); then
     echo "restarting all services (no args)"
-    npm restart
+    npm stop
+    npm start
     exit 0
 fi
 
