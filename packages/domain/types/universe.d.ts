@@ -1,4 +1,13 @@
+export interface System {
+    sysid: string
+    name?: string
+    /** the spectral class, for flavour */
+    star?: string
+}
+
 export interface StationMeta {
+    /** the sysid of the system that holds this station */
+    system: string
     name?: string
     produces?: Record<string, number>
     consumes?: Record<string, number>
@@ -8,16 +17,24 @@ export interface Station extends StationMeta {
     stid: string
 }
 
-export interface Route {
+/** one undirected link, as stored on both ends */
+export interface Edge {
+    ly: number
+    /** speed limit, in fractions of light speed. 1 lets the ship decide */
+    c: number
+}
+
+export interface Route extends Edge {
     from: string
     to: string
-    ly: number
 }
 
 export interface UniverseJSON {
+    systems: System[]
     stations: Station[]
     routes: Route[]
 }
+
 export interface Ship {
     name: string
     stid: string
@@ -26,14 +43,18 @@ export interface Ship {
 }
 
 export declare class Universe {
+    systems: Map<string, System>
     nodes: Map<string, Station>
-    edges: Map<string, Map<string, number>>
+    edges: Map<string, Map<string, Edge>>
 
     has(stid: string): boolean
-    node(stid: string, meta?: StationMeta): Station
-    link(a: string, b: string, ly: number): this
-    neighbors(stid: string): Map<string, number>
+    system(sysid: string, meta?: Omit<System, 'sysid'>): System
+    node(stid: string, meta: StationMeta): Station
+    link(a: string, b: string, ly: number, c?: number): this
+    neighbors(stid: string): Map<string, Edge>
+    route(from: string, to: string): Edge
     distance(from: string, to: string): number
+    speedLimit(from: string, to: string): number
     /** plain json shape - both directions of every link, one row each */
     toJSON(): UniverseJSON
 }
