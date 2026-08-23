@@ -10,6 +10,8 @@ import {
     outboxEvents,
 } from '#testing/index.js?title=🧪 🎰 MARKET'
 
+import { goods, universe } from '@theseus/domain'
+
 import { createHandlers } from '#market/handlers.js'
 import { seed, quote    } from '#market/seed.js'
 import { pollDrift      } from '#market/drift.js'
@@ -69,26 +71,48 @@ test('arbitrage exists: ore is cheap where produced, dear where craved', () => {
 // ── seed ──────────────────────────────────────────────────────────────────────
 
 test('seed fills every station × good and publishes a quote for each', async () => {
+    // one row per station × good. the universe decides how many.
+    const rows = universe.nodes.size * Object.keys(goods).length
+
     const pool = fakePool()
-    assert.equal(await seed(pool, fakeTransact(pool.client)), true)
+    assert.equal(await seed(pool, fakeTransact(pool.client)), rows)
 
     const { log } = pool.client
-    assert.equal(log.filter(q => q.sql.includes('insert into station_inventory')).length, 9)
-    assert.equal(log.filter(q => q.sql.includes('insert into markets')).length, 9)
+    assert.equal(log.filter(q => q.sql.includes('insert into station_inventory')).length, rows)
+    assert.equal(log.filter(q => q.sql.includes('insert into markets')).length, rows)
 
     const events = outboxEvents(pool.client)
-    assert.equal(events.length, 9)
+    assert.equal(events.length, rows)
     assert.ok(events.every(e => e.event_type === 'market.price.changed.v1'))
     assert.ok(events.every(e => e.payload.price_buy > e.payload.price_sell), 'ask above bid')
 })
 
-test('seed is idempotent - populated market is left alone', async () => {
+test('seed is idempotent - a populated market is left alone', async () => {
     const pool = fakePool({
-        'select 1 from station_inventory': () => ({ rows: [{ ok: 1 }]}),
+        'select stid, gid from station_inventory': () => ({ rows: everyPair() }),
     })
-    assert.equal(await seed(pool, fakeTransact(pool.client)), false)
+    assert.equal(await seed(pool, fakeTransact(pool.client)), 0)
     assert.ok(!pool.client.log.some(q => q.sql.includes('insert into')))
 })
+
+// a new station in the universe gets its markets, and nothing else moves
+test('seed adds only the missing station × good', async () => {
+    const pool = fakePool({
+        'select stid, gid from station_inventory': () =>
+            ({ rows: everyPair().filter(r => r.stid !== 'sol.mars') }),
+    })
+
+    assert.equal(await seed(pool, fakeTransact(pool.client)), Object.keys(goods).length)
+    assert.ok(pool.client.log
+        .filter(q => q.sql.includes('insert into station_inventory'))
+        .every(q => q.params[ 0 ] === 'sol.mars'))
+})
+
+function everyPair() {
+    return universe.nodes.values()
+        .flatMap(st => Object.keys(goods).map(gid => ({ stid: st.stid, gid })))
+        .toArray()
+}
 
 // ── buy - rejections ──────────────────────────────────────────────────────────
 

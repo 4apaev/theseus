@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import Sync from 'garage/sync'
 
 import { create } from '@theseus/auth'
-import { TIME_SCALE } from '@theseus/domain'
+import { TIME_SCALE, universe } from '@theseus/domain'
 import { Codec, echo } from '@theseus/util'
 import { acceptKey, createFrameParser } from '@theseus/ws'
 import {
@@ -286,8 +286,10 @@ test('GET/universe returns the serialized graph without a token', async () => {
     const rs = await Sync.get('/universe')
 
     assert.equal(rs.status, 200)
-    assert.equal(rs.body.stations.length, 3)
-    assert.equal(rs.body.routes.length, 6)
+    assert.equal(rs.body.systems.length, universe.systems.size)
+    assert.equal(rs.body.stations.length, universe.nodes.size)
+    assert.ok(rs.body.routes.length >= rs.body.stations.length, 'both directions of every link')
+    assert.ok(rs.body.routes.every(r => r.ly > 0 && r.c > 0))
     assert.equal(rs.body.goods.ore.name, 'iron ore')
     assert.equal(rs.body.starter.stid, 'sol.outpost')
     assert.equal(rs.body.constants.time_scale, TIME_SCALE)
