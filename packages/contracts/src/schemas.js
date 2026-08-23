@@ -85,6 +85,17 @@ export const shipTravelRequested = new Cmd({
     },
 })
 
+export const shipRenameRequested = new Cmd({
+    topic  : 'ship',
+    type   : 'rename.requested',
+    key    : 'sid',
+    payload: {
+        pid : field.nonEmptyString,
+        sid : field.nonEmptyString,
+        name: field.shipName,
+    },
+})
+
 export const cargoLoadRequested = new Cmd({
     topic  : 'cargo',
     type   : 'load.requested',
@@ -269,6 +280,28 @@ export const shipArrived = new Schema({
         sid    : field.nonEmptyString,
         stid   : field.nonEmptyString,
         arrived: field.isoTime,
+    },
+})
+
+export const shipRenamed = new Schema({
+    topic  : 'ship',
+    type   : 'renamed',
+    key    : 'sid',
+    payload: {
+        pid : field.nonEmptyString,
+        sid : field.nonEmptyString,
+        name: field.shipName,
+    },
+})
+
+export const shipRenameRejected = new Schema({
+    topic  : 'ship',
+    type   : 'rename.rejected',
+    key    : 'sid',
+    payload: {
+        pid   : field.nonEmptyString,
+        sid   : field.nonEmptyString,
+        reason: field.nonEmptyString,
     },
 })
 

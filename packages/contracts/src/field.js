@@ -4,6 +4,8 @@ const CODE = 417 // EXPECTATION FAILED
 
 export const keyBy = A.prop
 
+const SHIP_NAME = /^[\p{L}\p{N} '.-]{1,24}$/u
+
 export const field = Object.freeze({
     property      : A.prop,
     nonEmpty      : isNonEmpty,
@@ -17,6 +19,7 @@ export const field = Object.freeze({
     positiveInteger(x)         { return Is.N(x) && x > 0 },
     positiveNumber(x)          { return Is.n(x) && x > 0 },
     velocity(x)                { return Is.n(x) && x > 0 && x < 1 },
+    shipName(x)                { return isNonEmptyString(x) && SHIP_NAME.test(x) && x.trim() === x },
 })
 
 export function freezer(x) {

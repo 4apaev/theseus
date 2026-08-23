@@ -61,6 +61,28 @@ test('poll stop during fx prevents next tick', async () => {
 
 // ── formatTime ────────────────────────────────────────────────────────────────
 
+test('poll survives a failing tick and keeps going', async () => {
+    const seen = []
+    const err  = console.error
+    console.error = () => {}          // the catch logs. keep the run quiet.
+
+    try {
+        const poller = poll(() => {
+            seen.push(1)
+            if (seen.length === 1) throw new Error('one bad tick')
+            return seen.length
+        }, 10)
+
+        await sleep(45)
+        poller.stop()
+        assert.ok(seen.length >= 3, `the loop kept running: ${ seen.length } ticks`)
+        assert.ok(poller.result >= 2, 'and later results still land')
+    }
+    finally {
+        console.error = err
+    }
+})
+
 test('formatTime passes numbers through unchanged', () => {
     assert.equal(formatTime(5000), 5000)
 })

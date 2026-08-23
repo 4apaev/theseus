@@ -23,6 +23,7 @@ import {
 
 import start             from '#gateway/main.js'
 import { createReplies } from '#gateway/replies.js'
+import { seesAll       } from '#gateway/feed.js'
 
 import {
     fakePool,
@@ -78,8 +79,18 @@ function fakePlayerService(kafka) {
     })
 }
 
+const TRAFFIC = [
+    { sid: 's1', handle: 'alice', name: 'Argo', status: 'docked',
+        stid: 'st1', from: null, to: null, arrives: null, arrived: 'now', years_abs: null },
+    { sid: 's2', handle: 'bob', name: 'Nostromo', status: 'transit',
+        stid: null, from: 'st1', to: 'st2', arrives: 'later', arrived: null, years_abs: 2 },
+]
+
 function projectionPool() {
     return fakePool({
+        // 'JOIN players p' must come first. fakeClient takes the first key
+        // that the sql contains, and the traffic query also says 'FROM ships'
+        'JOIN players p'    : ([     stid ]) => ({ rows: stid ? [ TRAFFIC[ 0 ] ] : TRAFFIC }),
         'FROM players'      : ([      pid ]) => ({ rows: pid === 'p1' ? [{ pid, handle: 'alice', created: 'now', balance: 1000 }] : []}),
         'FROM ships'        : ([      pid ]) => ({ rows: [{ sid: 's1' , pid , status: 'docked' }]}),
         'FROM cargo'        : ([ sid, pid ]) => ({ rows: [{ gid: 'ore', pid , sid, quantity: 5  }]}),
@@ -94,12 +105,15 @@ const bear  = { authorization: `Bearer ${ token }` } // sync rejects with the pa
 const adminToken = jwt.sign({ pid: 'admin1', handle: 'root', role: 'admin' })
 const adminBear  = { authorization: `Bearer ${ adminToken }` }
 
-let kafka, gw
+const otherToken = jwt.sign({ pid: 'p2', handle: 'bob' }) // another player, for traffic tests
+
+let kafka, gw, pool
 
 test.before(async () => {
     kafka = createMemoryKafka()
     fakePlayerService(kafka)
-    gw = await start(kafka, { pool: projectionPool(), secret: SECRET, port: 0, timeout: 300 })
+    pool  = projectionPool()
+    gw    = await start(kafka, { pool, secret: SECRET, port: 0, timeout: 300 })
 
     Sync.base = 'http://127.0.0.1:' + gw.port
     Sync.head.set('content-type', 'application/json')
@@ -185,6 +199,25 @@ test('POST/buy/sell publish market commands', async () => {
 
     assert.ok(types.includes(CMD.market.buy.requested))
     assert.ok(types.includes(CMD.market.sell.requested))
+})
+
+test('POST/rename publishes the command with the pid from the token', async () => {
+    const rs = await Sync.post('/rename', { sid: 's1', name: 'Argo', pid: 'evil' }).set(bear)
+    assert.equal(rs.status, 202)
+
+    const cmd = kafka.messages(commandTopics.ship)
+        .map(m => decodeTopicMessage({ value: m.value }).value)
+        .find(c => c.cmd === rs.body.cmd)
+
+    assert.equal(cmd.command_type, CMD.ship.rename.requested)
+    assert.equal(cmd.payload.name, 'Argo')
+    assert.equal(cmd.payload.pid, 'p1', 'the body pid is ignored')
+})
+
+test('POST/rename replies 400 on a name the contract refuses', async () => {
+    const rs = await Sync.post('/rename', { sid: 's1', name: 'a'.repeat(25) }).set(bear).then(echo, echo)
+    assert.equal(rs.status, 400)
+    assert.match(rs.body.error, /name/)
 })
 
 test('POST/travel without token replies 401 and publishes nothing', async () => {
@@ -300,6 +333,45 @@ test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async
     assert.equal(cargo.gid, 'ore')
     assert.equal(market.price_buy, 30)
     assert.equal(trades, void 0)
+})
+
+// ── public ship traffic ──────────────────────────────────────────────────────
+
+test('GET/traffic needs a token - public means signed in, not anonymous', async () => {
+    const rs = await Sync.get('/traffic').then(echo, echo)
+    assert.equal(rs.status, 401)
+})
+
+test('GET/traffic returns every ship, by handle, never by pid', async () => {
+    const { body } = await Sync.get('/traffic').set(bear)
+
+    assert.equal(body.length, 2)
+    assert.deepEqual(body.map(t => t.handle), [ 'alice', 'bob' ])
+    assert.ok(body.every(t => !('pid' in t)), 'pid never reaches another player')
+
+    const transit = body.find(t => t.status === 'transit')
+    assert.equal(transit.stid, null, 'a ship in transit is at no station')
+    assert.equal(transit.to, 'st2')
+})
+
+test('GET/station/:stid/ships filters by station', async () => {
+    const { body } = await Sync.get('/station/st1/ships').set(bear)
+
+    assert.equal(body.length, 1)
+    assert.equal(body[ 0 ].handle, 'alice')
+    assert.deepEqual(pool.client.log.at(-1).params, [ 'st1' ], 'stid is bound, not spliced')
+})
+
+test('both traffic routes run the same sql', async () => {
+    await Sync.get('/traffic').set(bear)
+    await Sync.get('/station/st1/ships').set(bear)
+
+    const [ fleet, station ] = pool.client.log
+        .filter(q => q.sql.includes('JOIN players p'))
+        .slice(-2)
+        .map(q => q.sql)
+
+    assert.equal(fleet, station, 'one query, two routes - they cannot disagree')
 })
 
 // ── admin routes ─────────────────────────────────────────────────────────────
@@ -435,4 +507,105 @@ test('ws admin socket skips the pid filter - full firehose', async () => {
     await waitFor(() => received.length)
     assert.equal(received[ 0 ].payload.pid, 'p2')
     socket.destroy()
+})
+
+// ── ship traffic on the socket ───────────────────────────────────────────────
+
+// seesAll is the access rule - test it alone, not only through a socket
+test('seesAll: admin and the owner see all, a stranger does not', () => {
+    const owner    = { pid: 'p1' }
+    const stranger = { pid: 'p2' }
+    const admin    = { pid: 'a1', role: 'admin' }
+
+    assert.equal(seesAll(owner, 'p1'), true, 'the owner')
+    assert.equal(seesAll(stranger, 'p1'), false, 'a stranger')
+    assert.equal(seesAll(admin, 'p1'), true, 'an admin')
+
+    // an event with no pid must not leak to a socket with no pid
+    assert.equal(seesAll({}, void 0), false, 'undefined never equals undefined here')
+})
+
+// listen on 2 sockets at once: the owner, and another player
+async function twoSockets() {
+    const rx = t => wsConnect(gw.port, `?token=${ t }`).then(({ socket }) => {
+        const got = []
+        const parser = createFrameParser(f => got.push(Codec.decode(f.payload)))
+        socket.on('data', chunk => parser.push(chunk))
+        return { socket, got }
+    })
+    return { own: await rx(token), other: await rx(otherToken) }
+}
+
+test('ws sends ship movement to everyone, but the pid only to the owner', async () => {
+    const { own, other } = await twoSockets()
+
+    const trip = {
+        sid: 's1', pid: 'p1', from: 'st1', to: 'st2',
+        arrives  : (new Date).toISOString(),
+        departed : (new Date).toISOString(),
+        years_abs: 7, years_rel: 5,
+    }
+
+    await kafka.publish(emit(EVT.ship.departed, {
+        aggregate_id: 's1', aggregate_type: 'ship', payload: trip,
+    }))
+
+    await waitFor(() => own.got.length && other.got.length)
+
+    const mine = own.got[ 0 ]
+    assert.equal(mine.payload.pid, 'p1', 'the owner keeps the pid')
+    assert.equal(mine.payload.years_rel, 5, 'the owner keeps their own proper time')
+
+    const theirs = other.got[ 0 ]
+    assert.equal(theirs.event_type, EVT.ship.departed)
+    assert.equal(theirs.payload.sid, 's1', 'a stranger gets the ship id')
+    assert.equal(theirs.payload.to, 'st2')
+    assert.equal(theirs.payload.years_abs, 7, 'and enough to move the marker')
+    assert.equal(theirs.payload.pid, void 0, 'but never the pid')
+    assert.equal(theirs.payload.years_rel, void 0, 'and never the proper time')
+    assert.equal(theirs.correlation_id, void 0, 'and no correlation_id')
+
+    own.socket.destroy()
+    other.socket.destroy()
+})
+
+test('ws sends ship created and arrived to everyone, without the pid', async () => {
+    const { own, other } = await twoSockets()
+
+    await kafka.publish(emit(EVT.ship.created, {
+        aggregate_id: 's1', aggregate_type: 'ship',
+        payload: { sid: 's1', pid: 'p1', stid: 'st1', name: 'Argo', capacity: 20, velocity: 0.6 },
+    }))
+    await kafka.publish(emit(EVT.ship.arrived, {
+        aggregate_id: 's1', aggregate_type: 'ship',
+        payload: { sid: 's1', pid: 'p1', stid: 'st2', arrived: (new Date).toISOString() },
+    }))
+
+    await waitFor(() => other.got.length === 2)
+
+    const [ made, docked ] = other.got
+    assert.equal(made.payload.name, 'Argo')
+    assert.equal(made.payload.pid, void 0)
+    assert.equal(made.payload.capacity, void 0, 'capacity stays private')
+    assert.equal(docked.payload.stid, 'st2')
+    assert.equal(docked.payload.pid, void 0)
+
+    own.socket.destroy()
+    other.socket.destroy()
+})
+
+test('ws keeps a travel rejection private', async () => {
+    const { own, other } = await twoSockets()
+
+    await kafka.publish(emit(EVT.ship.travel.rejected, {
+        aggregate_id: 's1', aggregate_type: 'ship',
+        payload: { sid: 's1', pid: 'p1', reason: 'ship not at origin' },
+    }))
+
+    await waitFor(() => own.got.length)
+    assert.equal(own.got[ 0 ].payload.reason, 'ship not at origin')
+    assert.equal(other.got.length, 0, 'a failure is nobody else\'s business')
+
+    own.socket.destroy()
+    other.socket.destroy()
 })

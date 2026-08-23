@@ -32,6 +32,8 @@ export interface RoutesInput {
  * - `POST /register` `/login` - correlated reply over events.player
  * - `POST /travel` `/buy` `/sell` - command → 202 `{ cmd, correlation_id }`, pid from token claims
  * - `GET /me` `/ships` `/cargo/:sid` `/market/:stid` `/trades` - projection reads
+ * - `GET /traffic` `/station/:stid/ships` - public ship traffic, one shared
+ *   query, handle instead of pid
  * - `GET /admin/players` `/admin/events` `/admin/inventory/:stid`
  *   `POST /admin/rebuild` - admin-role reads + rebuild trigger
  * - bearer-jwt auth middleware, `Fail.code` → http status (417 → 400)

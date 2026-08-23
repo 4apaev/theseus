@@ -51,6 +51,21 @@ export interface TradeRow {
     created    : Date
 }
 
+// public ship traffic - no pid, no capacity, no velocity.
+// stid is null while the ship is in transit.
+export interface TrafficRow {
+    sid      : string
+    handle   : string
+    name     : string
+    status   : string
+    stid     : string | null
+    from     : string | null
+    to       : string | null
+    years_abs: string | null
+    arrives  : Date | null
+    arrived  : Date | null
+}
+
 export interface EventLogRow {
     eid       : string
     event_type: string
@@ -72,6 +87,9 @@ export interface Queries {
     trades(pid: string): Promise<TradeRow[]>
     market(stid: string): Promise<MarketPriceRow[]>
     cargo(sid: string, pid: string): Promise<CargoRow[]>
+
+    /** every ship when stid is omitted, the ships docked at stid otherwise */
+    traffic(stid?: string): Promise<TrafficRow[]>
 
     // ── admin ────────────────────────────────────────────────
     allPlayers(): Promise<PlayerOverview[]>

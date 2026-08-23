@@ -1,4 +1,5 @@
 export const KEY = 'theseus.token'
+export const NAMED = 'theseus.named'   // the name prompt was shown this session
 
 export const state = {
     token   : localStorage.getItem(KEY),
@@ -14,7 +15,23 @@ export const state = {
     market  : [],
     trades  : [],
 
+    traffic : new Map,   // sid → another player's ship, from GET /traffic
     pending : new Map,   // correlation_id → { label, el }
+}
+
+/*  clear one player's data on logout.
+    hydrate() refills state.me only when it is empty, so a stale value
+    makes the next player read as the previous one - and mine() then
+    treats their own ship as another player's.
+    the universe is the same for everybody, so it stays. */
+export function resetPlayer() {
+    state.me      = void 0
+    state.ship    = void 0
+    state.cargo   = []
+    state.market  = []
+    state.trades  = []
+    state.traffic = new Map
+    state.pending = new Map
 }
 
 export function station(stid) {

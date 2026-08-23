@@ -193,6 +193,13 @@ export function createRoutes({
         rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
     })
 
+    gw.post('/rename', async (rq, rs) => {
+        const { sid, name } = rq.body
+        const cmd = command(CMD.ship.rename.requested, { pid: rq.claims.pid, sid, name })
+        await producer.publish(createCommandRecord(cmd))
+        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
+    })
+
     gw.post('/buy', async (rq, rs) => {
         const { gid, sid, stid, quantity, price_unit_max } = rq.body
         const cmd = command(CMD.market.buy.requested, {
@@ -240,6 +247,17 @@ export function createRoutes({
 
     gw.get('/trades', async (rq, rs) => {
         rs.json(200, await queries.trades(rq.claims.pid))
+    })
+
+    // ── public tier - any authenticated player ───────────────
+    // one query serves both routes, so they cannot disagree
+
+    gw.get('/traffic', async (rq, rs) => {
+        rs.json(200, await queries.traffic())
+    })
+
+    gw.get('/station/:stid/ships', async (rq, rs) => {
+        rs.json(200, await queries.traffic(rq.params.stid))
     })
 
     // ── admin ────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import { feedLine } from './feed.js'
 import { showAuth, logout } from './api.js'
 import { register, login, enterGame } from './session.js'
 import { travel, confirmTrade } from './commands.js'
-import { tickEta, openTradeDialog, updateTradeTotal } from './render.js'
+import { tickEta, openTradeDialog, updateTradeTotal, openNameDialog, confirmName } from './render.js'
 
 Sync.base = location.origin
 Sync.head.set('content-type', 'application/json'); state.token &&
@@ -27,7 +27,13 @@ $('#travelBody').addEventListener('click', e => {
 $('#game').addEventListener('click', e => {
     const btn = e.target.closest('.tradeBtn')
     btn && openTradeDialog(btn.dataset.side, btn.dataset.gid)
+
+    e.target.closest('#renameBtn') && openNameDialog()
 })
+
+$('#nameConfirmBtn').addEventListener('click', confirmName)
+$('#nameCancelBtn').addEventListener('click', () => $('#nameDialog').close())
+$('#nameInput').addEventListener('keydown', e => e.key === 'Enter' && confirmName())
 
 $('#tradeQty').addEventListener('input', updateTradeTotal)
 $('#tradeConfirmBtn').addEventListener('click', confirmTrade)

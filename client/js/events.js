@@ -1,15 +1,45 @@
 import { cr, fmtYears         } from './dom.js'
 import { api, refreshMarket   } from './api.js'
+import { mine, who, track     } from './traffic.js'
 import { state, station, good } from './state.js'
 import { feedLine, mark       } from './feed.js'
-import { renderAll            } from './render.js'
+import { renderAll, callToAction } from './render.js'
+
+/*  our own move reads in the second person. another player's move must
+    not. a stranger's line is dim, so our own events stay easy to find. */
+
+function shipCreatedLine(p) {
+    return mine(p)
+        ? { kind: 'ok' , text: `ship "${ p.name }" commissioned at ${ station(p.stid) }` }
+        : { kind: 'dim', text: `new ship "${ p.name }" at ${ station(p.stid) }` }
+}
+
+function shipDepartedLine(p) {
+    return mine(p)
+        ? { kind: 'ok' , text: `departed ${ station(p.from) } → ${ station(p.to) } · you age ${ fmtYears(p.years_rel) }yr, the galaxy ages ${ fmtYears(p.years_abs) }yr` }
+        : { kind: 'dim', text: `${ who(p.sid) } departed ${ station(p.from) } → ${ station(p.to) }` }
+}
+
+function shipArrivedLine(p) {
+    return mine(p)
+        ? { kind: 'ok' , text: `docked at ${ station(p.stid) }` }
+        : { kind: 'dim', text: `${ who(p.sid) } docked at ${ station(p.stid) }` }
+}
+
+function shipRenamedLine(p) {
+    return mine(p)
+        ? { kind: 'ok' , text: `ship renamed to "${ p.name }"` }
+        : { kind: 'dim', text: `a ship is now called "${ p.name }"` }
+}
 
 function flavor(e) {
     const p = e.payload
     switch (e.event_type) {
-        case 'ship.created.v1'            : return { kind: 'ok' , text: `ship "${ p.name }" commissioned at ${ station(p.stid) }` }
-        case 'ship.departed.v1'           : return { kind: 'ok' , text: `departed ${ station(p.from) } → ${ station(p.to) } · you age ${ fmtYears(p.years_rel) }yr, the galaxy ages ${ fmtYears(p.years_abs) }yr` }
-        case 'ship.arrived.v1'            : return { kind: 'ok' , text: `docked at ${ station(p.stid) }` }
+        case 'ship.created.v1'            : return shipCreatedLine(p)
+        case 'ship.departed.v1'           : return shipDepartedLine(p)
+        case 'ship.arrived.v1'            : return shipArrivedLine(p)
+        case 'ship.renamed.v1'            : return shipRenamedLine(p)
+        case 'ship.rename.rejected.v1'    : return { kind: 'err', text: `rename rejected: ${ p.reason }` }
         case 'ship.travel.rejected.v1'    : return { kind: 'err', text: `travel rejected: ${ p.reason }` }
         case 'cargo.loaded.v1'            : return { kind: 'ok' , text: `+${ p.quantity } ${ good(p.gid) } loaded` }
         case 'cargo.unloaded.v1'          : return { kind: 'ok' , text: `-${ p.quantity } ${ good(p.gid) } unloaded` }
@@ -32,34 +62,66 @@ function mutateCargo(gid, delta) {
     state.cargo[ i ].quantity <= 0 && state.cargo.splice(i, 1)
 }
 
-async function shipCreated() {
+/*  every ship handler must test the owner first.
+    the socket now carries other players' ships too.
+    without the test, another player's move overwrites our own ship. */
+
+async function shipCreated(p) {
+    if (!mine(p)) {
+        // the broadcast carries no handle. the next hydrate adds it.
+        state.traffic.set(p.sid, {
+            sid   : p.sid,
+            name  : p.name,
+            stid  : p.stid,
+            status: 'docked',
+        })
+        return
+    }
+
     const [ ship ] = await api('/ships')
     state.ship = ship
     await refreshMarket()
+    callToAction()          // a new player has no ship until this point
 }
 
 function shipDeparted(p) {
-    Object.assign(state.ship, {
+    const patch = {
         to: p.to,
         from: p.from,
         stid: void 0,
         status: 'transit',
         arrives: p.arrives,
         years_abs: p.years_abs,
-        years_rel: p.years_rel,
-    })
+    }
+
+    if (!mine(p))
+        return track(p.sid, patch)
+
+    // years_rel is our own proper time. it is not on the public wire.
+    Object.assign(state.ship, patch, { years_rel: p.years_rel })
     state.market = []
 }
 
 async function shipArrived(p) {
-    Object.assign(state.ship, {
+    const patch = {
         to: void 0,
         from: void 0,
         stid: p.stid,
         status: 'docked',
         arrives: void 0,
-    })
+    }
+
+    if (!mine(p))
+        return track(p.sid, { ...patch, arrived: p.arrived })
+
+    Object.assign(state.ship, patch)
     await refreshMarket()
+}
+
+function shipRenamed(p) {
+    if (!mine(p))
+        return track(p.sid, { name: p.name })
+    state.ship.name = p.name
 }
 
 function cargoLoaded(p)         { mutateCargo(p.gid,  p.quantity) }
@@ -79,6 +141,7 @@ const mutate = {
     'ship.created.v1'          : shipCreated,
     'ship.departed.v1'         : shipDeparted,
     'ship.arrived.v1'          : shipArrived,
+    'ship.renamed.v1'          : shipRenamed,
     'cargo.loaded.v1'          : cargoLoaded,
     'cargo.unloaded.v1'        : cargoUnloaded,
     'market.trade.executed.v1' : marketTradeExecuted,

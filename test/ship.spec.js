@@ -144,6 +144,35 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
     assert.equal(e.payload.velocity, 0.6)
 })
 
+// ── renameRequested ──────────────────────────────────────────────────────────
+
+test('renameRequested updates the ship and emits ship.renamed', async () => {
+    const client   = fakeClient({ 'UPDATE ships': () => ({ rows: [{ sid: 's1', pid: 'p1', name: 'Argo' }]}) })
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'ship.rename.requested.v1' ](makeCmd({ sid: 's1', pid: 'p1', name: 'Argo' }))
+
+    const update = client.log.find(({ sql }) => sql.includes('UPDATE ships'))
+    assert.deepEqual(update.params, [ 's1', 'p1', 'Argo' ], 'the pid scopes the update')
+
+    const [ e ] = outboxEvents(client)
+    assert.equal(e.event_type, 'ship.renamed.v1')
+    assert.equal(e.payload.name, 'Argo')
+    assert.equal(e.payload.sid, 's1')
+})
+
+// the update is scoped by pid, so a foreign sid matches no row
+test('renameRequested rejects a ship the player does not own', async () => {
+    const client   = fakeClient({ 'UPDATE ships': () => ({ rows: []}) })
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'ship.rename.requested.v1' ](makeCmd({ sid: 'someone-elses', pid: 'p1', name: 'Argo' }))
+
+    const [ e ] = outboxEvents(client)
+    assert.equal(e.event_type, 'ship.rename.rejected.v1')
+    assert.equal(e.payload.reason, 'ship not found')
+})
+
 // ── arrivals - poll & dock due ships ────────────────────────────────────────
 
 const docked = `'docked'`

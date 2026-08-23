@@ -18,6 +18,36 @@ export function createHandlers(pool, transact) {
     return {
         [ EVT.player.created        ]: playerCreated,
         [ CMD.ship.travel.requested ]: shipTravelRequested,
+        [ CMD.ship.rename.requested ]: shipRenameRequested,
+    }
+
+    /*  a player renames their own ship. the pid comes from the token, so
+        a foreign sid finds no row and the command is rejected.
+        the name is already checked by the contract. */
+    async function shipRenameRequested({ cmd: causation_id, correlation_id, payload: p }) {
+        await transact(pool, async client => {
+            const { rows: [ ship ] } = await client.query(`
+                UPDATE ships
+                   SET name = $3, updated = now()
+                 WHERE sid = $1
+                   AND pid = $2
+             RETURNING sid, pid, name
+            `, [ p.sid, p.pid, p.name ])
+
+            if (!ship)
+                return rejectRename(client, { reason: 'ship not found', causation_id, correlation_id, p })
+
+            await Outbox.write(client, [
+                emit(EVT.ship.renamed, {
+                    causation_id,
+                    correlation_id,
+                    aggregate_id     : ship.sid,
+                    aggregate_type   : 'ship',
+                    aggregate_version: 1,
+                    payload          : { sid: ship.sid, pid: ship.pid, name: ship.name },
+                }),
+            ])
+        })
     }
 
     // saga: every new player gets the starter ship, docked at sol.outpost
@@ -99,6 +129,19 @@ export function createHandlers(pool, transact) {
             ])
         })
     }
+}
+
+async function rejectRename(client, { reason, causation_id, correlation_id, p }) {
+    await Outbox.write(client, [
+        emit(EVT.ship.rename.rejected, {
+            causation_id,
+            correlation_id,
+            aggregate_id     : p.sid,
+            aggregate_type   : 'ship',
+            aggregate_version: 1,
+            payload          : { sid: p.sid, pid: p.pid, reason },
+        }),
+    ])
 }
 
 async function reject(client, { reason, causation_id, correlation_id, p }) {

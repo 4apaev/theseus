@@ -94,7 +94,6 @@ button {
     color: var(--fg);
     font: inherit;
     text-shadow: inherit;
-    text-transform: uppercase;
     padding: .3rem .6rem;
 }
 
@@ -111,6 +110,31 @@ button {
         color: var(--dimtext);
         border-color: var(--dim);
         cursor: default;
+    }
+}
+
+/*  the ship name opens the rename dialog. it is the only clickable text
+    in the client, so it needs its own hover to look clickable. */
+.shipName {
+    cursor: pointer;
+    border-bottom: 1px dashed var(--dimtext);
+
+    &:hover {
+        color: var(--bg);
+        background: var(--fg);
+        text-shadow: none;
+        border-bottom-color: transparent;
+    }
+
+    /* the call to action - the ship has no name yet */
+    &.cta {
+        color: var(--amber);
+        border-bottom-color: var(--amber);
+
+        &:hover {
+            color: var(--bg);
+            background: var(--amber);
+        }
     }
 }
 
@@ -227,7 +251,6 @@ input::placeholder {
                 fill: var(--dimtext);
                 font-size: 9px;
                 text-anchor: middle;
-                text-transform: uppercase;
             }
 
             &.here {
@@ -239,6 +262,11 @@ input::placeholder {
                 .mapLabel {
                     fill: var(--amber);
                 }
+            }
+
+            /* another player is docked here */
+            &.busy circle {
+                stroke-width: 2;
             }
 
             &.reachable {
@@ -260,10 +288,15 @@ input::placeholder {
             }
         }
 
+        /* another player's ship - dim, and no glow. our own ship keeps both */
         .shipMarker {
-            fill: var(--fg);
-            filter: drop-shadow(0 0 3px var(--fg));
+            fill: var(--dimtext);
             transition: cx .25s linear, cy .25s linear;
+
+            &.own {
+                fill: var(--fg);
+                filter: drop-shadow(0 0 3px var(--fg));
+            }
         }
     }
 }

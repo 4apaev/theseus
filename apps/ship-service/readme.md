@@ -26,6 +26,19 @@
 
 ------------------------------------------------------------------------------------------------
 
+### rename
+
+`ship.rename.requested.v1` → `ship.renamed.v1` | `ship.rename.rejected.v1`
+
+the `UPDATE` is scoped by `sid` **and** `pid`. a player who aims at
+another player's ship matches no row, and gets a rejection. ownership
+needs no separate read.
+
+the name rule is `field.shipName` in the contract: 1-24 characters,
+letters, digits, space, and `- ' .` only, with no padding. the gateway
+answers 400 before the command reaches kafka. a ship name appears on
+other players' screens, so `esc()` still guards every render.
+
 ### migrations
 - `001_ships.sql`
     ```sql

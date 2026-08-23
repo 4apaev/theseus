@@ -26,6 +26,23 @@ export function travel(to) {
     }, 'travel', station(to))
 }
 
+/*  the same rule as field.shipName in the contract. the client checks it
+    first, so a bad name gets an answer with no round trip. the contract
+    is still the authority. */
+const SHIP_NAME = /^[\p{L}\p{N} '.-]{1,24}$/u
+
+export function nameError(name) {
+    if (!name) return 'a ship needs a name'
+    if (name.length > 24) return 'too long - 24 characters or fewer'
+    if (!SHIP_NAME.test(name)) return 'letters, digits, space, and - \' . only'
+    return ''
+}
+
+export function rename(name) {
+    state.ship
+    && send('/rename', { name, sid: state.ship.sid }, 'rename', name)
+}
+
 const RATE = { buy: 1.1, sell: 0.9 }
 const KEY  = { buy: 'price_unit_max', sell: 'price_unit_min' }
 

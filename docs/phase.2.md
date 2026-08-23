@@ -27,7 +27,7 @@ first, not a dependency chain.
 |------|----------------------------------------------------------------|-------------|
 | 2.1  | living economy - price drift, stock regen, interest rate lever | done ✔      |
 | 2.2  | roles & visibility - `permissions.md`                          | done ✔      |
-| 2.3  | player presence - ship traffic, transponders                   | not started |
+| 2.3  | player presence - ship traffic (transponder deferred)          | done ✔      |
 | 2.4  | universe growth - dijkstra routing, travel manifests            | not started |
 
 
@@ -75,6 +75,10 @@ own words: "a future mechanic") - ship first with everyone always
 visible, add the per-ship toggle later if it doesn't fit this pass;
 don't let it block base visibility. touches `apps/gateway/` (route +
 `feed.js`), `client/js/map.js`.
+
+**done ✔** - see [progress.md](progress.md). the transponder stayed out,
+as this step allowed. the public trade feed also stayed out - this step
+covered ship traffic only.
 
 ### step 2.4 - universe growth, light touch
 

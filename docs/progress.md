@@ -8,6 +8,164 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+drift bug: runaway prices - fixed ✔
+------------------------------------------------
+
+reported from the market panel: hydro grain at 2750 credits, void spice
+at 99000. the client was correct. the data was wrong.
+
+**cause**: step 2.1 drift moved stock away from its seeded level, to the
+limits 0 and `target * 2`, and pinned it there. every good a station
+consumes reached 0 stock. price is
+`base * (target / max(stock, 1)) ** elasticity`, so stock 0 gives
+100 ** elasticity times base - 1000x for spice, at elasticity 1.5.
+
+**fix**: drift is now a restoring force. `seed.js` exports `stockFor`,
+the natural level of one station:good - 160 for a producer, 40 for a
+consumer, 100 otherwise. a trade moves stock off that level, and drift
+brings it back at the station's own rate, never past it. seed and drift
+now read the level from one function, so they cannot disagree.
+
+after the fix, a fresh universe holds its levels and prices stay in band:
+consumer spice 391, consumer ore 132, consumer grain 68.75. an untraded
+market is now silent - the update returns no row, so no event.
+
+**2 more bugs found while fixing it**:
+
+1. `-$4` on an untyped parameter fails with "operator is not unique".
+   postgres cannot find the type. the `::int` casts are load bearing,
+   like the `::text` cast in the gateway's traffic query.
+2. **`poll()` died on one bad tick.** `rs = await fx()` with no catch:
+   a rejection stopped the loop for the life of the process, with no
+   report. `pollOutbox` runs on `poll`, so one failed publish would stop
+   every event a service sends, forever. this is the second time it hid
+   a bug - the first was the Date/isoTime bug in ship arrivals. `poll`
+   now catches, logs, and continues, and `test/util.spec.js` covers it.
+
+**not a client bug**: the browser rendered exactly what
+`GET /market/:stid` returned. an older divergence between
+`market.markets` and `projection.market_prices` was stale data in the dev
+database, from before `event_log` existed. after a clean re-seed all 9
+rows match.
+
+------------------------------------------------
+ship rename + first-login call to action - done ✔
+------------------------------------------------
+
+a player can now name their own ship. a new player is asked to do it.
+
+- [x] `packages/contracts` - `field.shipName`: 1-24 characters, letters,
+      digits, space, and `- ' .` only, and no padding. a new command
+      `ship.rename.requested.v1`, and 2 new events, `ship.renamed.v1` and
+      `ship.rename.rejected.v1`
+- [x] `apps/ship-service/src/handlers.js` - the `UPDATE` is scoped by
+      `sid` **and** `pid`. a player who aims at another player's ship
+      matches no row and gets a rejection. ownership needs no extra read
+- [x] `apps/projection-service/src/handlers.js` - `shipRenamed` writes the
+      new name to the read model
+- [x] `apps/gateway/src/routes.js` - `POST /rename`. the `pid` comes from
+      the token, never from the body. a bad name fails contract validation
+      and returns 400 before it reaches kafka
+- [x] `apps/gateway/src/feed.js` - `publicShipRenamed` puts `ship.renamed`
+      on the public allowlist. the name is already public in `/traffic`,
+      so every player sees the change at once
+- [x] client - the ship name in the SHIP panel is the control. click it
+      to open `#nameDialog`. it has a dashed underline, a `rename`
+      tooltip, and an inverting hover, because it is the only clickable
+      text in the client. amber until the player picks a name.
+      `client/js/commands.js` holds the same name rule, so a bad name
+      gets an answer with no round trip. the contract stays the authority
+- [x] tests - 7 new: the name rule, 2 ship-service cases (rename, and a
+      foreign ship), 2 gateway route cases, and 2 integration cases against
+      real postgres
+
+**2 bugs found in the browser, not by the tests**:
+
+1. the prompt did not open for a new player. `hydrate()` reads `/ships`
+   before the projection has the starter ship, so `state.ship` was still
+   empty when the prompt ran. the prompt now runs at 2 points - after
+   hydrate, and again when `ship.created` arrives. the first one that
+   finds a ship wins.
+2. `logout()` never cleared `state.me`. `hydrate()` refills it only when
+   it is empty, so the next player on that tab kept the previous player's
+   identity. `mine(p)` then read their own new ship as another player's -
+   the feed said "new ship" instead of "commissioned", and the SHIP panel
+   stayed empty. `resetPlayer()` in `state.js` now clears the player data
+   on logout. this bug was older than this feature. `mine()` made it
+   visible.
+
+**how the first login is detected**: the starter ship is called
+"far treasure". a ship with that name was never renamed. so there is no
+flag, no column, and no extra state - the rule works on any device, and it
+stops as soon as the player picks a name. `LATER` hides the dialog for
+that tab only, with `sessionStorage`. the clickable name stays.
+
+proved live: A renamed to "Rocinante", A and B both saw it. an empty name,
+a 29-character name, `<script>alert(1)</script>` and an emoji name all
+returned 400. B could not rename A's ship.
+
+------------------------------------------------
+step 2.3: player presence - done ✔
+------------------------------------------------
+
+before this step a player saw only their own ship. now a player sees
+every other ship, and who is in port.
+
+design decided in [permissions.md](permissions.md): "ship traffic is
+public by default". public means any authenticated player, not anonymous.
+
+- [x] `apps/gateway/src/queries.js` - `traffic(stid)`. one query serves
+      both routes, so they cannot disagree. it returns the handle, never
+      the `pid`. it hides `capacity`, `velocity` and `years_rel` too - a
+      rival's ship specification is game information
+- [x] `apps/gateway/src/routes.js` - `GET /traffic` (the whole fleet) and
+      `GET /station/:stid/ships` (one station). both sit below
+      `gw.use(auth)`, next to `/market/:stid`
+- [x] `apps/gateway/src/feed.js` - restructured. the old ternary could not
+      say "carries a pid **and** broadcasts", and every ship event carries
+      a pid. now: `seesAll(claims, pid)` is a named function, `PUBLIC` is
+      an allowlist of redaction functions, and `push()` builds at most 2
+      frames per event, each one time
+- [x] `client/js/traffic.js` (new) - `state.traffic`, a Map of `sid` to
+      another player's ship
+- [x] `client/js/events.js` - **the important fix.** the 3 ship handlers
+      called `Object.assign(state.ship, ...)` with no owner test. after
+      this step another player's departure would overwrite your own ship.
+      each handler now tests `mine(p)` first. `flavor()` also split, so a
+      stranger's move no longer reads "you age N yr"
+- [x] `client/js/map.js` - N markers with `data-sid`, and
+      `tickShipMarker` became `tickShipMarkers`. docked ships are not
+      dots - many dots at one station make one unreadable pile, so the
+      station tooltip lists them and the station gets a `busy` class
+- [x] `client/js/render.js` + `index.html` - a `PORT` panel lists who else
+      is docked with you
+- [x] tests - 8 new: 4 route cases (including "both routes run the same
+      sql"), `seesAll` alone, 3 socket cases, and a 2-player integration
+      case. `test/gateway.integration.spec.js` now starts ship-service too,
+      because the traffic routes need real ships
+
+**how the client knows its own ship**: the gateway removes the `pid` from
+another player's event. so an event that still carries a `pid` is your
+own. do not compare `sid` - `state.ship` is `undefined` until your first
+ship exists, and your own `ship.created` would then look like a stranger.
+
+**where the fields are removed**: in the gateway, at the last moment, when
+it writes one frame to one socket. the events on kafka do not change. the
+projection needs `pid` to know who owns a ship, and `scripts/rebuild.js`
+replays the raw `event_log`. the bus carries the truth. the gateway
+decides who sees it.
+
+**one test trap**: `fakeClient` matches sql by substring, first key wins.
+`projectionPool()` already held a `'FROM ships'` key, and the new query
+contains that text. the fixture uses `'JOIN players p'` instead, placed
+first.
+
+proved live, not only in tests: 2 real players, real postgres and kafka.
+the owner's socket received `pid`, `years_rel` and `correlation_id`. the
+other player's socket received `sid`, `from`, `to`, `arrives` and
+`years_abs`, and nothing else.
+
+------------------------------------------------
 step 2.2: roles & visibility - done ✔
 ------------------------------------------------
 
