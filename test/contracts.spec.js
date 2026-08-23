@@ -13,6 +13,7 @@ import {
     eventTopics,
     eventTypes,
 } from '#packages/contracts/src/index.js'
+import { field } from '#packages/contracts/src/field.js'
 import '#packages/testing/src/index.js?title=🧪 📜 CONTRACTS'
 
 // ── catalog ────────────────────────────────────────────────────────────────
@@ -169,6 +170,14 @@ test('event envelope rejects missing eid', () => {
 })
 
 // ── optional payload fields ─────────────────────────────────────────────────
+
+test('shipName accepts a sane name and rejects the rest', () => {
+    const ok = [ 'Argo', 'far treasure', 'O\'Brien-7', 'Unicorn 3.0', 'a' ]
+    const no = [ '', '   ', ' pad', 'pad ', 'a'.repeat(25), '<script>', 'rocket \u{1F680}', '\u0007bell', null, 7 ]
+
+    for (const n of ok) assert.ok(field.shipName(n), `accepts ${ JSON.stringify(n) }`)
+    for (const n of no) assert.ok(!field.shipName(n), `rejects ${ JSON.stringify(n) }`)
+})
 
 test('cargo.operation.rejected accepts missing optional fields', () => {
     const evt = createEventEnvelope({
