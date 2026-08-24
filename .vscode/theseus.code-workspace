@@ -36,7 +36,10 @@
         "files.exclude": {
             ".git": true,
             ".idea": true,
-            // "node_modules": true,
-        }
+        },
+        "explorer.fileNesting.patterns": {
+         // "package.json":  ".env*, .git*, .editor*, *rc, *.json, .*.yml, *.config.js, *.md",
+            "package.json":  ".env*, .git*, .editor*, *rc, *.json, .*.yml, *.config.js",
+        },
     },
 }
