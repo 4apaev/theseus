@@ -31,7 +31,6 @@
         "#config/*"     : "./packages/config/src/*",
         "#util/*"       : "./packages/util/src/*",
         "#auth/*"       : "./packages/auth/src/*",
-        "#ws/*"         : "./packages/ws/src/*",
         "#testing/*"    : "./packages/testing/src/*"
     },
     "scripts": {
@@ -64,9 +63,9 @@
     },
     "devDependencies": {
         "typescript" : "^7.0.2",
-        "globals"    : "^17.9.0",
-        "eslint"     : "^10.8.0",
+        "globals"    : "^17.11.0",
+        "eslint"     : "^10.9.1",
         "@eslint/js" : "^10.0.1",
-        "@types/node": "^26.1.2"
+        "@types/node": "^26.3.0"
     }
 }

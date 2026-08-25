@@ -20,12 +20,6 @@ add `NODE_ENV = dev | prod | test`
 turn off logging in gateway if `NODE_ENV == test`
 `NODE_ENV` should affect `garage/compose` - add test.
 
-### ws
-
-move `@theseus/ws` package to `garage`
-
-
-
 nice to have
 ----------------
 - a mechanism to add new game assets

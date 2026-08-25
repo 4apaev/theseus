@@ -1,8 +1,8 @@
-import { O, Codec               } from '@theseus/util'
+import { O, Codec, formatTime }   from '@theseus/util'
 import { eventTree as EVT       } from '@theseus/contracts'
-import { createWss, encodeFrame } from '@theseus/ws'
+import createWss, { encodeFrame } from 'garage/mw/ws'
 
-/*  the game-specific half of the websocket feed: @theseus/ws does the
+/*  the game-specific half of the websocket feed: garage/mw/ws does the
     protocol (handshake, frames, keepalive), decides who gets what.
 
     the jwt pid is the identity of the connection.
@@ -82,7 +82,7 @@ function openFrame(e, payload) {
 
 export function createFeed({ jwt, ping } = {}) {
     const wss = createWss({
-        ping,
+        ping: formatTime(ping),  // garage's ws wants ms - '30s' stays a valid ping here
         authenticate(rq) {
             const token = new URL(rq.url, 'http://gateway').searchParams.get('token')
             return jwt.verify(token)   // throws Fail(401) on bad/expired token

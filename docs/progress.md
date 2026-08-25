@@ -730,8 +730,10 @@ not our code. revisit if kafkajs ships a fix or we swap clients.
 gateway should use logger, the logger should live in `garage/mware`
 
 ### websocket lib - done ✔
-extracted to [`packages/ws`](../packages/ws/readme.md)
-still needs moving to `garage`
+extracted to `packages/ws`, then moved again to `garage/mw/ws`.
+gateway's `feed.js` now imports it straight from `garage` - `packages/ws`
+is gone, and so is its own copy of `test/ws.spec.js` (garage tests its
+own protocol code now).
 
 ### garage
 1. `Sync.parse` throws if `response.ok` is `false` - make it optional

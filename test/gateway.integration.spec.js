@@ -11,7 +11,7 @@ import startPlayer     from '@theseus/player-service'
 import startShip       from '@theseus/ship-service'
 import startProjection from '@theseus/projection-service'
 import startGateway    from '@theseus/gateway'
-import { createFrameParser, acceptKey } from '@theseus/ws'
+import { createFrameParser, acceptKey } from 'garage/mw/ws'
 
 import {
     guid,

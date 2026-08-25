@@ -8,7 +8,7 @@ import Sync from 'garage/sync'
 import { create } from '@theseus/auth'
 import { TIME_SCALE, universe } from '@theseus/domain'
 import { Codec, echo } from '@theseus/util'
-import { acceptKey, createFrameParser } from '@theseus/ws'
+import { acceptKey, createFrameParser } from 'garage/mw/ws'
 import {
     createEmitter,
     createMemoryKafka,
@@ -438,7 +438,7 @@ test('waiter resolves undefined on timeout and cleans up', async () => {
 // ── websocket feed ──────────────────────────────────────────────────────────
 // createFeed's own composition: jwt → authenticate wiring, pid-filtered
 // routing, price broadcast. protocol mechanics (handshake, frame codec,
-// keepalive) are @theseus/ws's job and live in test/ws.spec.js
+// keepalive) are garage/mw/ws's job - tested in its own repo, not here
 
 test('ws upgrade handshakes with a valid token', async () => {
     const { rs, socket } = await wsConnect(gw.port, `?token=${ token }`)
