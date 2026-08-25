@@ -38,8 +38,11 @@ verified facts the plan leans on
   flow `opt.x ?? readEnv(...)` in `main.js`'s `start()`, then get passed
   as explicit params into `createRoutes`/`createFeed` - `routes.js` never
   calls `readEnv` itself. the client path follows the same shape
-- `universe.link(a, b)` stores both directions → 3 links = 6 directed
-  routes. `Universe` holds Maps - hand-serialize
+- `universe.link(a, b, ly, c)` stores both directions → 15 links = 30
+  directed routes. `Universe` holds Maps - hand-serialize. each route row
+  carries `c`, the speed limit, and the client uses it in two places:
+  `min(ship.velocity, route.c)` in the eta preview, and `c < 1` to mark a
+  route as in-system
 - `cargo.loaded/unloaded.v1` quantity is the trade **delta** - client
   mutates cargo locally
 - `wallet.debited/credited.v1` carry `balance` - no refetch.
@@ -89,7 +92,8 @@ const UNIVERSE = {
 specs in `test/gateway.spec.js` (no bearer - that IS the public assertion):
 - `GET /` → 200, `text/html`, body matches `/theseus/i`
 - `GET /style.css` `/app.js` → 200, `text/css` / `javascript` content-type
-- `GET /universe` → 200, 3 stations, 6 routes, `goods.ore.name`,
+- `GET /universe` → 200, counts read from the domain and never hardcoded -
+  a station added to the universe must not fail a gateway test, `goods.ore.name`,
   `starter.stid === 'sol.outpost'`, `constants.time_scale === 20`
 
 
@@ -236,9 +240,25 @@ station doesn't quote). one delegated click listener on `#game` (not
 `openTradeDialog(side, gid)` sets the title/qty/total and `showModal()`s
 it, qty input live-updates the total, confirm → `commands.js`'s
 `confirmTrade()` reads the dialog's own `dataset` and closes it. NAV is an inline SVG map
-(`map.js`) - stations laid out on a generated circle (no coordinate data
-exists or is stored; layout is computed from station count, not hardcoded),
-routes as lines with `ly` labels, current station marked `.here`, reachable
+(`map.js`) - **two levels of generated circles**, no coordinate data exists
+or is stored. the systems sit on one big circle, and the stations of a
+system sit on a small circle around it, in declaration order, which is
+orbit order. a system with one station puts that station in the middle,
+and that station keeps the old label-below placement. the star name sits
+in the middle of a cluster.
+
+a label on the rim of a cluster grows outward, away from the star -
+`labelPos()` sets `text-anchor` per station, so the CSS rule must not set
+one or it beats the attribute. without this the 6 names in Sol overlap
+into one smear.
+
+routes are lines with `ly` labels. an in-system route (`r.c < 1`) is
+dashed and carries no label - the line is only 28px long, and the label
+would not fit. the station tooltip carries the distance instead, in AU
+below one light year (`fmtDist()` in `dom.js`). the tooltip also names
+the system and its star.
+
+current station marked `.here`, reachable
 stations `.reachable` (clickable, `travel(stid)`) with the old ly/eta/age/
 capital-cost preview now on a native `<title>` hover tooltip instead of
 button text. countdown + ship-marker position share one

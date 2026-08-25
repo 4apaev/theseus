@@ -110,6 +110,11 @@ every saturn/jupiter moon big enough needs a station
 - mercury - ore mining
 - venus - bio tech / research
 
+**built ✔** - `sol.outpost` is the gateway, plus Mercury Deep, Venus Lab,
+Mars Hub, Ganymede Yards and Titan Ring. an in-system route caps the ship
+at 24 km/s, so a short hop still takes game time. see
+[progress.md](progress.md). more moons stay an idea.
+
 ### consume/produce
 station can consume/produce more then one good,
 not only goods, but also services like:
@@ -134,8 +139,8 @@ scheduled - see [phase.2.md](phase.2.md) step 2.1.
 
 ### universe growth
 `Universe.path(from, to)` dijkstra routing - scheduled, see
-[phase.2.md](phase.2.md) step 2.4. the full solar-system station buildout
-above stays an idea, not scheduled.
+[phase.2.md](phase.2.md) step 2.4. the stations are built. the routing is
+not.
 
 
 eve online

@@ -32,7 +32,10 @@
         - `toJSON()` → `{ systems, stations, routes }` - plain wire shape,
           both directions of every link as its own row (gateway's
           `GET /universe`)
-        - `path()` (dijkstra) still deferred - see the TODO below
+        - `path(from, to, velocity)` → ordered stids, `from` and `to`
+          both included, or `undefined` when nothing connects them - dijkstra,
+          weighted by travel time (`ly / min(velocity, c)`), not by `ly`
+          alone, so the winning route can change with the ship
     - `universe`    - the known universe singleton, 5 systems, 10 stations,
       15 links, 30 directed routes
     - `goods`       - `{ gid: { name, price_base, elasticity } }` - ore / grain / spice
@@ -91,14 +94,18 @@ Outpost, Mars, Ganymede, Titan. when a 3rd station sits between the 2 you
 are comparing, a direct link costs exactly what the long way costs:
 titan↔outpost (8.537 AU) equals titan→mars→outpost added up, since Mars
 sits between them - and the same is true of mars↔titan against
-mars→ganymede→titan. `path()` finds no shortcut on either pair. but
-outpost↔mercury is a real shortcut (0.613 AU direct, 1.661 AU the long way
-through Venus and Mars), because Outpost sits between Venus and Mars, not
-beyond either one - so no 3rd station lies between Outpost and Mercury.
-the stars are also not on one line, so `path()` has real work there too.
+mars→ganymede→titan. `path()` finds no shortcut on either pair, and
+returns one of the tied routes - which one is not meaningful, they cost
+the same. but outpost↔mercury is a real shortcut (0.613 AU direct, 1.661
+AU the long way through Venus and Mars), because Outpost sits between
+Venus and Mars, not beyond either one - so no 3rd station lies between
+Outpost and Mercury. the stars are also not on one line, so `path()` has
+real work there too - `sol.mercury` to `sirius.gate` comes back
+`sol.outpost → alpha.exchange → sirius.gate`, the 2-hop route, never the
+3-hop one through Barnards Star and Wolf 359.
 
 **star distances are real**, computed in light years from Sol against the HYG
-star catalogue (`.dacrap/hygdata_v42.csv`), which ships in this repo.
+star catalogue (`docs/hygdata_v42.csv`), which ships in this repo.
 `alpha.exchange` stands for Rigil Kentaurus, the G2V star of the Alpha
 Centauri pair.
 
@@ -113,7 +120,8 @@ sit at their planet's orbit - Jupiter's and Saturn's.
 Sirius directly. a player flies through Alpha Centauri, or through Barnards
 Star. that restriction is a design choice, not a fact about the stars - Sol
 really is 7.80 ly from Wolf 359 and 8.60 ly from Sirius, both a straight
-line. the player flies one hop at a time until `path()` exists.
+line. `path()` picks the multi-hop route, so a player never has to plan the
+detour by hand.
 
 ### the route speed limit
 
@@ -132,15 +140,11 @@ pilot less time than the clock.
 
 TODO
 ----------------
-- **`Universe.path()`** - dijkstra multi-hop routing. the map has outgrown the
-  fully-connected triangle, so this is now due. see [phase.2.md](../../docs/phase.2.md)
-  step 2.4.
-    - weight the edges by travel time, not by `ly`. an in-system hop is
-      0.000013 ly and takes 3 game seconds. a hop between stars is 4.32 ly and
-      takes 144. a shortest-distance path would route a player through the
-      whole Sol system to save nothing.
-    - inside Sol this changes nothing - every route between 2 stations
-      already costs the same, since all of Sol's distances sit on one
-      line (see above). the weighting only matters between the stars,
-      where the real geometry is not a line.
+- **travel manifests** - `path()` returns a route, but nothing yet consumes
+  one. see [phase.2.md](../../docs/phase.2.md) step 2.4: an ordered list of
+  stations, built by hand or auto-filled from `path()`, that ship-service
+  works through one hop at a time.
 - **more stations in the other systems**. only Sol is built out today.
+- **`path()` is O(V²) per call** - a linear scan for the closest unvisited
+  station, no heap. fine for a few dozen stations, wrong for a universe
+  10x this size.

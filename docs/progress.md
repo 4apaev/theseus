@@ -8,6 +8,167 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+universe growth - the stations ✔
+------------------------------------------------
+
+part of [phase.2.md](phase.2.md) step 2.4. the map was a triangle of 3
+stations. it now holds 5 star systems, 10 stations and 15 links.
+
+**two levels.** a system holds stations. one station in each system
+carries the links to other stars - the gateway. the other stations are
+planets and moons, and they link only inside their own system.
+`Universe.system(sysid, meta)` declares a star, and `node()` raises on an
+unknown system. the client map needs the grouping to draw a cluster, so a
+station without a system cannot exist.
+
+**Sol is built out**: Mercury Deep, Venus Lab, Sol Outpost, Mars Hub,
+Ganymede Yards, Titan Ring. the other 4 systems hold one station each -
+Alpha Centauri, Barnards Star, Wolf 359, Sirius.
+
+**the routes are sparse on purpose.** no gateway links to every other
+gateway. Sol does not reach Wolf 359 or Sirius directly. a player flies
+through Alpha Centauri, or through Barnards Star. that restriction is a
+design choice, not a fact about the stars - Sol really is 7.80 ly from
+Wolf 359 and 8.60 ly from Sirius, both a straight line. the
+fully-connected triangle is gone, so `Universe.path()` now has real
+work.
+
+**Mars is the junction of the Sol system**, and Sol Outpost has 2
+spokes of its own - straight to Mercury and straight to Mars, on top of
+its link through Titan.
+
+**a straight line here is usually not a shortcut, but it can be.**
+every in-system distance comes from `|radius_a - radius_b|`, so every
+station sits on one line, at its own distance from Sol, in this order:
+Mercury, Venus, Outpost, Mars, Ganymede, Titan. when a 3rd station sits
+between the 2 being compared, a direct link costs exactly what the long
+way costs: titan↔outpost (8.537 AU) equals titan→mars→outpost added
+up, since Mars sits between them - and the same is true of mars↔titan
+against mars→ganymede→titan. `Universe.path()` finds no shortcut on
+either pair. but outpost↔mercury is a real shortcut (0.613 AU direct,
+1.661 AU through Venus and Mars), because Outpost sits between Venus
+and Mars, not beyond either one. interstellar `path()` also has real
+work, since the star systems are not on one line either.
+
+**the first distances were guesses, not data.** the star distances
+looked real, but they were written from memory, and 2 of the 7 links
+were off by more than a light year. the fix: read the real distances
+from `docs/hygdata_v42.csv`, the HYG star catalogue, which ships in
+this repo. `alpha.exchange` stands for Rigil Kentaurus, the G2V star of
+the Alpha Centauri pair.
+
+**Sol Outpost was also placed wrong.** it first went out at Neptune's
+orbit, on a guess that "the gateway" meant "far from home". it now
+sits at Earth's, 1.0 AU out, because it is home base - where every new
+player starts. the in-system distances stay an approximation, but now
+a stated one: the gap between two mean orbit radii, the standard
+published NASA figures. Ganymede and Titan are moons, so they sit at
+their planet's orbit - Jupiter's and Saturn's.
+
+### the speed limit, and why the physics needed one
+
+real distances broke the travel model. Venus is 0.000013 ly from Mars. at
+0.6c that trip takes 0.0004 game seconds - it ends before it starts.
+
+so an edge now carries `c`, a speed limit in fractions of light speed.
+`link(a, b, ly, c)` stores `{ ly, c }` on both ends. a route between
+stars sets 1, and the ship uses its own velocity. an in-system route sets
+0.00008 - 24 km/s, or 1.5 times the speed of Voyager 2.
+
+`travel()` flies at `min(ship.velocity, route.c)`. time dilation follows
+the speed the ship really flies. a sublight hop then ages the pilot and
+the galaxy by the same amount. only a trip between stars costs the pilot
+less time than the clock. the game keeps its point.
+
+the result, at `TIME_SCALE` 20 and a 0.6c ship:
+
+| hop | distance | game seconds | pilot ages |
+|---|---|---|---|
+| Mars → Outpost    | 0.524 AU | 2   | 0.10 of 0.10 yr   |
+| Mercury → Outpost | 0.613 AU | 2   | 0.12 of 0.12 yr   |
+| Venus → Mars      | 0.801 AU | 3   | 0.16 of 0.16 yr   |
+| Mars → Ganymede   | 3.679 AU | 15  | 0.73 of 0.73 yr   |
+| Mars → Titan      | 8.013 AU | 32  | 1.58 of 1.58 yr   |
+| Titan → Outpost   | 8.537 AU | 34  | 1.69 of 1.69 yr   |
+| Sol → Alpha       | 4.32 ly  | 144 | 5.76 of 7.20 yr   |
+| Alpha → Sirius    | 9.52 ly  | 317 | 12.69 of 15.87 yr |
+| Barnard → Wolf    | 10.93 ly | 364 | 14.57 of 18.22 yr |
+
+an in-system hop is short, and a trip between stars is long. both are
+worth doing. only the trips between stars save the pilot time.
+
+### seed now adds, instead of refusing
+
+`seed()` used to check `select 1 from station_inventory` and stop if any
+row existed. a growing universe then got no markets for its new
+stations - the check is true after the first boot, forever.
+
+it now reads the existing `stid`/`gid` pairs once, and inserts the rest.
+a new station gets its markets on the next boot. a traded market keeps
+its stock. `seed()` returns the count of new rows, not a boolean.
+
+### the client map
+
+the map drew one circle of stations. 10 names on one ring is unreadable,
+and Mars would sit next to Barnards Port.
+
+it now draws two levels: the systems on one big circle, and the stations
+of a system on a small circle around it, in orbit order. the star name
+sits in the middle of its cluster. a system with one station puts that
+station in the middle instead.
+
+a label on the rim of a cluster grows outward, away from the star, so 6
+names in Sol do not smear into one. an in-system route line is dashed and
+carries no `ly` label - the line is 28px long. the station tooltip
+carries the distance, in AU below one light year (`fmtDist`).
+
+**not done**: travel manifests - see [phase.2.md](phase.2.md) step 2.4.
+the client still only marks a station reachable when a direct route
+exists. `path()` exists in the domain now (below), but nothing calls it
+yet.
+
+
+------------------------------------------------
+universe growth - dijkstra ✔
+------------------------------------------------
+
+also part of [phase.2.md](phase.2.md) step 2.4. `Universe.path(from, to,
+velocity)` returns the ordered stids from `from` to `to`, both included,
+or `undefined` when nothing connects them.
+
+**weighted by travel time, not by `ly`.** the weight of one edge is
+`ly / min(velocity, c)` - years, the same unit `travel()` already works
+in. a shortest-*distance* search would prefer more `ly` of interstellar
+travel over any `ly` of in-system travel, every time, since the speed
+gap between them is enormous. it would also be blind to the sublight cap
+entirely. weighting by time gets both right for free.
+
+**the winning route can change with the ship.** a ship slower than a
+route's cap gains nothing from taking it - the cap never binds. a ship
+faster than the cap gets throttled down to it. so the same 2 stations
+can have a different best route for a slow ship and a fast one. the unit
+test builds a small graph to prove it: one ship picks the short route
+because its own speed is already below the cap on the long one; a faster
+ship picks the long route instead, because the short one throttles it
+down further than the long way costs.
+
+**inside Sol, `path()` mostly ties.** every in-system distance sits on
+one line - see the stations section above - so most multi-hop routes
+inside Sol cost exactly what a direct link costs, and `path()` returns
+one of the tied options. the real work is between the stars, where the
+geometry is not a line: `sol.mercury` to `sirius.gate` returns
+`sol.outpost → alpha.exchange → sirius.gate`, the 2-hop route, never the
+3-hop one through Barnards Star and Wolf 359.
+
+**a plain linear scan, not a heap.** the universe is a few dozen
+stations. `path()` is O(V²) per call - fine at this size, wrong for a
+universe grown 10x. noted in the domain readme's TODO, not fixed now.
+
+**still not wired up**: nothing calls `path()` yet. that is travel
+manifests, the rest of step 2.4 - see the note above.
+
+
+------------------------------------------------
 drift bug: runaway prices - fixed ✔
 ------------------------------------------------
 

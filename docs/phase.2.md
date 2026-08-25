@@ -28,7 +28,7 @@ first, not a dependency chain.
 | 2.1  | living economy - price drift, stock regen, interest rate lever | done ✔      |
 | 2.2  | roles & visibility - `permissions.md`                          | done ✔      |
 | 2.3  | player presence - ship traffic (transponder deferred)          | done ✔      |
-| 2.4  | universe growth - dijkstra routing, travel manifests            | not started |
+| 2.4  | universe growth - dijkstra routing, travel manifests            | part done   |
 
 
 ### step 2.1 - living economy
@@ -105,6 +105,34 @@ command that blindly chains every segment - keeps each leg a normal
 the client's existing per-arrival rendering to learn. exact manifest
 storage shape (new column vs new table) is a step-2.4-start decision, not
 this doc's.
+
+**the universe is built ✔** - see [progress.md](progress.md). the map now
+holds 5 star systems and 10 stations. Sol is built out with 5 planets and
+moons. no gateway links to every other gateway, so the fully-connected
+triangle is gone and `path()` has real work.
+
+**`Universe.path(from, to, velocity)` is built ✔** - dijkstra, weighted
+by travel time (`ly / min(velocity, c)`), not by `ly` alone. see
+[progress.md](progress.md). the winning route can change with the ship -
+a ship slower than a route's speed limit never benefits from it, so
+`path()` needs the velocity to answer.
+
+**still to do in this step**:
+
+1. **travel manifests** - as decided above. one hop at a time, off the
+   existing `arrivals.js` poll. nothing calls `path()` yet - this is
+   where it gets wired up.
+
+until then a player flies one hop at a time by hand. the client marks a
+station reachable only when a direct route exists, so this works today -
+it is slow, not broken.
+
+### step 2.5 - ships name generator
+every new ship gets a random name
+[culture](https://en.wikipedia.org/wiki/Culture_series) style ship names
+or like item nameing in diablo
+or random words, up to 3,4 words for a name
+
 
 
 explicitly out (phase 3+, someday, or standalone)

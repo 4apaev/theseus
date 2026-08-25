@@ -98,6 +98,56 @@ test('an in-system hop is far shorter than a light year', () => {
     assert.ok(ly > 0 && ly < 0.001, `got ${ ly }`)
 })
 
+// ── path() ───────────────────────────────────────────────────────────────────
+
+test('path rejects unknown stations or a bad velocity', () => {
+    assert.throws(() => universe.path('lost.harbor', 'sol.outpost', 0.6), /unknown station/)
+    assert.throws(() => universe.path('sol.outpost', 'lost.harbor', 0.6), /unknown station/)
+    assert.throws(() => universe.path('sol.outpost', 'sol.mars', 0), /velocity/)
+    assert.throws(() => universe.path('sol.outpost', 'sol.mars', -1), /velocity/)
+})
+
+test('path from a station to itself is the station alone', () => {
+    assert.deepEqual(universe.path('sol.outpost', 'sol.outpost', 0.6), [ 'sol.outpost' ])
+})
+
+test('path returns null when no route connects the 2 stations', () => {
+    const u = weighted()
+    u.node('d', { system: 'w', name: 'D' }) // no link to a, b or c
+    assert.equal(u.path('a', 'd', 0.5), void 0)
+})
+
+/*  a slow ship, and a route that saves distance but not time, so a
+    shortest-ly search and a shortest-time search must disagree to
+    prove which one path() actually runs.
+
+    a→c direct is 4 ly, uncapped (c: 1) - a fast ship flies it at its
+    own speed. a→b→c is 2 ly total, but both legs cap at 0.1c - a ship
+    faster than that cap gains nothing from the shorter distance. */
+function weighted() {
+    const u = new Universe
+    u.system('w', { name: 'Weighted' })
+    u.node('a', { system: 'w', name: 'A' })
+    u.node('b', { system: 'w', name: 'B' })
+    u.node('c', { system: 'w', name: 'C' })
+    u.link('a', 'c', 4, 1)
+    u.link('a', 'b', 1, 0.1)
+    u.link('b', 'c', 1, 0.1)
+    return u
+}
+
+test('a ship slower than the cap takes the shorter route - ly and time agree', () => {
+    // velocity 0.05 < both caps: direct time 4/0.05=80, via b 1/0.05*2=40
+    assert.deepEqual(weighted().path('a', 'c', 0.05), [ 'a', 'b', 'c' ])
+})
+
+test('a ship faster than the cap takes the longer route - it is faster in time', () => {
+    // velocity 0.5 > the 0.1 cap: direct time 4/0.5=8, via b 1/0.1*2=20
+    // via b covers less ground (2 ly vs 4) but the cap makes it slower -
+    // a search that weighs by ly would pick it anyway, and be wrong
+    assert.deepEqual(weighted().path('a', 'c', 0.5), [ 'a', 'c' ])
+})
+
 // ── goods ─────────────────────────────────────────────────────────────────────
 
 test('every good is produced somewhere and consumed somewhere else', () => {

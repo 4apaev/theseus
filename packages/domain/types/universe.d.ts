@@ -55,6 +55,12 @@ export declare class Universe {
     route(from: string, to: string): Edge
     distance(from: string, to: string): number
     speedLimit(from: string, to: string): number
+    /**
+     *  dijkstra, weighted by travel time - `ly / min(velocity, c)`,
+     *  not by `ly` alone. the winning route can change with the ship.
+     *  returns the ordered stids from `from` to `to`, both included,
+     *  or null when no route connects them. */
+    path(from: string, to: string, velocity: number): string[] | undefined
     /** plain json shape - both directions of every link, one row each */
     toJSON(): UniverseJSON
 }
