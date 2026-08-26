@@ -123,8 +123,9 @@ test('travelRequested updates ship to transit and emits ship.departed', async ()
     const update = client.log.find(({ sql }) => sql.includes('update ships'))
     assert.ok(update, 'ship updated')
     assert.match(update.sql, /status\s+= 'transit'/)
-    assert.equal(update.params[ 5 ], 'cmd-test', 'causation_id persisted')
-    assert.equal(update.params[ 6 ], 'corr-test', 'correlation_id persisted')
+    assert.deepEqual(update.params[ 5 ], [], 'a direct hop leaves no manifest')
+    assert.equal(update.params[ 6 ], 'cmd-test', 'causation_id persisted')
+    assert.equal(update.params[ 7 ], 'corr-test', 'correlation_id persisted')
 
     const events = outboxEvents(client)
     assert.equal(events.length, 1)
@@ -137,6 +138,39 @@ test('travelRequested updates ship to transit and emits ship.departed', async ()
     assert.equal(e.payload.to, 'alpha.exchange')
     assert.equal(e.payload.years_abs, 4.32 / 0.6)
     assert.equal(e.payload.years_rel, 4.32 / 0.6 * Math.sqrt(1 - 0.6 ** 2))
+})
+
+// a destination need not be a direct neighbor - path() resolves the
+// full hop sequence, and everything after the first hop becomes the
+// ship's manifest, consumed later by arrivals.js
+test('travelRequested resolves a multi-hop destination and stores the rest as manifest', async () => {
+    const client   = fakeClient(dockedShip())
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'ship.travel.requested.v1' ](makeCmd({ sid: 's1', pid: 'p1', from: 'sol.outpost', to: 'wolf.reach' }))
+
+    const update = client.log.find(({ sql }) => sql.includes('update ships'))
+    assert.equal(update.params[ 2 ], 'alpha.exchange', 'the first hop, not the final destination')
+    assert.deepEqual(update.params[ 5 ], [ 'wolf.reach' ], 'the rest of the path')
+
+    const [ e ] = outboxEvents(client)
+    assert.equal(e.event_type, 'ship.departed.v1')
+    assert.equal(e.payload.to, 'alpha.exchange')
+})
+
+test('travelRequested rejects when no path connects the stations', async t => {
+    t.mock.method(universe, 'path', () => void 0)
+
+    const client   = fakeClient(dockedShip())
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'ship.travel.requested.v1' ](trip)
+
+    const events = outboxEvents(client)
+    assert.equal(events.length, 1)
+    assert.equal(events[ 0 ].event_type, 'ship.travel.rejected.v1')
+    assert.equal(events[ 0 ].payload.reason, 'no route to destination')
+    assert.ok(!client.log.find(({ sql }) => sql.includes('update ships')), 'ship untouched')
 })
 
 // ── player.created - starter ship saga ────────────────────────────────────────
@@ -207,6 +241,8 @@ test('pollArrivals docks a due ship and emits ship.arrived', async () => {
         pid : 'p1',
         stid: 'alpha.exchange',
         arrived        : new Date('2026-01-01T00:00:00.000Z'), // pg returns Date for timestamp cols
+        velocity       : '0.6',
+        manifest       : [],
         causation_id   : 'cmd-test',
         correlation_id : 'corr-test',
     }]
@@ -220,13 +256,51 @@ test('pollArrivals docks a due ship and emits ship.arrived', async () => {
     poller.stop()
 
     const events = outboxEvents(client)
-    assert.equal(events.length, 1)
+    assert.equal(events.length, 1, 'no manifest, no re-departure')
     assert.equal(events[ 0 ].event_type, 'ship.arrived.v1')
     assert.equal(events[ 0 ].causation_id, 'cmd-test')
     assert.equal(events[ 0 ].correlation_id, 'corr-test')
     assert.equal(events[ 0 ].payload.sid, 's1')
     assert.equal(events[ 0 ].payload.stid, 'alpha.exchange')
     assert.equal(events[ 0 ].payload.arrived, '2026-01-01T00:00:00.000Z', 'Date coerced to isoTime string')
+})
+
+// a manifest stop is only a waypoint - the ship docks for a moment,
+// then arrivals.js re-departs it toward the next hop on its own
+test('pollArrivals advances a ship with a manifest instead of leaving it docked', async () => {
+    const due = [{
+        sid : 's1',
+        pid : 'p1',
+        stid: 'alpha.exchange',
+        arrived        : new Date('2026-01-01T00:00:00.000Z'),
+        velocity       : '0.6',
+        manifest       : [ 'wolf.reach' ],
+        causation_id   : 'cmd-test',
+        correlation_id : 'corr-test',
+    }]
+
+    const client = fakeClient({
+        [ docked ]      : () => ({ rows: due.splice(0) }),
+        'WHERE sid = $1': () => ({ rows: []}),
+    })
+
+    const poller = pollArrivals({}, fakeTransact(client), { interval: 10 })
+    await setTimeout(20)
+    poller.stop()
+
+    const advance = client.log.find(({ sql }) => sql.includes('WHERE sid = $1'))
+    assert.ok(advance, 'the ship is re-departed')
+    assert.equal(advance.params[ 0 ], 's1')
+    assert.equal(advance.params[ 1 ], 'alpha.exchange', 'departs from the stop it just made')
+    assert.equal(advance.params[ 2 ], 'wolf.reach', 'toward the next hop')
+    assert.deepEqual(advance.params[ 5 ], [], 'manifest exhausted')
+
+    const events = outboxEvents(client)
+    assert.equal(events.length, 2, 'the stop, then the re-departure')
+    assert.equal(events[ 0 ].event_type, 'ship.arrived.v1')
+    assert.equal(events[ 1 ].event_type, 'ship.departed.v1')
+    assert.equal(events[ 1 ].payload.from, 'alpha.exchange')
+    assert.equal(events[ 1 ].payload.to, 'wolf.reach')
 })
 
 test('pollArrivals leaves not-yet-due ships alone', async () => {

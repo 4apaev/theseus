@@ -2,7 +2,7 @@
 import { Outbox } from '@theseus/db'
 import { guid } from '@theseus/util'
 import { createEmitter } from '@theseus/kafka'
-import { starterShip } from '@theseus/domain'
+import { starterShip, universe } from '@theseus/domain'
 import {
     eventTree   as EVT,
     commandTree as CMD,
@@ -83,15 +83,19 @@ export function createHandlers(pool, transact) {
             if (ship.stid !== p.from)     return reject(client, { reason: 'ship not at origin'                 , causation_id, correlation_id, p })
             if (p.from === p.to)          return reject(client, { reason: 'origin and destination are the same', causation_id, correlation_id, p })
 
-            const {
-                arrives,
-                years_abs,
-                years_rel,
-            } = travel(
-                p.from,
-                p.to,
-                ship.velocity,
-            )
+            // pg numeric comes back as a string - path() checks the
+            // type strictly, unlike travel()'s bare arithmetic
+            const velocity = Number(ship.velocity)
+
+            // p.to is the final destination - it need not be a direct
+            // neighbor. path() resolves the full hop sequence; the
+            // hops after the first go on `manifest` and get consumed
+            // one at a time by arrivals.js.
+            const stops = universe.path(p.from, p.to, velocity)
+            if (!stops) return reject(client, { reason: 'no route to destination', causation_id, correlation_id, p })
+
+            const [ , to, ...manifest ] = stops
+            const { arrives, years_abs, years_rel } = travel(p.from, to, velocity)
 
             const departed = (new Date).toISOString()
 
@@ -102,11 +106,12 @@ export function createHandlers(pool, transact) {
                    "to"           = $3,
                    departs        = $4,
                    arrives        = $5,
-                   causation_id   = $6,
-                   correlation_id = $7,
+                   manifest       = $6,
+                   causation_id   = $7,
+                   correlation_id = $8,
                    updated        = now()
              where sid = $1
-        `, [ p.sid, p.from, p.to, departed, arrives, causation_id, correlation_id ])
+        `, [ p.sid, p.from, to, departed, arrives, manifest, causation_id, correlation_id ])
 
             await Outbox.write(client, [
                 emit(EVT.ship.departed, {
@@ -119,7 +124,7 @@ export function createHandlers(pool, transact) {
                         sid : p.sid,
                         pid : p.pid,
                         from: p.from,
-                        to  : p.to,
+                        to,
                         departed,
                         arrives,
                         years_abs,
