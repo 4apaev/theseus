@@ -21,8 +21,9 @@ export function $() {
         ? A.from(el.querySelectorAll(query), fx)
         : el.querySelector(query)
 }
-
+$.id = document.getElementById.bind(document)
 $.of = node
+
 export function node(tag, attr, ...children) {
     const el = document.createElement(tag)
     /**/ if (Is(Node, attr)) el.append(attr)

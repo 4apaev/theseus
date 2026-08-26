@@ -12,7 +12,7 @@ import {
 // gate on the universe, not on our ship. a player with no ship must
 // still see the map, and the other ships on it.
 export function renderTravel() {
-    const body = $('#travelBody')
+    const body = $.id('travelBody')
     if (!state.universe) return body.innerHTML = '<p class="dim">—</p>'
 
     const { pos, centers } = stationLayout()

@@ -22,11 +22,11 @@ export async function api(path, body) {
 }
 
 export function showAuth(msg) {
-    $('#who').textContent  = ''
-    $('#auth').hidden = false
-    $('#game').hidden = true
-    $('#logoutBtn').hidden = true
-    $('#authMsg').textContent = msg || ''
+    $.id('who').textContent  = ''
+    $.id('auth').hidden = false
+    $.id('game').hidden = true
+    $.id('logoutBtn').hidden = true
+    $.id('authMsg').textContent = msg || ''
 }
 
 export function logout(msg) {
