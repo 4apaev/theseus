@@ -14,11 +14,27 @@ dockerize the game. need a real plan for this.
 whos online, status etc
 
 
+### make file
+consider adding `make` build. migrate scripts to `make`
+
+
 ### NODE_ENV
 
 add `NODE_ENV = dev | prod | test`
 turn off logging in gateway if `NODE_ENV == test`
 `NODE_ENV` should affect `garage/compose` - add test.
+
+### ship/station name generator
+
+see
+- [culture ships](../.dacrap/culture.ships.md)
+- [consider phlebas    ](../.dacrap/culture-consider-phlebas.csv)
+- [excession           ](../.dacrap/culture-excession.csv)
+- [look to windward    ](../.dacrap/culture-look-to-windward.csv)
+- [the player of games ](../.dacrap/culture-the-player-of-games.csv)
+- [the state of the art](../.dacrap/culture-the-state-of-the-art.csv)
+- [use of weapons      ](../.dacrap/culture-use-of-weapons.csv)
+
 
 nice to have
 ----------------
