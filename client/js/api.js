@@ -43,8 +43,14 @@ export function logout(msg) {
 }
 
 export async function refreshMarket() {
-    state.market = state.ship
-    && state.ship.status === 'docked'
-        ? await api(`/market/${ state.ship.stid }`)
-        : []
+    if (!state.ship || state.ship.status !== 'docked')
+        return state.market = []
+
+    // the ship may already be gone by the time this resolves - a
+    // manifest waypoint departs again right after it arrives. a stale
+    // reply must not overwrite whatever docked/departed there next.
+    const stid = state.ship.stid
+    const rows = await api(`/market/${ stid }`)
+    if (state.ship.stid === stid && state.ship.status === 'docked')
+        state.market = rows
 }
