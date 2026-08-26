@@ -5,7 +5,7 @@ import {
     OP,
     encodeFrame,
     createFrameParser,
-} from '@theseus/ws'
+} from 'garage/mw/ws'
 
 /*
     connect to the gateway websocket feed

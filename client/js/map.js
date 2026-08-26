@@ -5,6 +5,7 @@ import {
     $,
     cr,
     esc,
+    fmtDist,
     fmtYears,
 } from './dom.js'
 
@@ -14,13 +15,14 @@ export function renderTravel() {
     const body = $('#travelBody')
     if (!state.universe) return body.innerHTML = '<p class="dim">—</p>'
 
-    const pos   = stationLayout()
+    const { pos, centers } = stationLayout()
     const edges = uniqueEdges(state.universe.routes)
 
     body.innerHTML = `
-        <svg viewBox="0 0 320 240" class="map">
+        <svg viewBox="0 0 360 270" class="map">
             <g class="mapRoutes">${ routeLines(edges, pos) }</g>
-            <g class="mapStations">${ mapStations(pos, state.ship) }</g>
+            <g class="mapSystems">${ systemLabels(centers) }</g>
+            <g class="mapStations">${ mapStations(pos, centers, state.ship) }</g>
             <g class="mapShips">${ shipMarkers(pos) }</g>
         </svg>`
 }
@@ -44,46 +46,103 @@ function shipMarkers(pos) {
 export function tickShipMarkers() {
     if (!state.universe) return
 
-    const pos  = stationLayout()
-    const ships = new Map(drawnShips().map(s => [ s.sid, s ]))
+    const { pos } = stationLayout()
+    const ships   = new Map(drawnShips().map(s => [ s.sid, s ]))
 
-    for (const dot of $('+.shipMarker')) {
+    $('.shipMarker', dot => {
         const s = ships.get(dot.dataset.sid)
-        if (s?.status !== 'transit') continue
-
-        const p = shipPos(pos, s)
-        dot.setAttribute('cx', p.x)
-        dot.setAttribute('cy', p.y)
-    }
+        if (s?.status === 'transit') {
+            const p = shipPos(pos, s)
+            dot.setAttribute('cx', p.x)
+            dot.setAttribute('cy', p.y)
+        }
+    })
 }
 
-let layoutUniverse, layoutCache
+// ── layout ───────────────────────────────────────────────────
+
+const CX = 180, CY = 135     // the middle of the viewBox
+const RING = 92              // systems sit on this circle
+const ORBIT = 28             // stations sit on this circle, around their system
+
+let cachedFor, layoutCache
 
 // state.universe is set once and never mutated - cache the layout against
 // the reference itself so the 250ms transit tick doesn't redo the trig
 function stationLayout() {
-    if (layoutUniverse !== state.universe) {
-        layoutUniverse = state.universe
-        layoutCache    = layoutStations(state.universe.stations)
+    if (cachedFor !== state.universe) {
+        cachedFor   = state.universe
+        layoutCache = layoutAll(state.universe)
     }
     return layoutCache
 }
 
-function layoutStations(stations) {
-    const cx = 160, cy = 120, r = 90
-    return new Map(stations.map((st, i) => {
-        const a = 2
-            * Math.PI
-            * i
-            / stations.length
-            - Math.PI
-            / 2
-        return [ st.stid, {
-            x: cx + r * Math.cos(a),
-            y: cy + r * Math.sin(a),
-        }]
-    }))
+// an angle on a circle of n points.
+// the first point is at the top.
+function ring(i, n) {
+    return 2 * Math.PI * i / n - Math.PI / 2
 }
+
+function onCircle(c, r, a) {
+    return {
+        x: c.x + r * Math.cos(a),
+        y: c.y + r * Math.sin(a),
+        a,
+    }
+}
+
+/*  two levels. the systems sit on one big circle. the stations of a
+    system sit on a small circle around it, in declaration order, which
+    is orbit order. a system with one station puts it in the middle. */
+function layoutAll({ systems, stations }) {
+    const middle  = { x: CX, y: CY }
+    const centers = new Map(systems.map((sys, i) =>
+        [ sys.sysid, { ...onCircle(middle, RING, ring(i, systems.length)), sys }]))
+
+    const pos = new Map
+    for (const [ sysid, c ] of centers) {
+        const inside = stations.filter(st => st.system === sysid)
+
+        inside.length === 1
+            ? pos.set(inside[ 0 ].stid, { ...c, solo: true })
+            : inside.forEach((st, i) =>
+                pos.set(st.stid, onCircle(c, ORBIT, ring(i, inside.length))))
+    }
+    return { pos, centers }
+}
+
+// the star, in the middle of a cluster. a system with one station has
+// no room for it - that station carries the name itself.
+function systemLabels(centers) {
+    return [ ...centers.values() ].filter(c => !c.solo).map(c => `
+        <text class="mapSystem" x="${ c.x }" y="${ c.y + 3 }">
+            ${ esc(c.sys.name ?? c.sys.sysid) }
+        </text>`).join('')
+}
+
+/*  a label on the rim of a cluster grows outward, away from the star.
+    a label under a solo station sits below it, as before.
+    without this the 6 names in Sol overlap into one smear. */
+function labelPos(p) {
+    if (p.solo) return { x: p.x, y: p.y + 14, anchor: 'middle' }
+
+    const out = onCircle(p, 12, p.a)
+    return {
+        x     : out.x,
+        y     : out.y + 3,
+        anchor: anchorFor(Math.cos(p.a)),
+    }
+}
+
+// a label on the left of the star ends at the star, one on the right
+// starts there. a label at the top or bottom stays centred.
+function anchorFor(dx) {
+    if (dx < -0.1) return 'end'
+    if (dx >  0.1) return 'start'
+    return 'middle'
+}
+
+// ── routes ───────────────────────────────────────────────────
 
 function uniqueEdges(routes) {
     const seen = new Set
@@ -95,27 +154,30 @@ function uniqueEdges(routes) {
     })
 }
 
+// a route inside a system is short and needs no label - the line is
+// only 28px long. the station tooltip carries the distance instead.
 function routeLines(edges, pos) {
     return edges.map(r => {
         const a = pos.get(r.from)
         const b = pos.get(r.to)
-        const mx = (a.x + b.x) / 2
-        const my = (a.y + b.y) / 2
+        const local = r.c < 1
+
+        const label = local
+            ? ''
+            : `<text class="mapLy" x="${ (a.x + b.x) / 2 }" y="${ (a.y + b.y) / 2 }">${ r.ly }ly</text>`
+
         return `
         <line
-            class=mapRoute
+            class="mapRoute${ local ? ' local' : '' }"
             x1="${ a.x }" x2="${ b.x }"
             y1="${ a.y }" y2="${ b.y }"
-        />
-        <text class="mapLy" x="${ mx }" y="${ my }">
-            ${ r.ly }ly
-        </text>`
+        />${ label }`
     }).join('')
 }
 
 function routeInfo(route, ship) {
     const { time_scale, interest_rate } = state.universe.constants
-    const v = ship.velocity
+    const v = Math.min(ship.velocity, route.c)
 
     const abs  = route.ly / v
     const rel  = abs * Math.sqrt(1 - v * v)
@@ -123,19 +185,22 @@ function routeInfo(route, ship) {
     const cost = Number(state.me?.balance ?? 0) * (Math.pow(1 + interest_rate, abs) - 1)
 
     return `${
-        route.ly      }ly · eta ${
-        fmtYears(abs) }yr (~${
-        secs          }s) · you'd age ${
-        fmtYears(rel) }yr · ${
-        cr(cost)      } time-cost`
+        fmtDist(route.ly) } · eta ${
+        fmtYears(abs)     }yr (~${
+        secs              }s) · you'd age ${
+        fmtYears(rel)     }yr · ${
+        cr(cost)          } time-cost`
 }
 
+// ── stations ─────────────────────────────────────────────────
+
 // ship is undefined until the first ship exists - stay safe on every use
-function mapStations(pos, ship) {
+function mapStations(pos, centers, ship) {
     const docked = ship?.status === 'docked'
 
     return state.universe.stations.map(port => {
-        const { x, y } = pos.get(port.stid)
+        const p     = pos.get(port.stid)
+        const label = labelPos(p)
         const route = docked && state.universe.routes.find(route =>
             route.from === ship.stid && route.to === port.stid)
 
@@ -147,22 +212,28 @@ function mapStations(pos, ship) {
             crew.length && 'busy',
         ].filter(Boolean).join(' ')
 
-        const title = [
-            route
-                ? `${ esc(port.name) } · ${ esc(routeInfo(route, ship)) }`
-                : esc(port.name),
-            crew.length && `in port: ${ esc(crew.map(t => t.handle ?? '—').join(' · ')) }`,
-        ].filter(Boolean).join('\n')
-
         return `<g
         class="${ cls }"
         data-stid="${ esc(port.stid) }">
-        <circle r="7" cx="${ x }" cy="${ y }" />
-        <text class="mapLabel" x="${ x }" y="${ y + 20 }">${ esc(port.name) }</text>
-        <title>${ title }</title>
+        <circle r="${ p.solo ? 7 : 5 }" cx="${ p.x }" cy="${ p.y }" />
+        <text class="mapLabel" x="${ label.x }" y="${ label.y }"
+              text-anchor="${ label.anchor }">${ esc(port.name) }</text>
+        <title>${ stationTitle(port, centers.get(port.system)?.sys, route && routeInfo(route, ship), crew) }</title>
     </g>`
     }).join('')
 }
+
+function stationTitle(port, sys, info, crew) {
+    return [
+        info
+            ? `${ esc(port.name) } · ${ esc(info) }`
+            : esc(port.name),
+        sys && esc(`${ sys.name } · ${ sys.star }`),
+        crew.length && `in port: ${ esc(crew.map(t => t.handle ?? '—').join(' · ')) }`,
+    ].filter(Boolean).join('\n')
+}
+
+// ── ship position ────────────────────────────────────────────
 
 function shipPos(pos, ship) {
     if (ship.status === 'docked')

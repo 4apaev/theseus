@@ -123,7 +123,7 @@ test('travel - departs, then arrives and docks at destination', async () => {
     const dep = events.find(departed)
     assert.equal(dep.payload.from, 'sol.outpost')
     assert.equal(dep.payload.to, 'alpha.exchange')
-    assert.equal(dep.payload.years_abs, 4.3 / 0.6)
+    assert.equal(dep.payload.years_abs, 4.32 / 0.6)
     assert.ok(dep.payload.years_rel < dep.payload.years_abs, 'proper time is shorter')
 
     const arr = events.find(arrived)

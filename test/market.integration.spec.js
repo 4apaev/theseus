@@ -4,6 +4,7 @@ import Crypto from 'node:crypto'
 
 import { DB, Query } from '@theseus/db'
 import * as Kfk      from '@theseus/kafka'
+import { goods, universe } from '@theseus/domain'
 
 import {
     guid,
@@ -103,8 +104,11 @@ test('seed - every station:good has stock and a published quote', async () => {
     const { n: inv } = await sql`SELECT count(*) AS n FROM station_inventory`
     const { n: qts } = await sql`SELECT count(*) AS n FROM markets`
 
-    assert.equal(+inv, 9)
-    assert.equal(+qts, 9)
+    // one row per station × good. the universe decides how many.
+    const rows = universe.nodes.size * Object.keys(goods).length
+
+    assert.equal(+inv, rows)
+    assert.equal(+qts, rows)
 
     const ore = await sql`
         SELECT price_buy, price_sell

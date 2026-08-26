@@ -2,6 +2,7 @@ client - the plan
 ================================================
 
 
+
 step `9` in [phase.1.md](phase.1.md) - minimal client: **html + css + js,
 websocket-driven**. status: done ✔.
 
@@ -38,8 +39,11 @@ verified facts the plan leans on
   flow `opt.x ?? readEnv(...)` in `main.js`'s `start()`, then get passed
   as explicit params into `createRoutes`/`createFeed` - `routes.js` never
   calls `readEnv` itself. the client path follows the same shape
-- `universe.link(a, b)` stores both directions → 3 links = 6 directed
-  routes. `Universe` holds Maps - hand-serialize
+- `universe.link(a, b, ly, c)` stores both directions → 15 links = 30
+  directed routes. `Universe` holds Maps - hand-serialize. each route row
+  carries `c`, the speed limit, and the client uses it in two places:
+  `min(ship.velocity, route.c)` in the eta preview, and `c < 1` to mark a
+  route as in-system
 - `cargo.loaded/unloaded.v1` quantity is the trade **delta** - client
   mutates cargo locally
 - `wallet.debited/credited.v1` carry `balance` - no refetch.
@@ -89,7 +93,8 @@ const UNIVERSE = {
 specs in `test/gateway.spec.js` (no bearer - that IS the public assertion):
 - `GET /` → 200, `text/html`, body matches `/theseus/i`
 - `GET /style.css` `/app.js` → 200, `text/css` / `javascript` content-type
-- `GET /universe` → 200, 3 stations, 6 routes, `goods.ore.name`,
+- `GET /universe` → 200, counts read from the domain and never hardcoded -
+  a station added to the universe must not fail a gateway test, `goods.ore.name`,
   `starter.stid === 'sol.outpost'`, `constants.time_scale === 20`
 
 
@@ -236,9 +241,25 @@ station doesn't quote). one delegated click listener on `#game` (not
 `openTradeDialog(side, gid)` sets the title/qty/total and `showModal()`s
 it, qty input live-updates the total, confirm → `commands.js`'s
 `confirmTrade()` reads the dialog's own `dataset` and closes it. NAV is an inline SVG map
-(`map.js`) - stations laid out on a generated circle (no coordinate data
-exists or is stored; layout is computed from station count, not hardcoded),
-routes as lines with `ly` labels, current station marked `.here`, reachable
+(`map.js`) - **two levels of generated circles**, no coordinate data exists
+or is stored. the systems sit on one big circle, and the stations of a
+system sit on a small circle around it, in declaration order, which is
+orbit order. a system with one station puts that station in the middle,
+and that station keeps the old label-below placement. the star name sits
+in the middle of a cluster.
+
+a label on the rim of a cluster grows outward, away from the star -
+`labelPos()` sets `text-anchor` per station, so the CSS rule must not set
+one or it beats the attribute. without this the 6 names in Sol overlap
+into one smear.
+
+routes are lines with `ly` labels. an in-system route (`r.c < 1`) is
+dashed and carries no label - the line is only 28px long, and the label
+would not fit. the station tooltip carries the distance instead, in AU
+below one light year (`fmtDist()` in `dom.js`). the tooltip also names
+the system and its star.
+
+current station marked `.here`, reachable
 stations `.reachable` (clickable, `travel(stid)`) with the old ly/eta/age/
 capital-cost preview now on a native `<title>` hover tooltip instead of
 button text. countdown + ship-marker position share one
@@ -314,3 +335,201 @@ bugs and improvements
 - confirm dialog for travel.
 - login inputs: no transform uppercase
 - login inputs: add show password eye button
+
+### ui
+
+#### map
+
+when inside star system, hide interstellar routes.
+show only inner syste routes/stations.
+
+
+#### stickable panels
+
+player should be able arange panel's layout.
+panels should be:
+- dragable
+- resizeable
+- collapsable
+- stick to grid
+
+
+basic info should be displayed in header
+
+[ship / transit dialog example](https://developers.google.com/wallet/tickets/boarding-passes/resources/template)
+
+##### header
+
+
+```
+ship name is a clickable button
+
+🚢 transit                                                          ⚓️ docked
+┌─────────┬────────┬────────────────┬─────────────────┬─────────┐  ┌─────────┬────────┬────────────────┬─────────────────┬─────────┐
+│ THESEUS │  user  │ ↓ nostromo     │ wallet ₢9999.99 │  logout │  │ THESEUS │  user  │ ↓ nostromo     │ wallet ₢9999.99 │  logout │
+├─────────┴────────┼────────────────┼─────────────────┴─────────┤  ├─────────┴────────┼────────────────┼─────────────────┴─────────┤
+│ barnards → alpha │    T-01:15     │ ship years / galaxy years │  │ docked at alpha  │  current date  │ ship years / galaxy years │
+├──────────────────┴────────────────┴───────────────────────────┤  ├──────────────────┴────────────────┴───────────────────────────┤
+│ main page                                                     │  │ main page                                                     │
+└───────────────────────────────────────────────────────────────┘  └───────────────────────────────────────────────────────────────┘
+
+🚢 transit                                          ⚓️ docked
+┌────────────────┐                                 ┌────────────────┐
+│ ↓ nostromo     │                                 │ ↓ nostromo     │
+└────────────────┘                                 └────────────────┘
+      │ on click - ship dialog                           │ on click - ship dialog
+      ↓                                                  ↓
+┌─────────────────────────────────────────┐        ┌─────────────────────────────────────────┐
+│ nostromo → on click rename              │        │ nostromo → on click rename              │
+├─────────────────────────────────────────┤        ├─────────────────────────────────────────┤
+│  eta      :T-01:15                      │        │  arived at      : 01:15                 │
+│  from     : sol                         │        │  arived from    : sol                   │
+│  to       : alpha                       │        │  time in transit: 3 y                   │
+│  speed    : 0.25c / 75000 km/s          │        │  time abs       : 8 y                   │
+├─────────────────────────────────────────┤        ├─────────────────────────────────────────┤
+│  type     : trader                      │        │  type     : trader                      │
+│  capacity : 10/20                       │        │  capacity : 10/20                       │
+│  velocity : 0.6c                        │        │  velocity : 0.6c                        │
+│                                         │        │                                         │
+├─────────────────────────────────────────┤        ├─────────────────────────────────────────┤
+│                                         │        │  hops:                                  │
+│ ΔV acceleration graph                   │        │  mars → 2d → sol → 3y → alpha           │
+│                                         │        │                                         │
+│ ▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▏▏▏▏▏▏▏▏▏▏▎▍▌▋▊▉█▇▆▅▄▃▂▁ │        │                                         │
+│                                         │        │                                         │
+├─────────────────────────────────────────┤        ├─────────────────────────────────────────┤
+│                                         │        │                                         │
+│  status, details, upgrades, repairs...  │        │  status, details, upgrades, repairs...  │
+│                                         │        │                                         │
+└─────────────────────────────────────────┘        └─────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────┐
+│ progress bar in transit │    speed: 0.25c / 75000 km/s │
+├────────────────────────────────────────────────────────┤
+│ ▁▂▃▄▅▆▇█▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▉▋▋▋▋▍▍▎▎▎▎▏▏▏▏                │
+└────────────────────────────────────────────────────────┘
+
+```
+
+
+##### layout & panels
+
+```
+┌──────────┐┌──────────┐┌──────────┐┌──────────┐
+│ ship     ││ port     ││ cargo    ││ user     │
+├──────────┤├──────────┤├──────────┤├──────────┤
+│          ││          ││          ││          │
+└──────────┘└──────────┘└──────────┘└──────────┘
+┌──────────┐┌──────────┐┌──────────┐┌──────────┐
+│ market   ││ ledger   ││ feed     ││ messages │
+├──────────┤├──────────┤├──────────┤├──────────┤
+│          ││          ││          ││          │
+└──────────┘└──────────┘└──────────┘└──────────┘
+
+┌───────────────────────────────────────────────────────────────┐  ┌───────────────────────────────────────────────────────────────┐
+│                                                               │  │ ┌───────────┐ ┌────────────┐ ┌────────┐ ┌────────┐ ┌────────┐ │
+│ ┌────────────┐┌────────────┐┌────────────┐┌─────────────────┐ │  │ │ ↔︎ slot    │ │ ↔︎    slot  │ │ ↔︎ slot │ │ ↔︎ slot │ │ ↔︎ slot │ │
+│ │ ↔︎ slot     ││ ↔︎ slot     ││ ↔︎ slot     ││ ↔︎ slot          │ │  │ │           │ │            │ │        │ │        │ │        │ │
+│ └────────────┘└────────────┘└────────────┘└─────────────────┘ │  │ └───────────┘ └────────────┘ │        │ │        │ │        │ │
+│ ┌────────────────┐ ┌────────────────┐ ┌─────────────────────┐ │  │ ┌──────────────────────────┐ │        │ │        │ └────────┘ │
+│ │ ↔︎ slot         │ │ ↔︎ slot         │ │ ↔︎ slot              │ │  │ │ ↔︎ slot                   │ │        │ │        │ ┌────────┐ │
+│ └────────────────┘ └────────────────┘ └─────────────────────┘ │  │ │                          │ │        │ │        │ │ ↔︎ slot │ │
+│ ┌─────────────────────────┐  ┌──────────────────────────────┐ │  │ └──────────────────────────┘ │        │ └────────┘ │        │ │
+│ │ ↔︎ slot                  │  │ ↔︎ slot                       │ │  │ ┌──────────────────────────┐ │        │ ┌────────┐ │        │ │
+│ └─────────────────────────┘  └──────────────────────────────┘ │  │ │ ↔︎ slot                   │ │        │ │ ↔︎ slot │ │        │ │
+│ ┌───────────────────────────────────────────────────────────┐ │  │ │                          │ │        │ │        │ │        │ │
+│ │ ↔︎ slot                                                    │ │  │ │                          │ │        │ │        │ │        │ │
+│ └───────────────────────────────────────────────────────────┘ │  │ └──────────────────────────┘ └────────┘ └────────┘ └────────┘ │
+└───────────────────────────────────────────────────────────────┘  └───────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐  ┌───────────────────────────────────────────────────────────────┐
+│ ┌────────────────┐ ┌────────────────┐ ┌─────────────────────┐ │  │ ┌─────────────────────┐ ┌───────────────────────────────────┐ │
+│ │ ↔︎ slot         │ │ ↔︎ slot         │ │ ↔︎ slot              │ │  │ │ ↔︎ slot              │ │ ↔︎ slot                            │ │
+│ │                │ │                │ │                     │ │  │ │                     │ │                                   │ │
+│ │                │ │                │ │                     │ │  │ │                     │ │                                   │ │
+│ │                │ │                │ └─────────────────────┘ │  │ │                     │ └───────────────────────────────────┘ │
+│ │                │ │                │ ┌─────────────────────┐ │  │ │                     │ ┌───────────────────────────────────┐ │
+│ │                │ └────────────────┘ │ ↔︎ slot              │ │  │ │                     │ │ ↔︎ slot                            │ │
+│ │                │ ┌────────────────┐ │                     │ │  │ │                     │ │                                   │ │
+│ │                │ │ ↔︎ slot         │ │                     │ │  │ │                     │ │                                   │ │
+│ └────────────────┘ └────────────────┘ └─────────────────────┘ │  │ └─────────────────────┘ └───────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────┘  └───────────────────────────────────────────────────────────────┘
+```
+
+
+##### feed & ledger
+
+```
+📋 feed
+┌───────────────────────────────────┐
+│ last event info → arrived at sol  │
+└───────────────────────────────────┘
+      │ expand on click
+      ↓
+┌────────────────────────────────────┐
+│ event    │ cmd    │ details        │
+├────────────────────────────────────┤
+│ trade    │ buy    │ ore 10 x ₢20   │
+│ travel   │ docked │ sirius         │
+└────────────────────────────────────┘
+
+ledger - add balance column
+┌───────────────────────────────────────────────────────┐
+│ side │ qty │ good        │ unit │ balance             │
+├───────────────────────────────────────────────────────┤
+│ buy  │ 5   │ iron ore    │ ₢19  │ wallet - (5 * 19)   │
+│ buy  │ 10  │ hydro grain │ ₢13  │ wallet - (10 * 13)  │
+│ sell │ 5   │ iron ore    │ ₢32  │ wallet + (5 * 32)   │
+│ buy  │ 10  │ hydro grain │ ₢13  │ wallet - (10 * 13)  │
+│ sell │ 20  │ hydro grain │ ₢225 │ wallet + (20 * 225) │
+│ buy  │ 6   │ iron ore    │ ₢19  │ wallet - (6 * 19)   │
+└───────────────────────────────────────────────────────┘
+```
+
+
+
+
+
+
+
+<!--
+
+ship type ✈️ 🛩️ 🛰️ 🚀 🛸 🛳️  ⛴️  🚢 🚄 🚅
+
+capacity 📦
+cargo    ⛽️ 🛢️ 🧱
+
+velocity slow 🐌
+velocity norm 🐝
+velocity fast 🐴
+
+cargo light 🛻
+cargo norm 🚚
+cargo havy 🚛
+
+port 🅿️ ⚓️ 🚏 🗺️
+
+🕰️ ⌛️ ⏳ ⏰
+🌗 🌔 🌎 🌍 🌏 🪐
+👩‍🚀 🧑‍🚀 👨‍🚀
+
+  ▁
+▂  ▂   ┼ ┬┴ ├┤
+▃▃  ▃
+▄▄▄  ▄  ←	→	↑	↓	↗︎	↘︎	↙︎	↖︎	↔︎
+▅▅▅▅  ▅
+▆▆▆▆▆  ▆    ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏ ▏ ▎ ▍ ▌ ▋ ▊ ▉ █ ▇ ▆ ▅ ▄ ▃ ▂ ▁
+▇▇▇▇▇▇  ▇
+███████  █    ▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▏▏▏▏▏▏▏▏▏▏▎▍▌▋▊▉█▇▆▅▄▃▂▁
+▉▉▉▉▉▉▉▉  ▉
+▊▊▊▊▊▊▊▊▊  ▊
+▋▋▋▋▋▋▋▋▋▋  ▋
+▌▌▌▌▌▌▌▌▌▌▌  ▌
+▍▍▍▍▍▍▍▍▍▍▍▍  ▍
+▎▎▎▎▎▎▎▎▎▎▎▎▎  ▎
+▏▏▏▏▏▏▏▏▏▏▏▏▏▏  ▏
+
+α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω
+Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω
+
+
+ -->

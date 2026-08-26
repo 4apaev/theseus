@@ -20,8 +20,8 @@ step `8` in [docs/phase.1.md](../../docs/phase.1.md)
 - `@theseus/domain`    - `universeData` - stations/routes/goods/starter/constants,
   fully composed there (incl. env-tunable `TIME_SCALE`/`INTEREST_RATE`/`STARTER_CREDITS`)
   and served as-is for `GET /universe`
-- `@theseus/ws`        - the rfc 6455 protocol (handshake, frames, keepalive) -
-  see [readme](../../packages/ws/readme.md); `feed.js` is the game-specific layer on top
+- `garage/mw/ws`       - the rfc 6455 protocol (handshake, frames, keepalive);
+  `feed.js` is the game-specific layer on top
 - `@theseus/config`
 - `@theseus/util`
 
@@ -35,7 +35,7 @@ step `8` in [docs/phase.1.md](../../docs/phase.1.md)
 | `routes.js`  | garage app: auth middleware, command routes, query routes                |
 | `queries.js` | sql against `projection` tables                                          |
 | `replies.js` | correlation waiter - register/login block until the reply event lands    |
-| `feed.js`    | jwt-authenticated pid/price-broadcast fanout, built on `@theseus/ws`     |
+| `feed.js`    | jwt-authenticated pid/price-broadcast fanout, built on `garage/mw/ws`    |
 
 one kafka subscription (stable group `gateway`, the five concrete `events.*`
 topics - `events.all` is never populated on a real broker) feeds both the
@@ -112,8 +112,8 @@ probe it: `node --env-file=./.env scripts/ws-probe.js <token>`
   (memory kafka + fake pool + fake player service): `GET /` `/universe`
   (public, no bearer), `feed.js`'s jwt/pid fanout, reply waiter, the 4
   admin routes + `requireRole` 403, admin ws firehose. rfc 6455 protocol
-  mechanics (frame codec, handshake, keepalive) live in `test/ws.spec.js`
-  against `@theseus/ws` directly
+  mechanics (frame codec, handshake, keepalive) are `garage/mw/ws`'s own
+  job - tested in the garage repo, not here
 - `test/gateway.integration.spec.js` - memory kafka + real pg: register →
   login → /me through the projection, travel command lands in kafka,
   ws pushes own events only

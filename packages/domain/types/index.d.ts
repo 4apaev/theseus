@@ -16,8 +16,10 @@ export {
     INTEREST_RATE,
     STARTER_CREDITS,
     type Good,
+    type Edge,
     type Route,
     type Station,
+    type System,
     type StationMeta,
     type UniverseJSON,
 } from './universe.js'

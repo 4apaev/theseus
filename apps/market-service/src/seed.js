@@ -36,48 +36,58 @@ export function quote(gid, stock, target) {
 
 /**
  * @description
- * idempotent:
  * fills empty markets with stock + quotes
  * derived from the universe economy profiles,
- * publishes a price per station × good
+ * publishes a price per station × good.
+ *
+ * it adds what is missing, and never touches a row that exists.
+ * so a new station in the universe gets its markets on the
+ * next boot, and a traded market keeps its stock.
+ * returns the count of new rows.
  */
 export async function seed(pool, transact) {
-    const inv = await pool.query('select 1 from station_inventory limit 1')
+    const { rows } = await pool.query('select stid, gid from station_inventory')
+    const have = new Set(rows.map(r => `${ r.stid }:${ r.gid }`))
 
-    if (inv.rows.length)
-        return false
-
-    await transact(pool, async client => {
+    return transact(pool, async client => {
+        const fresh = []
 
         for (const station of Uni.universe.nodes.values()) {
             for (const gid of Object.keys(Uni.goods)) {
-
-                const stock = stockFor(station, gid)
-                const { stid } = station
-                const {
-                    price_buy,
-                    price_sell,
-                } = quote(gid, stock, TARGET)
-
-                await client.query(`insert into station_inventory (stid, gid, stock, target, updated) values ($1, $2, $3, $4, now())`, [ stid, gid, stock, TARGET ])
-                await client.query(`insert into markets (stid, gid, price_buy, price_sell, updated) values ($1, $2, $3, $4, now())`, [ stid, gid, price_buy, price_sell ])
-
-                await Outbox.write(client, [
-                    emit(EVT.market.price.changed, {
-
-                        aggregate_id  : stid,
-                        aggregate_type: 'market',
-
-                        payload: {
-                            gid,
-                            stid,
-                            price_buy ,
-                            price_sell,
-                        },
-                    }),
-                ])
+                have.has(`${ station.stid }:${ gid }`)
+                    || fresh.push(await seedOne(client, station, gid))
             }
         }
+
+        fresh.length && await Outbox.write(client, fresh)
+        return fresh.length
     })
-    return true
+}
+
+// `on conflict do nothing` guards one case only: two market services
+// boot together and both read the same empty table.
+async function seedOne(client, station, gid) {
+    const { stid } = station
+    const stock    = stockFor(station, gid)
+
+    const {
+        price_buy,
+        price_sell,
+    } = quote(gid, stock, TARGET)
+
+    await client.query(`insert into station_inventory (stid, gid, stock, target, updated) values ($1, $2, $3, $4, now()) on conflict (stid, gid) do nothing`, [ stid, gid, stock, TARGET ])
+    await client.query(`insert into markets (stid, gid, price_buy, price_sell, updated) values ($1, $2, $3, $4, now()) on conflict (stid, gid) do nothing`, [ stid, gid, price_buy, price_sell ])
+
+    return emit(EVT.market.price.changed, {
+
+        aggregate_id  : stid,
+        aggregate_type: 'market',
+
+        payload: {
+            gid,
+            stid,
+            price_buy ,
+            price_sell,
+        },
+    })
 }

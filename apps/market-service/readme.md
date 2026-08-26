@@ -22,7 +22,8 @@ step `6` done - see [docs/phase.1.md](../../docs/phase.1.md), tracked in [docs/p
 ### exports
 - `src/main.js`     - `Market extends Service` - seed + consumer(`commands.market`, `events.wallet`, `events.ship`)
 - `src/handlers.js` - ships mirror + buy / sell sagas + continuation / compensation
-- `src/seed.js`     - `seed(pool, transact)` fills empty markets, `quote(gid, stock, target)`
+- `src/seed.js`     - `seed(pool, transact)` adds the missing markets and returns
+  how many, `stockFor(station, gid)`, `quote(gid, stock, target)`
 
 ------------------------------------------------------------------------------------------------
 
@@ -68,6 +69,10 @@ wallet rejection returns the cargo.
 - seed derives stock from universe economy profiles (producer surplus 160,
   consumer scarcity 40, target 100) and publishes the first quotes -
   the step 5 deferred item
+- seed adds what is missing and never touches a row that exists. a new
+  station in the universe gets its markets on the next boot, and a traded
+  market keeps its stock. it reads the existing `stid`/`gid` pairs once,
+  then inserts the rest
 - every settle republishes `spread(price(base, stock, target, elasticity))`
   from fresh stock - markets breathe as players trade
 

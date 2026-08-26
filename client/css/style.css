@@ -233,6 +233,19 @@ input::placeholder {
         .mapRoute {
             stroke: var(--dim);
             stroke-width: 1;
+
+            /* a route inside one system - sublight, and much shorter */
+            &.local {
+                stroke-dasharray: 2 2;
+            }
+        }
+
+        /* the star, in the middle of its cluster */
+        .mapSystem {
+            fill: var(--dim);
+            font-size: 8px;
+            letter-spacing: .1em;
+            text-anchor: middle;
         }
 
         .mapLy {
@@ -247,10 +260,11 @@ input::placeholder {
                 stroke: var(--dimtext);
             }
 
+            /* no text-anchor here - map.js sets it per station, and a
+               rule would beat the attribute */
             .mapLabel {
                 fill: var(--dimtext);
-                font-size: 9px;
-                text-anchor: middle;
+                font-size: 8px;
             }
 
             &.here {

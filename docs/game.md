@@ -110,6 +110,11 @@ every saturn/jupiter moon big enough needs a station
 - mercury - ore mining
 - venus - bio tech / research
 
+**built ✔** - `sol.outpost` is the gateway, plus Mercury Deep, Venus Lab,
+Mars Hub, Ganymede Yards and Titan Ring. an in-system route caps the ship
+at 24 km/s, so a short hop still takes game time. see
+[progress.md](progress.md). more moons stay an idea.
+
 ### consume/produce
 station can consume/produce more then one good,
 not only goods, but also services like:
@@ -134,8 +139,8 @@ scheduled - see [phase.2.md](phase.2.md) step 2.1.
 
 ### universe growth
 `Universe.path(from, to)` dijkstra routing - scheduled, see
-[phase.2.md](phase.2.md) step 2.4. the full solar-system station buildout
-above stays an idea, not scheduled.
+[phase.2.md](phase.2.md) step 2.4. the stations are built. the routing is
+not.
 
 
 eve online
@@ -174,7 +179,7 @@ navigation as a map with ship travel animation.
 
 cargo load / unload animations / repairs
 
-### delta v mechanics
+### ΔV mechanics
 
 [relativistic travel calculator](https://www.overvieweffekt.com/tools/relativistic-travel-calculator)
 
@@ -188,7 +193,7 @@ cargo load / unload animations / repairs
 [astronexus](https://www.astronexus.com/projects/index)
 
 
-add real delta v calculus to the game.
+add real ΔV calculus to the game.
 let player decide about accelerate + blaming + mass of fuel and mass of the ship + cargo
 
 1. introduce `cargo` `weight` field
@@ -207,12 +212,16 @@ maybe even develop some piloting skills (RPG)
 #### system map
 for travels inside specific star system
 show interactive map with orbits.
-let user play with orbital mechanics, gravity assist
-some time mechanics needed in flight, slow `TIME_SCALSE`
+let user play with orbital mechanics, gravity assist (KSP style).
+
+some time mechanics needed in flight. slow `TIME_SCALSE`
 so user can react to ship maneuvers & adjust ship course
 
 1. ship burn calcs + gravity
 2. ship orbit changes as a result
+
+consider real 3d view of the system ([three.js](https://threejs.org/editor/))
+needs some thinking...
 
 
 ### stations

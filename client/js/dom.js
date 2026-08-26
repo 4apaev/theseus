@@ -60,6 +60,14 @@ export function fmtYears(n) {
     return Number(n).toFixed(1)
 }
 
+/*  a route inside one system is far shorter than a light year.
+    "0.0000052ly" tells the player nothing, so show AU there. */
+export function fmtDist(ly) {
+    return ly < 0.01
+        ? `${ (ly * 63241.077).toFixed(2) }AU`
+        : `${ ly }ly`
+}
+
 /*
     bind tag names to `node`, gaining:
         $.img({ src, alt, ... })

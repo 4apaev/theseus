@@ -135,6 +135,6 @@ other players' screens, so `esc()` still guards every render.
 
 ### done when ship travels:
 
-- `sol.outpost` → `alpha.exchange` in `~143s` game time (4.3 ly / 0.6c × 20 s/year)
+- `sol.outpost` → `alpha.exchange` in `~144s` game time (4.32 ly / 0.6c × 20 s/year)
 - `departed` + `arrived` events flow through outbox.
 - surviving a restart mid-transit: confirmed live.
