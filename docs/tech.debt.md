@@ -24,6 +24,8 @@ add `NODE_ENV = dev | prod | test`
 turn off logging in gateway if `NODE_ENV == test`
 `NODE_ENV` should affect `garage/compose` - add test.
 
+**scheduled** - see [phase.3.md](phase.3.md) step 3.2.
+
 ### ship/station name generator
 
 see
@@ -39,10 +41,12 @@ see
 nice to have
 ----------------
 - a mechanism to add new game assets
-- dijkstra multi-hop routing once the map outgrows the fully-connected triangle
+- dijkstra multi-hop routing once the map outgrows the fully-connected triangle -
+  **done ✔**, see [progress.md](progress.md)
 - implement db connection and query with new `using` and `Symbol.dispose` API
     - [explicit-resource-management](https://v8.dev/features/explicit-resource-management)
     - [using keyword](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/using)
+    - **scheduled** - see [phase.3.md](phase.3.md) step 3.2
 
 
 

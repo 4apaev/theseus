@@ -103,3 +103,5 @@ decided
 nothing blocks the build now.
 
 what stays open: the transponder switch, and the public trade feed.
+both were weighed for phase 3 and pushed out on purpose - not
+forgotten, see [phase.3.md](phase.3.md)'s "explicitly out" section.

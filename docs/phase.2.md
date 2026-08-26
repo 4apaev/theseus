@@ -1,6 +1,9 @@
 phase 2 - deepen the core loop
 ================================================
 
+**done** - all 4 steps below are done ✔. what comes next lives in
+[phase.3.md](phase.3.md).
+
 phase 1 (steps 0-10, all done - see [phase.1.md](phase.1.md)) built one
 player's loop: register, ship, travel, trade, live updates. `game.md`,
 `tech.debt.md`, `permissions.md`, and `client.md`'s accepted-risks section
@@ -138,10 +141,10 @@ multi-hop destination is clickable, it just shows no ly/eta/age preview
 on hover, since that preview is still built from one direct route.
 
 ### step 2.5 - ships name generator
-every new ship gets a random name
-[culture](https://en.wikipedia.org/wiki/Culture_series) style ship names
-or like item nameing in diablo
-or random words, up to 3,4 words for a name
+
+was a dangling idea, never added to this phase's own table above.
+promoted into a real, scoped step - see [phase.3.md](phase.3.md) step
+3.1.
 
 
 

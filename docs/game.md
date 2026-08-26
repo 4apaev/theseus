@@ -203,6 +203,11 @@ let player decide about:
 - acceleration / blaming,  duration / power
 - fuel / mass calculation
 
+**the brachistochrone trajectory model - scheduled**, see
+[phase.3.md](phase.3.md) step 3.6, in-system travel only. the fuller
+vision here - player-controlled burns, fuel mass, cargo weight - stays
+an idea, not scheduled (see phase.3.md's "explicitly out").
+
 ### orbital mechanics
 
 let player ability to mess with orbital mechanics (kerbal space program).
@@ -242,8 +247,11 @@ some kind of `ansible` device that enables faster then light speed coms.
 but still with delay, no instant / immediate message transfer.
 btw, player should be able to see other players at least in same station
 
-- ship traffic visible, publishing travel manifests, switching off a ship's
-  transponder - scheduled, see [phase.2.md](phase.2.md) steps 2.3 and 2.4
+- ship traffic visible, publishing travel manifests - done ✔, see
+  [phase.2.md](phase.2.md) steps 2.3 and 2.4. switching off a ship's
+  transponder stays open, see [permissions.md](permissions.md).
+- the `ansible` device itself - scheduled, see [phase.3.md](phase.3.md)
+  step 3.5
 - player should be able to trade with other players - still an idea, not
   scheduled (phase 1 explicitly kept player-to-player markets out)
 
@@ -253,10 +261,16 @@ every new ship gets a random name
 or like item nameing in diablo
 or random words, up to 3,4 words for a name
 
+**scheduled** - see [phase.3.md](phase.3.md) step 3.1.
+
 ### ship types & upgrades
 player should be able to rename ships - **done ✔**, see [progress.md](progress.md)
 player should be able upgrade ship's capacity
 player should be able upgrade ship's velocity
+
+capacity and velocity upgrades - **scheduled**, see
+[phase.3.md](phase.3.md) step 3.4. ship classes below stay an idea, not
+scheduled.
 
 introduce ship classes / types / kinds
 

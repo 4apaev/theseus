@@ -140,10 +140,6 @@ pilot less time than the clock.
 
 TODO
 ----------------
-- **travel manifests** - `path()` returns a route, but nothing yet consumes
-  one. see [phase.2.md](../../docs/phase.2.md) step 2.4: an ordered list of
-  stations, built by hand or auto-filled from `path()`, that ship-service
-  works through one hop at a time.
 - **more stations in the other systems**. only Sol is built out today.
 - **`path()` is O(V²) per call** - a linear scan for the closest unvisited
   station, no heap. fine for a few dozen stations, wrong for a universe
