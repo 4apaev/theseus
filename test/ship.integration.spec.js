@@ -135,6 +135,41 @@ test('travel - departs, then arrives and docks at destination', async () => {
     assert.ok(ship.arrived, 'arrived timestamp set')
 })
 
+// sol.outpost has no direct link to wolf.reach - path() routes it
+// through alpha.exchange, and arrivals.js steps through both hops
+// on its own, one poll tick at a time
+test('travel - a multi-hop destination steps through each waypoint', async () => {
+    const { sid, pid } = await seedShip()
+    const { events, stop } = collectEvents(kafka, [ 'events.ship' ])
+
+    await publish(CMD.ship.travel.requested, {
+        sid,
+        pid,
+        from: 'sol.outpost',
+        to  : 'wolf.reach',
+    })
+
+    const arrived = e => e.event_type === EVT.ship.arrived && e.payload.sid === sid
+    await waitFor(() => events.filter(arrived).length >= 2)
+    stop()
+
+    const departed = events.filter(e => e.event_type === EVT.ship.departed && e.payload.sid === sid)
+
+    assert.equal(departed.length, 2, 'the first leg, then the auto re-departure')
+    assert.equal(departed[ 0 ].payload.to, 'alpha.exchange')
+    assert.equal(departed[ 1 ].payload.from, 'alpha.exchange')
+    assert.equal(departed[ 1 ].payload.to, 'wolf.reach')
+
+    const arrivals = events.filter(arrived)
+    assert.equal(arrivals[ 0 ].payload.stid, 'alpha.exchange', 'the waypoint')
+    assert.equal(arrivals[ 1 ].payload.stid, 'wolf.reach', 'the final destination')
+
+    const ship = await sql`select status, stid, manifest from ships where sid = ${ sid }`
+    assert.equal(ship.status, 'docked')
+    assert.equal(ship.stid, 'wolf.reach')
+    assert.deepEqual(ship.manifest, [], 'manifest exhausted')
+})
+
 test('travel - unknown ship emits travel.rejected', async () => {
     const { events, stop } = collectEvents(kafka, [ 'events.ship' ])
     const sid = guid(PRFX)

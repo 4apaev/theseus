@@ -12,7 +12,7 @@ import {
 // gate on the universe, not on our ship. a player with no ship must
 // still see the map, and the other ships on it.
 export function renderTravel() {
-    const body = $('#travelBody')
+    const body = $.id('travelBody')
     if (!state.universe) return body.innerHTML = '<p class="dim">—</p>'
 
     const { pos, centers } = stationLayout()
@@ -144,6 +144,24 @@ function anchorFor(dx) {
 
 // ── routes ───────────────────────────────────────────────────
 
+// every station reachable from `from`, any number of hops away. a plain
+// BFS is enough - clickability only needs "is there a path", not the
+// fastest one. the universe is small, so this is cheap to redo per render.
+function reachableSet(from) {
+    const seen  = new Set([ from ])
+    const queue = [ from ]
+    while (queue.length) {
+        const stid = queue.shift()
+        for (const route of state.universe.routes) {
+            if (route.from === stid && !seen.has(route.to)) {
+                seen.add(route.to)
+                queue.push(route.to)
+            }
+        }
+    }
+    return seen
+}
+
 function uniqueEdges(routes) {
     const seen = new Set
     return routes.filter(r => {
@@ -196,19 +214,24 @@ function routeInfo(route, ship) {
 
 // ship is undefined until the first ship exists - stay safe on every use
 function mapStations(pos, centers, ship) {
-    const docked = ship?.status === 'docked'
+    const docked    = ship?.status === 'docked'
+    const reachable = docked && reachableSet(ship.stid)
 
     return state.universe.stations.map(port => {
         const p     = pos.get(port.stid)
         const label = labelPos(p)
-        const route = docked && state.universe.routes.find(route =>
-            route.from === ship.stid && route.to === port.stid)
+
+        // a direct route gives the ly/eta/age preview. a station reached
+        // through other hops is still clickable, just with no preview -
+        // that would mean redoing path()'s time-weighted dijkstra here.
+        const route = docked && state.universe.routes.find(r =>
+            r.from === ship.stid && r.to === port.stid)
 
         const crew = dockedAt(port.stid)
         const cls  = [
             'mapStation',
             port.stid === ship?.stid && 'here',
-            route && 'reachable',
+            port.stid !== ship?.stid && reachable?.has?.(port.stid) && 'reachable',
             crew.length && 'busy',
         ].filter(Boolean).join(' ')
 

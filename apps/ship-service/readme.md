@@ -62,6 +62,8 @@ other players' screens, so `esc()` still guards every render.
 - `002_ships_correlation.sql` - adds `causation_id`, `correlation_id` (nullable text) -
   persisted for the duration of a trip so a restart-recovered arrival can still correlate
   `ship.arrived` back to the original travel command
+- `003_ships_manifest.sql` - adds `manifest text[] not null default '{}'` - the stops still
+  to come after the leg in flight (`"to"`). a direct hop leaves it empty.
 
 ------------------------------------------------------------------------------------------------
 
@@ -87,10 +89,16 @@ other players' screens, so `esc()` still guards every render.
 - reject if not docked (`status !== 'docked'`)
 - reject if ship not at `from` station (`stid !== from`)
 - reject if `from === to`
-- calculate travel time → `{ arrives, years_abs, years_rel }`
-- update ship: `status = 'transit'`, `departs = now`, `from`, `to`, `arrives`,
+- `to` is the final destination, not necessarily a neighbor - `universe.path(from, to,
+  velocity)` resolves the full hop sequence; reject with `'no route to destination'` if
+  nothing connects them
+- the first hop becomes `"to"`, the rest becomes `manifest` - `arrivals.js` consumes it
+  one hop at a time
+- calculate the first leg's travel time → `{ arrives, years_abs, years_rel }`
+- update ship: `status = 'transit'`, `departs = now`, `from`, `to`, `arrives`, `manifest`,
   `causation_id`, `correlation_id`
 - write to outbox → `ship.departed.v1` `{ sid, pid, from, to, departed, arrives, years_abs, years_rel }`
+  - `to` is the first hop here too, same payload shape as a direct trip
 - no in-process timer is scheduled - `arrivals.js`'s poll picks it up whenever it comes due
 
 ------------------------------------------------------------------------------------------------
@@ -107,6 +115,12 @@ other players' screens, so `esc()` still guards every render.
   poll happened to run
 - emits `ship.arrived.v1` `{ sid, pid, stid, arrived }` per claimed ship, correlated via the
   `causation_id`/`correlation_id` persisted at departure
+- a claimed ship with a non-empty `manifest` isn't done - it was only a waypoint.
+  `advanceManifest()` re-departs it toward the next hop in the same transaction: pops the
+  next stop, runs `travel()` for that leg, writes `status` back to `'transit'` with the new
+  `from`/`to`/`arrives`/`manifest`, and emits `ship.departed.v1` - a normal re-departure, not
+  a new event shape. the ship briefly touches `docked` inside the transaction, but nothing
+  outside it ever sees that state - both writes commit together.
 - `Ship.start()` starts it after `super.start()`, `Ship.stop()` stops it before `super.stop()`;
   interval via `SHIP_ARRIVAL_INTERVAL` (default 1000ms, `.env.dev` sets 25ms for tests)
 
@@ -120,11 +134,13 @@ other players' screens, so `esc()` still guards every render.
 ------------------------------------------------------------------------------------------------
 
 ### tests
-- [x] unit: `test/ship.spec.js` - travel math, 4 rejections, departed payload
-      (incl. persisted causation/correlation), `pollArrivals` claims a due ship / leaves a
+- [x] unit: `test/ship.spec.js` - travel math, 5 rejections, departed payload
+      (incl. persisted causation/correlation), a multi-hop destination resolving to a
+      manifest, `pollArrivals` claims a due ship / advances one with a manifest / leaves a
       not-yet-due one alone / `stop()` halts polling, starter ship saga
 - [x] integration: `test/ship.integration.spec.js` - full travel flow + player.created → starter
-      ship flies, memory kafka + real postgres, `TIME_SCALE=0.1`, `SHIP_ARRIVAL_INTERVAL=25`
+      ship flies + a multi-hop destination steps through each waypoint on its own, memory
+      kafka + real postgres, `TIME_SCALE=0.1`, `SHIP_ARRIVAL_INTERVAL=25`
 - [x] verified live: real broker + real postgres, killed ship-service mid-transit
       (`bash scripts/reboot.sh ship`), confirmed the row survived untouched and the fresh
       process's first poll tick docked it and published `ship.arrived.v1` - the scenario

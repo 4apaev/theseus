@@ -28,7 +28,7 @@ first, not a dependency chain.
 | 2.1  | living economy - price drift, stock regen, interest rate lever | done ✔      |
 | 2.2  | roles & visibility - `permissions.md`                          | done ✔      |
 | 2.3  | player presence - ship traffic (transponder deferred)          | done ✔      |
-| 2.4  | universe growth - dijkstra routing, travel manifests            | part done   |
+| 2.4  | universe growth - dijkstra routing, travel manifests            | done ✔      |
 
 
 ### step 2.1 - living economy
@@ -117,15 +117,25 @@ by travel time (`ly / min(velocity, c)`), not by `ly` alone. see
 a ship slower than a route's speed limit never benefits from it, so
 `path()` needs the velocity to answer.
 
-**still to do in this step**:
+**travel manifests are built ✔** - as decided above, in one command, not
+a client-side loop. `ship.travel.requested.v1`'s `to` is now the final
+destination, not necessarily a neighbor: `apps/ship-service/src/handlers.js`
+resolves the full hop sequence with `universe.path()`, writes the first
+hop to `"to"` and the rest to a new `manifest text[]` column
+(`apps/ship-service/migrations/003_ships_manifest.sql`). `arrivals.js`'s
+poll consumes it - a claimed ship with hops left doesn't stay docked, it
+gets re-departed toward the next one in the same transaction. each leg
+is still a plain `ship.departed`/`ship.arrived` pair, so nothing changed
+for the projection or the client's per-arrival rendering. an unreachable
+destination now rejects cleanly (`'no route to destination'`) instead of
+throwing.
 
-1. **travel manifests** - as decided above. one hop at a time, off the
-   existing `arrivals.js` poll. nothing calls `path()` yet - this is
-   where it gets wired up.
-
-until then a player flies one hop at a time by hand. the client marks a
-station reachable only when a direct route exists, so this works today -
-it is slow, not broken.
+**client scope, as decided**: auto-fill only, no hand-picked sequence UI.
+`client/js/map.js`'s `.reachable` check widened from "direct neighbor"
+to "any station `path()` could reach" (a plain BFS over the same routes
+list, not a rebuild of the weighted dijkstra in the browser) - a
+multi-hop destination is clickable, it just shows no ly/eta/age preview
+on hover, since that preview is still built from one direct route.
 
 ### step 2.5 - ships name generator
 every new ship gets a random name

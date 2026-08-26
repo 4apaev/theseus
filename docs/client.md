@@ -259,10 +259,17 @@ would not fit. the station tooltip carries the distance instead, in AU
 below one light year (`fmtDist()` in `dom.js`). the tooltip also names
 the system and its star.
 
-current station marked `.here`, reachable
-stations `.reachable` (clickable, `travel(stid)`) with the old ly/eta/age/
-capital-cost preview now on a native `<title>` hover tooltip instead of
-button text. countdown + ship-marker position share one
+current station marked `.here`, reachable stations `.reachable`
+(clickable, `travel(stid)`) with the old ly/eta/age/capital-cost preview
+now on a native `<title>` hover tooltip instead of button text.
+`.reachable` means any station `path()` could reach, not only a direct
+neighbor - `reachableSet()` walks the same routes list with a plain BFS.
+the destination need not be adjacent: `to` sent to `/travel` is the
+final stop, and ship-service works out the hops in between. the ly/eta/
+age preview still needs one direct route though, so a multi-hop
+destination is clickable with no numeric preview on hover - the ship
+still travels correctly, each hop just shows up as its own departed/
+arrived pair as it goes. countdown + ship-marker position share one
 `setInterval(tick, 250)`: `#eta` text from `arrives − now`, clamped to
 "arriving…"; marker position from `arrives`/`years_abs`/`time_scale`
 (derived transit-start instant, no separate "departed at" field needed) via

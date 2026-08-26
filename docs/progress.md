@@ -164,8 +164,52 @@ geometry is not a line: `sol.mercury` to `sirius.gate` returns
 stations. `path()` is O(V²) per call - fine at this size, wrong for a
 universe grown 10x. noted in the domain readme's TODO, not fixed now.
 
-**still not wired up**: nothing calls `path()` yet. that is travel
-manifests, the rest of step 2.4 - see the note above.
+**wired up by travel manifests**, right below.
+
+------------------------------------------------
+travel manifests - done ✔
+------------------------------------------------
+
+closes [phase.2.md](phase.2.md) step 2.4. `ship.travel.requested.v1`'s
+`to` is now the final destination, not necessarily a neighbor.
+
+**one command, not a client-side chain.** `apps/ship-service/src/handlers.js`
+resolves the full hop sequence with `universe.path(from, to, velocity)`
+the moment the command arrives. the first hop goes on `"to"`, same as a
+direct trip always worked; the rest goes on a new `manifest text[]`
+column (`apps/ship-service/migrations/003_ships_manifest.sql`). an
+unreachable destination now rejects cleanly, `'no route to destination'`
+- `path()` returning `undefined` used to fall through to `travel()`
+calling `universe.route()`, which throws.
+
+**`arrivals.js` consumes the manifest, one hop at a time.** the poll's
+claim query is unchanged - one atomic `update ... where status =
+'transit' and arrives <= now() returning ...`, same as before. what's
+new: a claimed ship with hops left doesn't stay docked. `advanceManifest()`
+pops the next stop, runs `travel()` for that leg, and writes the ship
+back to `'transit'` with the new `from`/`to`/`arrives`/`manifest` -
+inside the same transaction, so nothing outside it ever observes the
+ship mid-manifest as `docked`. each waypoint still gets a real
+`ship.arrived.v1`, followed by a real `ship.departed.v1` for the next
+leg - the projection and the client's per-arrival rendering both already
+know how to handle that pair, so neither needed a single line changed.
+
+**client: wider `.reachable`, same UI.** `client/js/map.js` marks a
+station clickable when a plain BFS over the routes list finds any path
+to it, not only a direct edge - the universe is small enough that
+redoing this walk per render costs nothing. `commands.js`'s `travel(to)`
+and the gateway's `/travel` route needed no change at all - the payload
+shape `{ sid, from, to }` was already exactly what a manifest departure
+needs; only what `to` means got wider. the ly/eta/age hover preview
+stays direct-hop-only on purpose - a full multi-hop estimate would mean
+duplicating `path()`'s weighted dijkstra in the browser. a multi-hop
+destination is still clickable and still travels correctly, it just
+shows no numbers on hover until the trip is under way.
+
+**scope, as decided going in**: auto-fill only. a player picks one
+final destination and the server works out the path; hand-clicking a
+custom sequence of waypoints (overriding the shortest route) stayed out
+- no client UI exists for it, and step 2.4 never required it.
 
 
 ------------------------------------------------
