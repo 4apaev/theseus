@@ -113,9 +113,14 @@ button {
     }
 }
 
+/* ship names are stored lowercase - this is the only place that shows them */
+.shipName {
+    text-transform: capitalize;
+}
+
 /*  the ship name opens the rename dialog. it is the only clickable text
     in the client, so it needs its own hover to look clickable. */
-.shipName {
+#renameBtn {
     cursor: pointer;
     border-bottom: 1px dashed var(--dimtext);
 
@@ -124,17 +129,6 @@ button {
         background: var(--fg);
         text-shadow: none;
         border-bottom-color: transparent;
-    }
-
-    /* the call to action - the ship has no name yet */
-    &.cta {
-        color: var(--amber);
-        border-bottom-color: var(--amber);
-
-        &:hover {
-            color: var(--bg);
-            background: var(--amber);
-        }
     }
 }
 

@@ -1,5 +1,5 @@
 import { $, esc, cr, fmtYears } from './dom.js'
-import { state, station, good, NAMED } from './state.js'
+import { state, station, good } from './state.js'
 import { dockedAt } from './traffic.js'
 import { rename, nameError } from './commands.js'
 import { renderTravel, tickShipMarkers } from './map.js'
@@ -24,7 +24,7 @@ export function renderPort() {
     const crew = dockedAt(state.ship.stid)
     body.innerHTML = crew.length
         ? `<table><tr><th>PILOT</th><th>SHIP</th></tr>${
-            crew.map(t => `<tr><td>${ esc(t.handle ?? '—') }</td><td>${ esc(t.name) }</td></tr>`).join('')
+            crew.map(t => `<tr><td>${ esc(t.handle ?? '—') }</td><td class="shipName">${ esc(t.name) }</td></tr>`).join('')
         }</table>`
         : '<p class="dim">no other ships in port</p>'
 }
@@ -65,31 +65,14 @@ export function renderShip() {
     tickEta()
 }
 
-// a ship keeps its default name until the player picks one
-export function unnamed() {
-    return !!state.ship && state.ship.name === state.universe?.starter?.name
-}
-
-// the name itself opens the dialog. amber while the ship has no name yet.
+// the name itself opens the dialog
 function shipName(ship) {
-    return `<span id="renameBtn" class="shipName${ unnamed() ? ' cta' : '' }"
-        title="rename">"${ esc(ship.name) }"</span>`
-}
-
-/*  the call to action after the first login: name your ship.
-    a brand new player has no ship yet when hydrate() finishes - the
-    starter ship arrives later, on ship.created. so this runs at both
-    points, and the first one that finds a ship wins.
-    LATER hides it for this tab only. the name stays clickable. */
-export function callToAction() {
-    if (!unnamed() || sessionStorage.getItem(NAMED)) return
-    sessionStorage.setItem(NAMED, '1')
-    openNameDialog()
+    return `<span id="renameBtn" class="shipName" title="rename">"${ esc(ship.name) }"</span>`
 }
 
 export function openNameDialog() {
     const dialog = $('#nameDialog')
-    $('#nameInput').value = unnamed() ? '' : state.ship?.name ?? ''
+    $('#nameInput').value = state.ship?.name ?? ''
     $('#nameMsg').textContent = ''
     dialog.showModal()
     $('#nameInput').focus()

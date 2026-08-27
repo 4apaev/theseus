@@ -3,7 +3,7 @@ import { api, refreshMarket   } from './api.js'
 import { mine, who, track     } from './traffic.js'
 import { state, station, good } from './state.js'
 import { feedLine, mark       } from './feed.js'
-import { renderAll, callToAction } from './render.js'
+import { renderAll } from './render.js'
 
 /*  our own move reads in the second person. another player's move must
     not. a stranger's line is dim, so our own events stay easy to find. */
@@ -81,7 +81,6 @@ async function shipCreated(p) {
     const [ ship ] = await api('/ships')
     state.ship = ship
     await refreshMarket()
-    callToAction()          // a new player has no ship until this point
 }
 
 function shipDeparted(p) {

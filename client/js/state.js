@@ -1,5 +1,4 @@
 export const KEY = 'theseus.token'
-export const NAMED = 'theseus.named'   // the name prompt was shown this session
 
 export const state = {
     token   : localStorage.getItem(KEY),
