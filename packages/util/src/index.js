@@ -62,6 +62,19 @@ export function low(s) { return s.toLowerCase() }
 export function trim(s) { return s.trim() }
 export function camel2snake(s, ...a) { return s.match(/[A-Z]?[a-z]+/g).map(low).concat(...a).join('_') }
 
+// ms since some past instant → a short "1d 2h" / "3h 4m" / "5m 6s" / "7s" string
+export function fmtDuration(ms) {
+    const s = Math.floor(ms / 1000)
+    const d =   s / 86400     | 0,
+            h = s / 3600 % 24 | 0,
+            m = s / 60 % 60   | 0
+
+    if (d) return `${ d }d ${ h }h`
+    if (h) return `${ h }h ${ m }m`
+    if (m) return `${ m }m ${ s % 60 }s`
+    return `${ s }s`
+}
+
 export function formatTime(x) {
     if (Is.not.s(x)) return x
 
