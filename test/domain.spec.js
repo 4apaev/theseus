@@ -12,6 +12,7 @@ import {
     spread,
     gameSeconds,
     capitalCost,
+    randomShipName,
 } from '@theseus/domain'
 
 // ── universe graph ────────────────────────────────────────────────────────────
@@ -217,4 +218,19 @@ test('price and spread reject bad input', () => {
     assert.throws(() => price(-1, 1, 1))
     assert.throws(() => price(40, -1, 10))
     assert.throws(() => spread(100, 1.5))
+})
+
+// ── ship names ───────────────────────────────────────────────────────────────
+
+test('randomShipName always returns a name', () => {
+    for (let i = 0; i < 50; i++) {
+        const name = randomShipName()
+        assert.equal(typeof name, 'string')
+        assert.ok(name.length > 0)
+    }
+})
+
+test('randomShipName varies', () => {
+    const names = new Set(Array.from({ length: 50 }, randomShipName))
+    assert.ok(names.size > 1, 'not the same name every time')
 })

@@ -77,7 +77,7 @@ test('player.created - seeds a starter ship that can fly', async () => {
 
     assert.equal(ship.status, 'docked')
     assert.equal(ship.stid, 'sol.outpost')
-    assert.equal(ship.name, 'far treasure')
+    assert.ok(ship.name, 'ship gets a name')
     assert.equal(ship.capacity, 20)
     assert.equal(+ship.velocity, 0.6)
 

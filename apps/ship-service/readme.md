@@ -78,7 +78,9 @@ other players' screens, so `esc()` still guards every render.
 
 ### saga: `player.created.v1` → starter ship
 - every new player gets `starterShip` from `@theseus/domain` -
-  `far treasure`, docked at `sol.outpost`, 0.6c, capacity 20
+  docked at `sol.outpost`, 0.6c, capacity 20
+- the name comes from `randomShipName()`, not `starterShip.name` -
+  a fresh Culture-esque name each time, not the same fixed one
 - insert into `ships` + outbox → `ship.created.v1` in one transaction
 - ownership stays here - only ship-service writes ships; projection mirrors the event
 
