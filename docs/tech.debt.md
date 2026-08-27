@@ -9,13 +9,21 @@ debt
 
 dockerize the game. need a real plan for this.
 
+`scripts/services-check.js`'s uptime check is a dev tool, not a
+production health check - it reads `.logs/<name>.pid` and does
+`kill(pid, 0)`, same idiom `stop.sh` uses. that's fine for one dev, one
+machine, freshly-started processes. it breaks on a real deployment:
+a different user running the check throws `EPERM`, and a long-lived box
+can recycle a pid back to an unrelated process, so `kill(pid, 0)`
+succeeds for the wrong reason. when this step lands, replace it with
+systemd/container-native liveness - don't harden the pid-file check.
+
 ### infra: services health script
 
 whos online, status etc
 
-`scripts/services-check.js` and `scripts/infra-health.js` already cover
-part of this (service metadata, kafka/postgres/pgadmin reachability).
-the rest - **scheduled**, see [phase.3.md](phase.3.md) step 3.2.
+**done ✔** - see [phase.3.md](phase.3.md) step 3.2. `scripts/infra-health.js`
+still covers kafka/postgres/pgadmin reachability.
 
 
 ### make file

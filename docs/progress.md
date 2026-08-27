@@ -30,6 +30,24 @@ callers). a rename is still one click away, it's just not forced
 anymore.
 
 ------------------------------------------------
+service uptime ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - service
+uptime piece only, the rest of the step is still open).
+`scripts/services-check.js` used to print only static metadata (role,
+owns) - it never said whether a service was actually running. now it
+reads `.logs/<name>.pid`, the same file `start.sh`/`stop.sh` already
+manage, and reports up/down, pid, and real uptime per service. exits 1
+if anything is down.
+
+also dropped `uptime: process.uptime()` from gateway's
+`describeService()` - it was always near-zero, since it only ever ran
+either right at boot or from a separate short-lived script process,
+never the real long-running one. unused everywhere else, so nothing
+else needed to change.
+
+------------------------------------------------
 universe growth - the stations ✔
 ------------------------------------------------
 

@@ -77,7 +77,11 @@ small, independent fixes, bundled because each is too small for its own
 step:
 
 - **make file**
-- **service uptime**
+- **service uptime - done ✔** - `scripts/services-check.js` now reads
+  `.logs/<name>.pid` (the same file `start.sh`/`stop.sh` already use),
+  and reports up/down, pid, and real uptime per service, next to the
+  existing role/owns metadata. exits 1 if anything is down.
+- **delete old git branches**
 - **`NODE_ENV=dev|prod|test`** (`tech.debt.md`) - gateway skips verbose
   logging in test, `garage/compose` gains test-awareness
 - **cargo hydrate bug** - `apps/gateway/src/queries.js`'s `cargo()`
