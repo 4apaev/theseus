@@ -51,15 +51,15 @@ export function createHandlers(pool, transact) {
     }
 
     // saga: every new player gets the starter ship, docked at sol.outpost
-    async function playerCreated({ eid: causation_id, correlation_id, payload: p }) {
-        const sid  = guid('ship')
-        const name = starterShip.name   // a getter - read once, so the row and the event agree
+    async function playerCreated({ eid: causation_id, correlation_id, payload: { pid }}) {
+        const sid = guid('ship')
+        const { stid, name, velocity, capacity } = starterShip // random name getter, read it once by destructing
 
         await transact(pool, async client => {
             await client.query(`
                 insert into ships (sid, pid, stid, name, capacity, velocity)
                 values ($1, $2, $3, $4, $5, $6)
-            `, [ sid, p.pid, starterShip.stid, name, starterShip.capacity, starterShip.velocity ])
+            `, [ sid, pid, stid, name, capacity, velocity ])
 
             await Outbox.write(client, [
                 emit(EVT.ship.created, {
@@ -68,7 +68,7 @@ export function createHandlers(pool, transact) {
                     aggregate_id     : sid,
                     aggregate_type   : 'ship',
                     aggregate_version: 1,
-                    payload          : { sid, pid: p.pid, ...starterShip, name },
+                    payload          : { sid, pid, stid, name, capacity, velocity },
                 }),
             ])
         })
