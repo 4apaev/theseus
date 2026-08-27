@@ -2,6 +2,7 @@
 
 import { readEnv } from '@theseus/config'
 import { O, Is, Fail } from 'garage/util'
+import randomShipName from './shipNames.js'
 
 export class Universe {
 
@@ -236,12 +237,12 @@ const AU = 1 / 63241.077
 const au = n => n * AU /*
 
     the speed limit of an in-system route.
-    0.00008c is 24 km/s - 1.5 times Voyager 2's speed.
+    0.00008c is 24 km/s - 1.5 times voyager 2's speed.
 
-    the limit stops a short hop from ending before it starts. Venus
-    sits 0.000013 ly from Mars. at 0.6c that trip takes 0.0004 game
-    seconds. at 24 km/s it takes 3 seconds. Mars to Titan, the longest
-    hop in Sol, takes 32 seconds - still far under a trip between
+    the limit stops a short hop from ending before it starts. venus
+    sits 0.000013 ly from mars. at 0.6c that trip takes 0.0004 game
+    seconds. at 24 km/s it takes 3 seconds. mars to titan, the longest
+    hop in sol, takes 32 seconds - still far under a trip between
     stars.  */
 const SUBLIGHT = 0.00008 // 24 km/s
 
@@ -330,7 +331,7 @@ export const goods = O.ƒ({
 // ── starter ship ─────────────────────────────────────────────
 
 export const starterShip = O.ƒ({
-    name    : 'far treasure',
+    get name() { return randomShipName() },
     stid    : 'sol.outpost',
     velocity: 0.6,
     capacity: 20,

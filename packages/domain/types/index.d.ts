@@ -28,3 +28,7 @@ export {
     price,
     spread,
 } from './economy.js'
+
+export {
+    randomShipName,
+} from './shipNames.js'

@@ -39,7 +39,11 @@
     - `universe`    - the known universe singleton, 5 systems, 10 stations,
       15 links, 30 directed routes
     - `goods`       - `{ gid: { name, price_base, elasticity } }` - ore / grain / spice
-    - `starterShip` - `far treasure`, docked `sol.outpost`, 0.6c, capacity 20
+    - `starterShip` - docked `sol.outpost`, 0.6c, capacity 20 (name comes
+      from `randomShipName()`, not a field on this object)
+    - `randomShipName()` - a fresh ship name each call: some come from
+      Iain M. Banks' Culture novels, the rest are generated from word
+      pools, sci-fi flavored. `src/shipNames.js`.
     - `TIME_SCALE` / `INTEREST_RATE` / `STARTER_CREDITS` - this game's tunable
       rules, `readEnv`-backed (defaults 20 / 0.05 / 1000) - single source of
       truth; ship-service and player-service import these instead of each
