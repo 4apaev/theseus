@@ -337,6 +337,15 @@ test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async
     assert.equal(trades, void 0)
 })
 
+// a good sold down to 0 stays a cargo row, not a deleted one - the
+// query must filter it out itself, hydrate can't rely on the live
+// socket path (mutateCargo() in events.js) to hide it for a fresh load
+test('GET /cargo/:sid excludes zero-quantity rows at the query level', async () => {
+    await Sync.get('/cargo/s1').set(bear)
+    const cargo = pool.client.log.find(({ sql }) => sql.includes('FROM cargo'))
+    assert.match(cargo.sql, /quantity > 0/)
+})
+
 // ── public ship traffic ──────────────────────────────────────────────────────
 
 test('GET/traffic needs a token - public means signed in, not anonymous', async () => {

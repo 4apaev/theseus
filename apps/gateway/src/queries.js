@@ -33,6 +33,7 @@ export function createQueries(pool) {
                   JOIN ships s USING (sid)
                  WHERE c.sid = ${ sid }
                    AND s.pid = ${ pid }
+                   AND c.quantity > 0
                  ORDER BY c.gid`
             return rows
         },

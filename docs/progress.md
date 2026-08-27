@@ -9,6 +9,19 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+cargo hydrate bug ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - this piece
+only, the rest of the step is still open). `apps/gateway/src/queries.js`'s
+`cargo()` had no `AND c.quantity > 0` - a good sold down to 0 stays a
+row in the table, not a deleted one, so a fresh `/cargo/:sid` load could
+show a "0 ore" line. the live socket path never had this problem -
+`mutateCargo()` in `client/js/events.js` already splices a zero-quantity
+row out on every `cargo.loaded`/`cargo.unloaded` event - only a fresh
+page load skipped that logic and went straight to the unfiltered query.
+
+------------------------------------------------
 NODE_ENV ✔
 ------------------------------------------------
 

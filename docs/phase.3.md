@@ -87,17 +87,21 @@ step:
   the per-request log line skips itself in test. `garage/compose`
   already reads `NODE_ENV` on its own - `test` falls into the same
   branch as `dev` there, which is the wanted behavior, not a gap.
-- **cargo hydrate bug** - `apps/gateway/src/queries.js`'s `cargo()`
-  query has no `WHERE quantity > 0`, so a fresh page load can show a
-  "0 ore" line; the live socket path already hides it
-  (`mutateCargo()` in `client/js/events.js` already splices a
-  zero-quantity row out). add the same filter to the query.
+
+- **cargo hydrate bug - done ✔** - `apps/gateway/src/queries.js`'s
+  `cargo()` query now filters `AND c.quantity > 0`, matching what the
+  live socket path already did (`mutateCargo()` in `client/js/events.js`
+  splices a zero-quantity row out). a fresh page load can no longer show
+  a "0 ore" line the live path would have hidden.
+
 - **confirm dialog before travel** (`client.md` bugs list) - a misclick
   shouldn't commit a ship to a trip, more so now a click can mean
   several hops
+
 - **pending-command timeout** (`client.md` accepted risks) - a lost
   command leaves a `…` feed line forever; a client-side timeout marks it
   failed instead
+
 - **`using`/`Symbol.dispose`** for db client acquisition in
   `packages/db` (`tech.debt.md` "nice to have")
 
