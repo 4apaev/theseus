@@ -81,9 +81,12 @@ step:
   `.logs/<name>.pid` (the same file `start.sh`/`stop.sh` already use),
   and reports up/down, pid, and real uptime per service, next to the
   existing role/owns metadata. exits 1 if anything is down.
-- **delete old git branches**
-- **`NODE_ENV=dev|prod|test`** (`tech.debt.md`) - gateway skips verbose
-  logging in test, `garage/compose` gains test-awareness
+
+- **`NODE_ENV=dev|prod|test` - done ✔** - `.env.dev` sets `NODE_ENV=test`,
+  which reaches gateway via `main.js` → `createRoutes({ nodeEnv })`;
+  the per-request log line skips itself in test. `garage/compose`
+  already reads `NODE_ENV` on its own - `test` falls into the same
+  branch as `dev` there, which is the wanted behavior, not a gap.
 - **cargo hydrate bug** - `apps/gateway/src/queries.js`'s `cargo()`
   query has no `WHERE quantity > 0`, so a fresh page load can show a
   "0 ore" line; the live socket path already hides it

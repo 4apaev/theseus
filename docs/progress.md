@@ -9,6 +9,24 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+NODE_ENV ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - this piece
+only, the rest of the step is still open). `.env.dev` sets `NODE_ENV=test`
+- the file `scripts/test.sh` and `npm run smoke` already stack on top
+of `.env`. `main.js` reads it (`readEnv('NODE_ENV', 'dev')`) and threads
+it into `createRoutes({ nodeEnv })`, which skips the per-request log
+line when it's `'test'` - a normal `npm run start` still logs every
+request, since `.env` alone never sets it.
+
+`garage/compose` already reads `NODE_ENV` on its own (`production` gets
+the fast composer, anything else gets the one with dev-time checks).
+`test` falling into the same branch as `dev` is what we want there -
+tests should keep the stricter checks, not skip them - so nothing in
+`garage` needed to change, only getting `NODE_ENV=test` to exist.
+
+------------------------------------------------
 ships name generator ✔
 ------------------------------------------------
 

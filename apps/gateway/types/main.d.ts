@@ -40,6 +40,7 @@ export interface GatewayOptions {
     secret?:     string
     clientPath?: string
     rebuild?:    () => Promise<number>
+    nodeEnv?:    string
 }
 
 export interface Gateway {

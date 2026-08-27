@@ -42,6 +42,7 @@ export async function start(client, opt = {}) {
     const feed       = createFeed({ jwt, ping: opt.ping })
     const queries    = createQueries(pool)
     const clientPath = opt.clientPath ?? readEnv('GATEWAY_CLIENT_PATH', './client/index.html')
+    const nodeEnv     = opt.nodeEnv ?? readEnv('NODE_ENV', 'dev')
 
     const app    = createRoutes({
         producer,
@@ -50,6 +51,7 @@ export async function start(client, opt = {}) {
         waiter,
         service,
         clientPath,
+        nodeEnv,
         rebuild: opt.rebuild ?? rebuild,
     })
     const server = app.init()

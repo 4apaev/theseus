@@ -38,7 +38,12 @@ add `NODE_ENV = dev | prod | test`
 turn off logging in gateway if `NODE_ENV == test`
 `NODE_ENV` should affect `garage/compose` - add test.
 
-**scheduled** - see [phase.3.md](phase.3.md) step 3.2.
+**done ✔** - see [phase.3.md](phase.3.md) step 3.2. `garage/compose`
+already reads `NODE_ENV` - `production` picks the fast composer,
+anything else (including `test`) picks the one with dev-time checks. a
+test run wants those checks, not the fast path, so no `garage` change
+was needed there - `NODE_ENV=test` only had to reach it, which setting
+it in `.env.dev` already does.
 
 ### ship name generator
 

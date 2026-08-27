@@ -20,6 +20,8 @@ export interface RoutesInput {
     service?: string
     /** absolute or cwd-relative path to the served client html - css/js/img are siblings of it */
     clientPath: string
+    /** 'test' skips the per-request log line. default 'dev'. */
+    nodeEnv?: string
 }
 
 /**
