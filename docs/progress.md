@@ -2,10 +2,32 @@ theseus - progress
 ================================================
 
 full step list
-- phase 2 (current): [phase.2.md](phase.2.md)
+- phase 3 (current): [phase.3.md](phase.3.md)
+- phase 2 (done): [phase.2.md](phase.2.md)
 - phase 1 (done): [phase.1.md](phase.1.md)
 - game design: [game.md](game.md)
 - roles design: [permissions.md](permissions.md)
+
+------------------------------------------------
+ships name generator ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.1. every new ship used to get
+the same fixed name, `far treasure`. now `randomShipName()`
+(`packages/domain/src/shipNames.js`) picks one at ship creation - some
+from Iain M. Banks' Culture novels, some built from word pools
+(adjective + noun + a punny tail). tens of thousands of combinations,
+not a short fixed list, since the game will need names at npc scale
+later, not only one starter ship per player.
+
+**a real bug this caught early**: the client had a "name your ship"
+nudge that compared the ship's actual name against the one fixed
+starter name to decide whether to nag the player. once every ship gets
+a real name on day one, that comparison never matches. dropped the
+nudge - `unnamed()`, `callToAction()`, the `NAMED` session flag, and the
+amber `.cta` highlight are all gone (`client/js/render.js` and its
+callers). a rename is still one click away, it's just not forced
+anymore.
 
 ------------------------------------------------
 universe growth - the stations ✔

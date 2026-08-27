@@ -13,9 +13,15 @@ dockerize the game. need a real plan for this.
 
 whos online, status etc
 
+`scripts/services-check.js` and `scripts/infra-health.js` already cover
+part of this (service metadata, kafka/postgres/pgadmin reachability).
+the rest - **scheduled**, see [phase.3.md](phase.3.md) step 3.2.
+
 
 ### make file
 consider adding `make` build. migrate scripts to `make`
+
+**scheduled** - see [phase.3.md](phase.3.md) step 3.2.
 
 
 ### NODE_ENV
@@ -26,16 +32,11 @@ turn off logging in gateway if `NODE_ENV == test`
 
 **scheduled** - see [phase.3.md](phase.3.md) step 3.2.
 
-### ship/station name generator
+### ship name generator
 
-see
-- [culture ships](../.dacrap/culture.ships.md)
-- [consider phlebas    ](../.dacrap/culture-consider-phlebas.csv)
-- [excession           ](../.dacrap/culture-excession.csv)
-- [look to windward    ](../.dacrap/culture-look-to-windward.csv)
-- [the player of games ](../.dacrap/culture-the-player-of-games.csv)
-- [the state of the art](../.dacrap/culture-the-state-of-the-art.csv)
-- [use of weapons      ](../.dacrap/culture-use-of-weapons.csv)
+**done ✔** - see [phase.3.md](phase.3.md) step 3.1,
+`packages/domain/src/shipNames.js`. station names stay fixed, not part
+of this.
 
 
 nice to have

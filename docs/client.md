@@ -189,18 +189,15 @@ departed feed flavor: `you age ${years_rel}yr, the galaxy ages ${years_abs}yr`
 `POST /rename` → `ship.rename.requested`. the ship name in the SHIP panel
 is the control: click it to open `#nameDialog`. it carries a dashed
 underline, a `rename` tooltip, and an inverting hover - it is the only
-clickable text in the client, so it must look clickable. the name is
-amber while the ship still has its starter name. `commands.js` holds the
-same rule as the contract's `field.shipName`, so a bad name gets an
-answer with no round trip.
+clickable text in the client, so it must look clickable. `commands.js`
+holds the same rule as the contract's `field.shipName`, so a bad name
+gets an answer with no round trip.
 
 the name shows only while docked, so a rename happens in port.
 
-the call to action: `#nameDialog` opens one time when the ship still has
-its starter name. it is tried at 2 points - after `hydrate()`, and again
-when `ship.created` arrives, because a new player has no ship until the
-projection catches up. `LATER` hides it for that tab only
-(`sessionStorage`), and the name stays clickable.
+a new ship already gets a real name at creation
+(`@theseus/domain`'s `randomShipName()`), so there is no forced
+"name your ship" prompt - a player renames only if they want to.
 
 `logout()` calls `resetPlayer()`. without it the next player on the same
 tab keeps the previous player's `state.me`, and `mine()` then reads their

@@ -30,7 +30,7 @@ all touch `packages/domain`; 3.3, 3.4, 3.5 and 3.6 all touch the client)
 
 | step | what                                                             | status      |
 |------|-------------------------------------------------------------------|-------------|
-| 3.1  | ships name generator                                               | not started |
+| 3.1  | ships name generator                                               | done ✔      |
 | 3.2  | tech debt sweep                                                    | not started |
 | 3.3  | travel manifest visualization                                      | not started |
 | 3.4  | ship upgrades - capacity and velocity                              | not started |
@@ -55,9 +55,20 @@ already made for star distances. add a `randomShipName()` export to
 creation is already done ✔ (phase 1) - this only changes the starting
 name.
 
-**open call at step start**: full Culture-style names (often a
-deliberate pun) vs `game.md`'s fallback - random 3-4 word combos.
-recommend the Culture list; it's real data sitting in the repo already.
+**done ✔, built wider than the open call above.** the game will need
+names at npc scale later, not only one starter ship per player - a
+fixed ~160-name list repeats fast at that volume. `randomShipName()`
+(`packages/domain/src/shipNames.js`) picks from 3 generators each call:
+the curated Culture list, or one of 2 word-pool templates (adjective +
+noun + a punny tail), giving tens of thousands of combinations. npc
+fleets themselves stay out of scope - `game.md`'s own phase-1 call, not
+reopened here.
+
+side effect, fixed alongside: the client had a "name your ship" nudge
+that only made sense when every ship started with the same fixed
+placeholder name. dropped - `client/js/render.js`, `events.js`,
+`session.js`, `state.js`, `api.js`. a rename is still one click away,
+just not forced on first login.
 
 
 ### step 3.2 - tech debt sweep
@@ -65,6 +76,8 @@ recommend the Culture list; it's real data sitting in the repo already.
 small, independent fixes, bundled because each is too small for its own
 step:
 
+- **make file**
+- **service uptime**
 - **`NODE_ENV=dev|prod|test`** (`tech.debt.md`) - gateway skips verbose
   logging in test, `garage/compose` gains test-awareness
 - **cargo hydrate bug** - `apps/gateway/src/queries.js`'s `cargo()`
@@ -276,8 +289,7 @@ animations, a 3D client.
 
 from `tech.debt.md`: dockerized deploy (needs a real plan first, not
 scoped enough to schedule), a lit.dev-style frontend rewrite (the doc's
-own call: could be a standalone repo, not necessarily part of theseus),
-a `make`-based build.
+own call: could be a standalone repo, not necessarily part of theseus).
 
 from `client.md`: the stickable/draggable/resizable panel layout
 rework, `rs.file` cache headers (dev-only, stays noted not promoted -

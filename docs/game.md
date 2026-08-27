@@ -261,7 +261,7 @@ every new ship gets a random name
 or like item nameing in diablo
 or random words, up to 3,4 words for a name
 
-**scheduled** - see [phase.3.md](phase.3.md) step 3.1.
+**done ✔** - see [phase.3.md](phase.3.md) step 3.1.
 
 ### ship types & upgrades
 player should be able to rename ships - **done ✔**, see [progress.md](progress.md)
