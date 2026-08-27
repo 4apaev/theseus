@@ -9,6 +9,25 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+poll() calls ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - this piece
+only, the rest of the step is still open). `poll(fx, ms, ...args)` has
+taken trailing args directly since it was written - `arrivals.js` and
+`drift.js` already called it that way. `packages/db/src/outbox.js` was
+the one holdout, still wrapping its function in a closure
+(`poll(() => withClient(db, fn), interval)`) instead of passing it
+through (`poll(withClient, interval, db, fn)`).
+
+also found while checking every call site:
+`packages/util/types/index.d.ts`'s own `poll()` type never declared the
+`...args` parameter at all - a real gap between the type and the
+implementation, not tied to the wrapper cleanup itself. fixed with a
+generic tuple param so the type now matches what `poll()` actually
+takes.
+
+------------------------------------------------
 cargo hydrate bug ✔
 ------------------------------------------------
 

@@ -19,17 +19,12 @@ export async function writeOutbox(client, records) {
 }
 
 export function pollOutbox(db, publish, { interval = 1000, batch = 10 } = {}) {
-    return poll(
-        () => withClient(db, async client => {
-            const rows = await fetchPending(client, batch)
-
-            for (const row of rows) {
-                await publish(toRecord(row))
-                await markPublished(client, row.id)
-            }
-        }),
-        interval,
-    )
+    return poll(withClient, interval, db, async client => {
+        for (const row of await fetchPending(client, batch)) {
+            await publish(toRecord(row))
+            await markPublished(client, row.id)
+        }
+    })
 }
 
 function insertOutboxRow(client, topic, key, value) {

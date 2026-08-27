@@ -77,22 +77,31 @@ small, independent fixes, bundled because each is too small for its own
 step:
 
 - **make file**
-- **service uptime - done ✔** - `scripts/services-check.js` now reads
+- ✔ **service uptime** - `scripts/services-check.js` now reads
   `.logs/<name>.pid` (the same file `start.sh`/`stop.sh` already use),
   and reports up/down, pid, and real uptime per service, next to the
   existing role/owns metadata. exits 1 if anything is down.
 
-- **`NODE_ENV=dev|prod|test` - done ✔** - `.env.dev` sets `NODE_ENV=test`,
+- ✔ **`NODE_ENV=dev|prod|test`** - `.env.dev` sets `NODE_ENV=test`,
   which reaches gateway via `main.js` → `createRoutes({ nodeEnv })`;
   the per-request log line skips itself in test. `garage/compose`
   already reads `NODE_ENV` on its own - `test` falls into the same
   branch as `dev` there, which is the wanted behavior, not a gap.
 
-- **cargo hydrate bug - done ✔** - `apps/gateway/src/queries.js`'s
+- ✔ **cargo hydrate bug** - `apps/gateway/src/queries.js`'s
   `cargo()` query now filters `AND c.quantity > 0`, matching what the
   live socket path already did (`mutateCargo()` in `client/js/events.js`
   splices a zero-quantity row out). a fresh page load can no longer show
   a "0 ore" line the live path would have hidden.
+
+- ✔ **fix poll calls**, remove redundant function wrappers and fix types
+
+- **sql code style uppercase** unify sql code style.
+  make all uppercase.
+  make sure tests that uses sql strings as key are green.
+  i dont like that sql as key approach any way.
+
+- **fetch - Sync** in tests: replace fetch, post calls with `garage/sync`
 
 - **confirm dialog before travel** (`client.md` bugs list) - a misclick
   shouldn't commit a ship to a trip, more so now a click can mean
