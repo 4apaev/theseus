@@ -101,7 +101,7 @@ step:
   make sure tests that uses sql strings as key are green.
   i dont like that sql as key approach any way.
 
-- **fetch - Sync** in tests: replace fetch, post calls with `garage/sync`
+- ✔ **fetch - Sync** in tests: replace fetch, post calls with `garage/sync`
 
 - **confirm dialog before travel** (`client.md` bugs list) - a misclick
   shouldn't commit a ship to a trip, more so now a click can mean

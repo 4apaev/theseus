@@ -9,6 +9,22 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+fetch → Sync in tests ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - this piece
+only, the rest of the step is still open). `test/gateway.integration.spec.js`
+was the last file calling raw `fetch()` - every other spec already used
+`garage/sync`. now it does too: `Sync.base` set once in `test.before()`,
+`.set(headers)` for the bearer token, `.body` instead of `.json()`.
+
+one real behavior difference to get right: `fetch()` resolves normally
+on a 4xx/5xx response, but `Sync` rejects with the same parsed payload.
+several tests here check a 401/409 status directly, so those calls need
+`.then(echo, echo)` to settle either way into the same shape - the exact
+idiom `test/gateway.spec.js` already uses for the same reason.
+
+------------------------------------------------
 poll() calls ✔
 ------------------------------------------------
 
