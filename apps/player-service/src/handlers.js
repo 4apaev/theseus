@@ -22,22 +22,21 @@ function isAdmin(handle) {
 
 async function claimRfid(client, { pid, rfid, amount }, type) {
     const { rows } = await client.query(`
-        insert into wallet_transactions (rfid, pid, amount, type)
-            values ($1, $2, $3, $4)
-            on conflict do nothing
-            returning rfid
-        `, [ rfid, pid, amount, type ],
-    )
+        INSERT INTO wallet_transactions (rfid, pid, amount, type)
+             VALUES ($1, $2, $3, $4)
+        ON CONFLICT DO NOTHING
+          RETURNING rfid
+    `, [ rfid, pid, amount, type ])
     return rows.length > 0
 }
 
 async function updateWallet(opr, client, pid, amount) {
     const rs = await client.query(`
-        update wallets
-           set balance = balance ${ opr } $2,
+        UPDATE wallets
+           SET balance = balance ${ opr } $2,
                version = version + 1
-         where pid = $1
-        returning balance, version
+         WHERE pid = $1
+     RETURNING balance, version
     `, [ pid, amount ])
     const row = rs.rows?.[ 0 ]
     return row ? { balance: +row.balance, version: row.version } : void 0
@@ -97,9 +96,11 @@ export function createHandlers(pool, transact, producer) {
     /*  login replies bypass the outbox on purpose - no domain write to
         keep atomic, and the gateway is waiting on the http request */
     async function loginPlayer({ cmd: causation_id, correlation_id, payload: p }) {
-        const { rows: [ player ] } = await pool.query(
-            'select pid, handle, hash, role from players where handle = $1',
-            [ p.handle ],
+        const { rows: [ player ] } = await pool.query(`
+            SELECT pid, handle, hash, role
+              FROM players
+             WHERE handle = $1
+            `, [ p.handle ],
         )
 
         const ok = !!player && await Crypt.verify(p.password, player.hash)
@@ -108,7 +109,7 @@ export function createHandlers(pool, transact, producer) {
         // do not demote the player.
         // an env change alone must not remove admin rights.
         if (ok && isAdmin(player.handle) && player.role !== 'admin') {
-            await pool.query('update players set role = $1 where pid = $2', [ 'admin', player.pid ])
+            await pool.query('UPDATE players SET role = $1 WHERE pid = $2', [ 'admin', player.pid ])
             player.role = 'admin'
         }
 
@@ -134,8 +135,8 @@ export function createHandlers(pool, transact, producer) {
 
         try {
             await transact(pool, async client => {
-                await client.query('insert into players (pid, handle, hash) values ($1, $2, $3)', [ pid, p.handle, hash ])
-                await client.query('insert into wallets (pid, balance)      values ($1, $2)'    , [ pid, STARTER_CREDITS ])
+                await client.query('INSERT INTO players (pid, handle, hash) VALUES ($1, $2, $3)', [ pid, p.handle, hash ])
+                await client.query('INSERT INTO wallets (pid, balance)      VALUES ($1, $2)'    , [ pid, STARTER_CREDITS ])
 
                 await Outbox.write(client, [
 
@@ -186,7 +187,7 @@ export function createHandlers(pool, transact, producer) {
             if (!await claimRfid(client, cmd.payload, 'debit')) return
 
             const { rows: [ wallet ] } = await client.query(
-                'select balance, version from wallets where pid = $1 for update',
+                'SELECT balance, version FROM wallets WHERE pid = $1 FOR UPDATE',
                 [ cmd.payload.pid ],
             )
 

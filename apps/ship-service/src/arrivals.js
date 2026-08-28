@@ -22,7 +22,7 @@ function arriveDue(pool, transact) {
                    updated = now()
              WHERE status = 'transit'
                AND arrives <= now()
-            RETURNING sid, pid, stid, arrived, velocity, manifest, causation_id, correlation_id
+         RETURNING sid, pid, stid, arrived, velocity, manifest, causation_id, correlation_id
         `)
 
         // arrived comes back as a Date - pool.js's oid 1114 parser, not a string;

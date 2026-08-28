@@ -32,7 +32,7 @@ async function lockStock(client, stid, gid) {
           FROM station_inventory
          WHERE stid = $1
            AND gid = $2
-           FOR update
+           FOR UPDATE
     `, [ stid, gid ])
     return row
 }
@@ -86,7 +86,7 @@ async function pendingTrade(client, rfid) {
           FROM trades
          WHERE tid = $1
            AND status = 'pending'
-           FOR update
+           FOR UPDATE
     `, [ rfid ])
     return row
 }
@@ -165,7 +165,7 @@ export function createHandlers(pool, transact) {
     async function shipDeparted({ payload: { sid }}) {
         await pool.query(`
              UPDATE ships
-                SET status = 'transit', stid = null
+                SET status = 'transit', stid = NULL
               WHERE sid = $1
         `, [ sid ])
     }
@@ -264,7 +264,7 @@ export function createHandlers(pool, transact) {
                   FROM cargo
                  WHERE sid = $1
                    AND gid = $2
-                   FOR update
+                   FOR UPDATE
             `, [
                 sid,
                 gid,
