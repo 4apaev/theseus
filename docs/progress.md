@@ -9,6 +9,32 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+pending-command timeout ✔
+------------------------------------------------
+
+closes [phase.3.md](phase.3.md) step 3.2's "pending-command timeout"
+item, and the matching accepted risk in [client.md](client.md) ("no
+pending-command timeout - lost command leaves a `…` feed line").
+
+`client/js/commands.js`'s `send()` already stored `{ label, el }` per
+`correlation_id` in `state.pending`, resolved later by
+`client/js/events.js`'s `dispatch()` when the matching event comes back
+over the websocket. a lost event - dropped message, a crash mid-saga -
+left that entry unresolved and the feed line stuck at `→ label …`
+forever.
+
+`send()` now also starts a 15s `setTimeout` per `correlation_id`,
+stored as `timer` alongside `label`/`el`. `dispatch()` clears it on the
+normal resolve path. if it fires first, it marks the line failed and
+removes the pending entry itself - same outcome as a real rejection,
+just client-side. `state.resetPlayer()` (logout) clears any timers
+still running so none fire into the next session.
+
+no new dependency - plain `setTimeout`/`clearTimeout`, the same
+primitive `app.js`'s eta ticker and `session.js`'s reconnect backoff
+already use.
+
+------------------------------------------------
 tests stop matching sql by text ✔
 ------------------------------------------------
 

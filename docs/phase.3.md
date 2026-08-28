@@ -121,9 +121,12 @@ step:
   shouldn't commit a ship to a trip, more so now a click can mean
   several hops
 
-- **pending-command timeout** (`client.md` accepted risks) - a lost
-  command leaves a `…` feed line forever; a client-side timeout marks it
-  failed instead
+- ✔ **pending-command timeout** (`client.md` accepted risks) - a lost
+  command leaves a `…` feed line forever; a client-side timeout now
+  marks it failed instead. `commands.js`'s `send()` starts a 15s timer
+  per `correlation_id`; `events.js`'s `dispatch()` clears it on the
+  normal resolve path; `resetPlayer()` clears any still running on
+  logout.
 
 - **`using`/`Symbol.dispose`** for db client acquisition in
   `packages/db` (`tech.debt.md` "nice to have")

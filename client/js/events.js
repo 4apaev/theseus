@@ -158,6 +158,7 @@ export async function dispatch(e) {
 
     if (coid && state.pending.has(coid)) {
         const p = state.pending.get(coid)
+        clearTimeout(p.timer)
         line.textContent += ` [${ p.label }]`
         mark(p.el, kind !== 'err')
         state.pending.delete(coid)
