@@ -4,12 +4,16 @@ import { state, station, good } from './state.js'
 import { feedLine, mark } from './feed.js'
 import { api } from './api.js'
 
+// a lost command must not leave a `…` feed line forever - time it out.
+const PENDING_TIMEOUT = 15000
+
 async function send(path, body, ...a) {
     const label = a.join(' → ')
     const el = feedLine('cmd', `→ ${ label } …`)
     try {
         const { correlation_id } = await api(path, body)
-        state.pending.set(correlation_id, { label, el })
+        const timer = setTimeout(timedOut, PENDING_TIMEOUT, correlation_id)
+        state.pending.set(correlation_id, { label, el, timer })
     }
     catch (e) {
         mark(el, false)
@@ -17,13 +21,29 @@ async function send(path, body, ...a) {
     }
 }
 
-export function travel(to) {
+function timedOut(coid) {
+    const p = state.pending.get(coid)
+    if (!p) return // resolved already
+
+    state.pending.delete(coid)
+    mark(p.el, false)
+    p.el.textContent += ' timed out'
+}
+
+function travel(to) {
     state.ship?.status === 'docked'
     && send('/travel', {
         to,
         sid: state.ship.sid,
         from: state.ship.stid,
     }, 'travel', station(to))
+}
+
+// a click can commit a ship to several hops - confirm first, no misclicks.
+export function confirmTravel() {
+    const dialog = $.id('travelDialog')
+    travel(dialog.dataset.stid)
+    dialog.close()
 }
 
 /*  the same rule as field.shipName in the contract. the client checks it

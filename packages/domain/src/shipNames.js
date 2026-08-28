@@ -120,5 +120,6 @@ function split(...a) {
     return String.raw(...a)
         .trim()
         .split(/ *[\t\n]+ */)
+        .filter(Boolean)
         .sort(shuffle)
 }

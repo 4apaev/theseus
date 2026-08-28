@@ -132,10 +132,10 @@ export default class Service {
 }
 
 function logEvent(pool, { eid, event_type, payload, occurred }) {
-    return pool.query(
-        `insert into event_log (eid, event_type, payload, occurred)
-         values ($1, $2, $3, $4)
-         on conflict (eid) do nothing`,
-        [ eid, event_type, JSON.stringify(payload), occurred ],
-    )
+    return pool.query(`
+        INSERT INTO event_log (eid, event_type, payload, occurred)
+             VALUES ($1, $2, $3, $4)
+        ON CONFLICT (eid)
+         DO NOTHING
+    `, [ eid, event_type, JSON.stringify(payload), occurred ])
 }

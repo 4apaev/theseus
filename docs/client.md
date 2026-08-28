@@ -143,8 +143,9 @@ token in `localStorage('theseus.token')` - auto-login on reload.
 
 `$` · `esc` (xss guard on handle/reasons) · `cr(n)` = `'₢' + Number(n).toFixed(2)` ·
 `api(path, body?)` fetch + bearer, **401 → logout('session expired')**,
-non-2xx → throw `body.error` · `feedLine(kind, text)` append, cap 200,
-autoscroll-if-at-bottom, returns the element · `station(stid)` / `good(gid)`
+non-2xx → throw `body.error` · `feedLine(kind, text)` prepend (newest on
+top), cap 200, autoscroll-if-at-top, returns the element ·
+`station(stid)` / `good(gid)`
 
 ### auth
 

@@ -9,6 +9,186 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+confirm dialog before travel ✔
+------------------------------------------------
+
+closes [phase.3.md](phase.3.md) step 3.2's "confirm dialog before
+travel" item, and the matching bug in [client.md](client.md) ("confirm
+dialog for travel").
+
+a click on a reachable station used to send `/travel` straight away.
+now it opens `#travelDialog` (`render.js`'s `openTravelDialog(stid)`,
+same shape `#tradeDialog`/`#nameDialog` already use) naming the
+destination; `CONFIRM` (`commands.js`'s `confirmTravel()`) sends it,
+`CANCEL` closes with nothing sent. one misclick on the map no longer
+commits a ship - more so now a click can mean several hops.
+
+no new pattern - reuses the existing dialog markup (`class=tradeDialog`)
+and the open/confirm/cancel wiring the trade and rename dialogs
+already established.
+
+------------------------------------------------
+pending-command timeout ✔
+------------------------------------------------
+
+closes [phase.3.md](phase.3.md) step 3.2's "pending-command timeout"
+item, and the matching accepted risk in [client.md](client.md) ("no
+pending-command timeout - lost command leaves a `…` feed line").
+
+`client/js/commands.js`'s `send()` already stored `{ label, el }` per
+`correlation_id` in `state.pending`, resolved later by
+`client/js/events.js`'s `dispatch()` when the matching event comes back
+over the websocket. a lost event - dropped message, a crash mid-saga -
+left that entry unresolved and the feed line stuck at `→ label …`
+forever.
+
+`send()` now also starts a 15s `setTimeout` per `correlation_id`,
+stored as `timer` alongside `label`/`el`. `dispatch()` clears it on the
+normal resolve path. if it fires first, it marks the line failed and
+removes the pending entry itself - same outcome as a real rejection,
+just client-side. `state.resetPlayer()` (logout) clears any timers
+still running so none fire into the next session.
+
+no new dependency - plain `setTimeout`/`clearTimeout`, the same
+primitive `app.js`'s eta ticker and `session.js`'s reconnect backoff
+already use.
+
+------------------------------------------------
+tests stop matching sql by text ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - a
+prerequisite for the "sql code style uppercase" item, not that item
+itself, which stays open). the fake db client used to route its canned
+responses by matching a substring of the query's own sql text -
+`packages/testing/src/mocks.js`'s `fakeClient`/`fakePool`. reformatting
+a query's casing or wording, exactly what the uppercase pass would do,
+could silently stop a mock matching and break a test with no clear
+error.
+
+`packages/testing/src/mocks.js` now has 2 routing modes, neither of
+which ever inspects sql text:
+
+- `fakeClient`/`fakePool` - `overrides` is an ordered queue. call N
+  gets `overrides[N]`, given that call's params. one entry answers
+  every call (a poll's loop of same-shape calls needs only one);
+  several entries are a fixed sequence, falling back to `{ rows: [] }`
+  past the end - this covers one test driving one deterministic handler
+  call sequence, which is nearly everything.
+- `fakeTableClient`/`fakeTablePool` - for the one file that doesn't fit
+  that shape: `test/gateway.spec.js` shares one pool across ~30
+  independent tests hitting different routes in no fixed order. this
+  mode routes by the sorted, `+`-joined set of tables a query touches
+  (`'ships'`, `'cargo+ships'`, ...), parsed out of the query by the mock
+  itself - never hand-typed as a sql fragment by the test author.
+
+every unit spec (`db`, `gateway`, `market`, `player`, `ship`) converted.
+the trickiest part wasn't the common case - it was the tests where a
+poll's own query count varies per tick (`pollOutbox`: fetch, then mark
+only if a row came back) or where 2 differently-shaped calls interleave
+inside one loop (`pollDrift`: a station_inventory update, then a
+markets update whose response nothing reads). both needed tracing the
+real handler's exact query order first, not just carrying the old
+override across.
+
+------------------------------------------------
+sql code style, uppercase and aligned ✔
+------------------------------------------------
+
+closes [phase.3.md](phase.3.md) step 3.2's "sql code style uppercase"
+item, now that the fake-client blocker above is gone.
+`apps/gateway/src/queries.js` was the style to match: sql keywords
+uppercase, right-aligned to the widest keyword in the query.
+
+every raw sql string in `apps/market-service`, `apps/player-service`,
+`apps/projection-service`, `apps/ship-service`, `packages/db`, and
+`packages/service` now follows it. some queries were also reformatted
+from a single line into the aligned block shape, and 2 multi-column
+inserts (`apps/projection-service/src/handlers.js`'s `tradeExecuted`,
+`priceChanged`) lost their wrapped column lists in favor of one line
+each - shorter, and matching the pattern `apps/ship-service`'s own
+`shipCreated` insert already used.
+
+migration `.sql` files stay untouched - a separate, much larger
+surface, and out of this pass's scope.
+
+a handful of unit-test assertions matched a production query by a
+lowercase substring of its own sql text (`sql.includes('update ships')`
+and the like) - not the fake-client mock-routing fragility fixed above,
+but a real assertion on what query ran. those had to move to the new
+uppercase text alongside the production change, in `db`, `market`,
+`player`, and `ship` specs.
+
+lint, tsc, the full unit suite, and the integration suite (which runs
+every reformatted query against real postgres) are all clean.
+
+------------------------------------------------
+fetch → Sync in tests ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - this piece
+only, the rest of the step is still open). `test/gateway.integration.spec.js`
+was the last file calling raw `fetch()` - every other spec already used
+`garage/sync`. now it does too: `Sync.base` set once in `test.before()`,
+`.set(headers)` for the bearer token, `.body` instead of `.json()`.
+
+one real behavior difference to get right: `fetch()` resolves normally
+on a 4xx/5xx response, but `Sync` rejects with the same parsed payload.
+several tests here check a 401/409 status directly, so those calls need
+`.then(echo, echo)` to settle either way into the same shape - the exact
+idiom `test/gateway.spec.js` already uses for the same reason.
+
+------------------------------------------------
+poll() calls ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - this piece
+only, the rest of the step is still open). `poll(fx, ms, ...args)` has
+taken trailing args directly since it was written - `arrivals.js` and
+`drift.js` already called it that way. `packages/db/src/outbox.js` was
+the one holdout, still wrapping its function in a closure
+(`poll(() => withClient(db, fn), interval)`) instead of passing it
+through (`poll(withClient, interval, db, fn)`).
+
+also found while checking every call site:
+`packages/util/types/index.d.ts`'s own `poll()` type never declared the
+`...args` parameter at all - a real gap between the type and the
+implementation, not tied to the wrapper cleanup itself. fixed with a
+generic tuple param so the type now matches what `poll()` actually
+takes.
+
+------------------------------------------------
+cargo hydrate bug ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - this piece
+only, the rest of the step is still open). `apps/gateway/src/queries.js`'s
+`cargo()` had no `AND c.quantity > 0` - a good sold down to 0 stays a
+row in the table, not a deleted one, so a fresh `/cargo/:sid` load could
+show a "0 ore" line. the live socket path never had this problem -
+`mutateCargo()` in `client/js/events.js` already splices a zero-quantity
+row out on every `cargo.loaded`/`cargo.unloaded` event - only a fresh
+page load skipped that logic and went straight to the unfiltered query.
+
+------------------------------------------------
+NODE_ENV ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - this piece
+only, the rest of the step is still open). `.env.dev` sets `NODE_ENV=test`
+- the file `scripts/test.sh` and `npm run smoke` already stack on top
+of `.env`. `main.js` reads it (`readEnv('NODE_ENV', 'dev')`) and threads
+it into `createRoutes({ nodeEnv })`, which skips the per-request log
+line when it's `'test'` - a normal `npm run start` still logs every
+request, since `.env` alone never sets it.
+
+`garage/compose` already reads `NODE_ENV` on its own (`production` gets
+the fast composer, anything else gets the one with dev-time checks).
+`test` falling into the same branch as `dev` is what we want there -
+tests should keep the stricter checks, not skip them - so nothing in
+`garage` needed to change, only getting `NODE_ENV=test` to exist.
+
+------------------------------------------------
 ships name generator ✔
 ------------------------------------------------
 

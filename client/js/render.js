@@ -88,6 +88,13 @@ export function confirmName() {
     $('#nameDialog').close()
 }
 
+export function openTravelDialog(stid) {
+    const dialog = $.id('travelDialog')
+    dialog.dataset.stid = stid
+    $.id('travelTitle').textContent = `TRAVEL TO ${ station(stid).toUpperCase() }?`
+    dialog.showModal()
+}
+
 export function tickEta() {
     if (state.ship?.status === 'transit')
         tickCountdown(state.ship)

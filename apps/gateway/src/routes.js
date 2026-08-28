@@ -31,6 +31,7 @@ export function createRoutes({
     producer,
     service = 'gateway',
     clientPath,
+    nodeEnv = 'dev',
 }) {
 
     /** @type { GarageOpt['onerror'] } */
@@ -130,7 +131,9 @@ export function createRoutes({
 
     // ── public: client + universe ───────────────────────────
 
-    gw.use(log)
+    // per-request log line, off in test - tests fire many requests fast,
+    // console spam for each one buys nothing there
+    nodeEnv === 'test' || gw.use(log)
 
     gw.get('/universe' , (rq, rs) => rs.json(200, universeData))
 

@@ -17,6 +17,32 @@ import { seed, quote    } from '#market/seed.js'
 import { pollDrift      } from '#market/drift.js'
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
+// each fixture is a queue entry: a function for one query response,
+// in the same order the handler under test actually issues its queries.
+
+/**
+ * @param  {{ raw: string[] }} s
+ * @param  {any[]} a
+ * @return {(q: { sql: string }) => boolean}
+ */
+const Rx = (s, ...a) => q => RegExp(String.raw(s, ...a), 'i').test(q.sql)
+
+Rx.insert = Rx`INSERT +INTO`
+Rx.insert.station = Rx`INSERT +INTO +station_inventory`
+Rx.insert.markets = Rx`INSERT +INTO +markets`
+Rx.insert.trades  = Rx`INSERT +INTO +trades`
+Rx.insert.cargo   = Rx`INSERT +INTO +cargo`
+
+Rx.insert.station = Rx`INSERT +INTO +station_inventory`
+Rx.insert.markets = Rx`INSERT +INTO +markets`
+Rx.insert.trades  = Rx`INSERT +INTO +trades`
+Rx.insert.cargo   = Rx`INSERT +INTO +cargo`
+
+Rx.update = Rx`UPDATE +\w`
+Rx.update.station = Rx`UPDATE +station_inventory`
+Rx.update.trades  = Rx`UPDATE +trades`
+Rx.update.markets = Rx`UPDATE +markets`
+Rx.update.cargo   = Rx`UPDATE +cargo`
 
 const buyCmd = (over = {}) => makeCmd({
     gid           : 'ore',
@@ -38,24 +64,20 @@ const sellCmd = (over = {}) => makeCmd({
     ...over,
 })
 
-const dockedShip = (over = {}) => ({
-    'FROM ships': () => ({ rows: [{
-        sid     : 's1',
-        pid     : 'p1',
-        stid    : 'sol.outpost',
-        status  : 'docked',
-        capacity: 20,
-        ...over,
-    }]}),
-})
+const dockedShip = (over = {}) => () => ({ rows: [{
+    sid     : 's1',
+    pid     : 'p1',
+    stid    : 'sol.outpost',
+    status  : 'docked',
+    capacity: 20,
+    ...over,
+}]})
 
-const stocked = (stock = 160, target = 100) => ({
-    'FROM station_inventory': () => ({ rows: [{ stock, target }]}),
-})
+const stocked = (stock = 160, target = 100) => () => ({ rows: [{ stock, target }]})
+const noCargo = () => ({ rows: [{ total: 0 }]})
+const empty   = () => ({ rows: []})
 
-const noCargo = { COALESCE: () => ({ rows: [{ total: 0 }]}) }
-
-function handlers(overrides = {}) {
+function handlers(overrides = []) {
     const client = fakeClient(overrides)
     return { client, fx: createHandlers(client, fakeTransact(client)) }
 }
@@ -78,8 +100,8 @@ test('seed fills every station × good and publishes a quote for each', async ()
     assert.equal(await seed(pool, fakeTransact(pool.client)), rows)
 
     const { log } = pool.client
-    assert.equal(log.filter(q => q.sql.includes('insert into station_inventory')).length, rows)
-    assert.equal(log.filter(q => q.sql.includes('insert into markets')).length, rows)
+    assert.equal(log.filter(Rx.insert.station).length, rows)
+    assert.equal(log.filter(Rx.insert.markets).length, rows)
 
     const events = outboxEvents(pool.client)
     assert.equal(events.length, rows)
@@ -88,23 +110,20 @@ test('seed fills every station × good and publishes a quote for each', async ()
 })
 
 test('seed is idempotent - a populated market is left alone', async () => {
-    const pool = fakePool({
-        'select stid, gid from station_inventory': () => ({ rows: everyPair() }),
-    })
+    const pool = fakePool([ () => ({ rows: everyPair() }) ])
     assert.equal(await seed(pool, fakeTransact(pool.client)), 0)
-    assert.ok(!pool.client.log.some(q => q.sql.includes('insert into')))
+    assert.ok(!pool.client.log.some(Rx.insert))
 })
 
 // a new station in the universe gets its markets, and nothing else moves
-test('seed adds only the missing station × good', async () => {
-    const pool = fakePool({
-        'select stid, gid from station_inventory': () =>
-            ({ rows: everyPair().filter(r => r.stid !== 'sol.mars') }),
-    })
+test('seed adds only the missing station * good', async () => {
+    const pool = fakePool([
+        () => ({ rows: everyPair().filter(r => r.stid !== 'sol.mars') }),
+    ])
 
     assert.equal(await seed(pool, fakeTransact(pool.client)), Object.keys(goods).length)
     assert.ok(pool.client.log
-        .filter(q => q.sql.includes('insert into station_inventory'))
+        .filter(Rx.insert.station)
         .every(q => q.params[ 0 ] === 'sol.mars'))
 })
 
@@ -115,15 +134,17 @@ function everyPair() {
 }
 
 // ── buy - rejections ──────────────────────────────────────────────────────────
+// each queue matches marketBuyRequested's real order: lockStock, getShip,
+// cargoTotal - only as many entries as the rejected path actually reaches.
 
 for (const [ reason, overrides, cmd ] of [
-    [ 'unknown market'     , {}],
-    [ 'ship unknown'       , { ...stocked() }],
-    [ 'ship not docked here', { ...stocked(), ...dockedShip({ status: 'transit' }) }],
-    [ 'ship not docked here', { ...stocked(), ...dockedShip({ stid: 'barnards.port' }) }],
-    [ 'insufficient stock' , { ...stocked(5), ...dockedShip() }],
-    [ 'over capacity'      , { ...stocked(), ...dockedShip(), COALESCE: () => ({ rows: [{ total: 15 }]}) }],
-    [ 'price above limit'  , { ...stocked(), ...dockedShip(), ...noCargo }, buyCmd({ price_unit_max: 1 }) ],
+    [ 'unknown market'      , []],
+    [ 'ship unknown'        , [ stocked(), empty ]],
+    [ 'ship not docked here', [ stocked(), dockedShip({ status: 'transit' }) ]],
+    [ 'ship not docked here', [ stocked(), dockedShip({ stid: 'barnards.port' }) ]],
+    [ 'insufficient stock'  , [ stocked(5), dockedShip() ]],
+    [ 'over capacity'       , [ stocked(), dockedShip(), () => ({ rows: [{ total: 15 }]}) ]],
+    [ 'price above limit'   , [ stocked(), dockedShip(), noCargo ], buyCmd({ price_unit_max: 1 }) ],
 ]) {
     test(`buy rejects: ${ reason }`, async () => {
         const { client, fx } = handlers(overrides)
@@ -133,21 +154,21 @@ for (const [ reason, overrides, cmd ] of [
         assert.equal(e.event_type, 'market.trade.rejected.v1')
         assert.equal(e.payload.reason, reason)
         assert.equal(e.payload.side, 'buy')
-        assert.ok(!client.log.some(q => q.sql.includes('INSERT INTO trades')), 'nothing reserved')
-        assert.ok(!client.log.some(q => q.sql.includes('UPDATE station_inventory')), 'stock untouched')
+        assert.ok(!client.log.some(Rx.insert.trades), 'nothing reserved')
+        assert.ok(!client.log.some(Rx.update.station), 'stock untouched')
     })
 }
 
 // ── buy - reserve ─────────────────────────────────────────────────────────────
 
 test('buy reserves stock, records the trade, requests the debit', async () => {
-    const { client, fx } = handlers({ ...stocked(), ...dockedShip(), ...noCargo })
+    const { client, fx } = handlers([ stocked(), dockedShip(), noCargo ])
     await fx[ 'market.buy.requested.v1' ](buyCmd())
 
-    const bump = client.log.find(q => q.sql.includes('UPDATE station_inventory'))
+    const bump = client.log.find(Rx.update.station)
     assert.equal(bump.params[ 2 ], -10, 'stock reserved')
 
-    const insert = client.log.find(q => q.sql.includes('INSERT INTO trades'))
+    const insert = client.log.find(Rx.insert.trades)
     assert.ok(insert, 'trade recorded')
     const [ tid, , , , , qty, priceUnit, total ] = insert.params
     assert.match(tid, /^trade_/)
@@ -161,13 +182,14 @@ test('buy reserves stock, records the trade, requests the debit', async () => {
 })
 
 // ── sell ──────────────────────────────────────────────────────────────────────
+// marketSellRequested's real order: lockStock, getShip, the cargo check.
 
 test('sell rejects: insufficient cargo', async () => {
-    const { client, fx } = handlers({
-        ...stocked(40),
-        ...dockedShip({ stid: 'barnards.port' }),
-        'SELECT quantity': () => ({ rows: [{ quantity: 3 }]}),
-    })
+    const { client, fx } = handlers([
+        stocked(40),
+        dockedShip({ stid: 'barnards.port' }),
+        () => ({ rows: [{ quantity: 3 }]}),
+    ])
     await fx[ 'market.sell.requested.v1' ](sellCmd())
 
     const [ e ] = outboxEvents(client)
@@ -177,11 +199,11 @@ test('sell rejects: insufficient cargo', async () => {
 })
 
 test('sell rejects: price below limit', async () => {
-    const { client, fx } = handlers({
-        ...stocked(160), // glut → cheap
-        ...dockedShip({ stid: 'barnards.port' }),
-        'SELECT quantity': () => ({ rows: [{ quantity: 10 }]}),
-    })
+    const { client, fx } = handlers([
+        stocked(160), // glut → cheap
+        dockedShip({ stid: 'barnards.port' }),
+        () => ({ rows: [{ quantity: 10 }]}),
+    ])
     await fx[ 'market.sell.requested.v1' ](sellCmd({ price_unit_min: 500 }))
 
     const [ e ] = outboxEvents(client)
@@ -189,14 +211,14 @@ test('sell rejects: price below limit', async () => {
 })
 
 test('sell hands over cargo, records the trade, requests the credit', async () => {
-    const { client, fx } = handlers({
-        ...stocked(40), // scarcity → good sell price
-        ...dockedShip({ stid: 'barnards.port' }),
-        'SELECT quantity': () => ({ rows: [{ quantity: 10 }]}),
-    })
+    const { client, fx } = handlers([
+        stocked(40), // scarcity → good sell price
+        dockedShip({ stid: 'barnards.port' }),
+        () => ({ rows: [{ quantity: 10 }]}),
+    ])
     await fx[ 'market.sell.requested.v1' ](sellCmd())
 
-    const unload = client.log.find(q => q.sql.includes('UPDATE cargo'))
+    const unload = client.log.find(Rx.update.cargo)
     assert.deepEqual(unload.params, [ 's1', 'ore', 10 ])
 
     const [ credit ] = outboxEvents(client)
@@ -206,33 +228,33 @@ test('sell hands over cargo, records the trade, requests the credit', async () =
 })
 
 // ── continuation ──────────────────────────────────────────────────────────────
+// settle()'s real order: pendingTrade, then lockStock (buy) or bumpStock
+// (sell) - the rest of the queries never inspect their own response.
 
-const pendingBuy = (over = {}) => ({
-    'FROM trades': () => ({ rows: [{
-        tid        : 'trade_1',
-        pid        : 'p1',
-        sid        : 's1',
-        stid       : 'sol.outpost',
-        gid        : 'ore',
-        side       : 'buy',
-        quantity   : 10,
-        price_unit : '25.03',
-        price_total: '250.33',
-        status     : 'pending',
-        ...over,
-    }]}),
-})
+const pendingBuy = (over = {}) => () => ({ rows: [{
+    tid        : 'trade_1',
+    pid        : 'p1',
+    sid        : 's1',
+    stid       : 'sol.outpost',
+    gid        : 'ore',
+    side       : 'buy',
+    quantity   : 10,
+    price_unit : '25.03',
+    price_total: '250.33',
+    status     : 'pending',
+    ...over,
+}]})
 
 const debited = { eid: 'evt-1', correlation_id: 'corr-test', payload: { pid: 'p1', rfid: 'trade_1', amount: 250.33, balance: 749.67 }}
 
 test('wallet.debited settles the buy: cargo loaded, trade executed, quote republished', async () => {
-    const { client, fx } = handlers({ ...pendingBuy(), ...stocked(150) })
+    const { client, fx } = handlers([ pendingBuy(), stocked(150) ])
     await fx[ 'wallet.debited.v1' ](debited)
 
-    assert.ok(client.log.some(q => q.sql.includes('INSERT INTO cargo')), 'cargo loaded')
-    const settle = client.log.find(q => q.sql.includes('UPDATE trades'))
+    assert.ok(client.log.some(Rx.insert.cargo), 'cargo loaded')
+    const settle = client.log.find(Rx.update.trades)
     assert.deepEqual(settle.params, [ 'trade_1', 'executed' ])
-    assert.ok(client.log.some(q => q.sql.includes('UPDATE markets')), 'quote board updated')
+    assert.ok(client.log.some(Rx.update.markets), 'quote board updated')
 
     const types = outboxEvents(client).map(e => e.event_type)
     assert.deepEqual(types, [ 'cargo.loaded.v1', 'market.trade.executed.v1', 'market.price.changed.v1' ])
@@ -244,13 +266,13 @@ test('wallet.debited settles the buy: cargo loaded, trade executed, quote republ
 })
 
 test('wallet.credited settles the sell: stock restocked, cargo.unloaded emitted', async () => {
-    const { client, fx } = handlers({
-        ...pendingBuy({ side: 'sell', stid: 'barnards.port', price_unit: '108.10', price_total: '1081.01' }),
-        'UPDATE station_inventory': () => ({ rows: [{ stock: 50, target: 100 }]}),
-    })
+    const { client, fx } = handlers([
+        pendingBuy({ side: 'sell', stid: 'barnards.port', price_unit: '108.10', price_total: '1081.01' }),
+        () => ({ rows: [{ stock: 50, target: 100 }]}),
+    ])
     await fx[ 'wallet.credited.v1' ]({ ...debited, payload: { ...debited.payload, amount: 1081.01 }})
 
-    const bump = client.log.find(q => q.sql.includes('UPDATE station_inventory'))
+    const bump = client.log.find(Rx.update.station)
     assert.equal(bump.params[ 2 ], 10, 'station takes delivery')
 
     const types = outboxEvents(client).map(e => e.event_type)
@@ -264,25 +286,28 @@ test('wallet events with no pending trade are ignored', async () => {
 })
 
 test('wallet.credited ignores a pending buy (side mismatch)', async () => {
-    const { client, fx } = handlers({ ...pendingBuy() })
+    const { client, fx } = handlers([ pendingBuy() ])
     await fx[ 'wallet.credited.v1' ](debited)
     assert.equal(outboxEvents(client).length, 0)
 })
 
 // ── compensation ──────────────────────────────────────────────────────────────
+// walletTransactionRejected's 2nd query (bumpStock or the cargo UPDATE) and
+// everything after it never reads its own response - one queue entry is
+// enough even though more queries follow.
 
 test('wallet rejection on a buy releases the reserved stock', async () => {
-    const { client, fx } = handlers({ ...pendingBuy() })
+    const { client, fx } = handlers([ pendingBuy() ])
     await fx[ 'wallet.transaction.rejected.v1' ]({
         eid           : 'evt-2',
         correlation_id: 'corr-test',
         payload       : { pid: 'p1', rfid: 'trade_1', amount: 250.33, reason: 'insufficient funds' },
     })
 
-    const bump = client.log.find(q => q.sql.includes('UPDATE station_inventory'))
+    const bump = client.log.find(Rx.update.station)
     assert.equal(bump.params[ 2 ], 10, 'stock released')
 
-    const settle = client.log.find(q => q.sql.includes('UPDATE trades'))
+    const settle = client.log.find(Rx.update.trades)
     assert.deepEqual(settle.params, [ 'trade_1', 'rejected' ])
 
     const [ e ] = outboxEvents(client)
@@ -292,14 +317,14 @@ test('wallet rejection on a buy releases the reserved stock', async () => {
 })
 
 test('wallet rejection on a sell returns the cargo', async () => {
-    const { client, fx } = handlers({ ...pendingBuy({ side: 'sell' }) })
+    const { client, fx } = handlers([ pendingBuy({ side: 'sell' }) ])
     await fx[ 'wallet.transaction.rejected.v1' ]({
         eid           : 'evt-2',
         correlation_id: 'corr-test',
         payload       : { pid: 'p1', rfid: 'trade_1', amount: 1081.01, reason: 'wallet not found' },
     })
 
-    const back = client.log.find(q => q.sql.includes('UPDATE cargo'))
+    const back = client.log.find(Rx.update.cargo)
     assert.deepEqual(back.params, [ 's1', 'ore', 10 ])
 
     const [ e ] = outboxEvents(client)
@@ -316,9 +341,9 @@ test('ships mirror follows created / departed / arrived', async () => {
     await fx[ 'ship.arrived.v1' ]({ payload: { sid: 's1', stid: 'barnards.port' }})
 
     const [ ins, dep, arr ] = client.log
-    assert.match(ins.sql, /INSERT INTO ships/)
-    assert.match(dep.sql, /SET status = 'transit'/)
-    assert.match(arr.sql, /SET status = 'docked'/)
+    assert.match(ins.sql, /INSERT INTO ships/i)
+    assert.match(dep.sql, /SET status = 'transit'/i)
+    assert.match(arr.sql, /SET status = 'docked'/i)
     assert.equal(arr.params[ 1 ], 'barnards.port')
 })
 
@@ -326,12 +351,18 @@ test('ships mirror follows created / departed / arrived', async () => {
 
 test('pollDrift moves stock toward its natural level, both directions', async () => {
     const seen = []
-    const client = fakeClient({
-        'UPDATE station_inventory'([ stid, gid, level, rate ]) {
+    // driftOne makes 2 different-shaped calls per pair that moved: the
+    // station_inventory update, then a markets update whose response it
+    // never reads. one queue entry answers both - harmless, since (a) the
+    // 2nd, wrongly-shaped call's response is discarded either way, and (b)
+    // `at()` below takes the first match per pair, which is always the
+    // real station_inventory answer, pushed before the stray one.
+    const client = fakeClient([
+        ([ stid, gid, level, rate ]) => {
             seen.push({ stid, gid, level, rate })
             return { rows: [{ stock: level, target: 100 }]}   // one step lands on the level
         },
-    })
+    ])
 
     const poller = pollDrift({}, fakeTransact(client), { interval: 10 })
     await setTimeout(20)
@@ -351,9 +382,9 @@ test('pollDrift moves stock toward its natural level, both directions', async ()
 
 // the bug this replaced: stock reached 0, and price = base * 100 ** elasticity
 test('pollDrift never drives a consumer station to zero stock', async () => {
-    const client = fakeClient({
-        'UPDATE station_inventory'([ , , level ]) { return { rows: [{ stock: level, target: 100 }]} },
-    })
+    const client = fakeClient([
+        ([ , , level ]) => ({ rows: [{ stock: level, target: 100 }]}),
+    ])
 
     const poller = pollDrift({}, fakeTransact(client), { interval: 10 })
     await setTimeout(20)
@@ -364,22 +395,25 @@ test('pollDrift never drives a consumer station to zero stock', async () => {
 })
 
 test('pollDrift leaves settled stations alone', async () => {
-    const client = fakeClient({
-        'UPDATE station_inventory': () => ({ rows: []}), // clamp guard. stock did not move.
-    })
+    // an empty row means driftOne stops right there - no 2nd call per pair,
+    // so this one entry never faces the 2-shapes-per-pair ambiguity above.
+    const client = fakeClient([
+        () => ({ rows: []}), // clamp guard. stock did not move.
+    ])
 
     const poller = pollDrift({}, fakeTransact(client), { interval: 10 })
     await setTimeout(20)
     poller.stop()
 
     assert.equal(outboxEvents(client).length, 0)
-    assert.ok(!client.log.some(q => q.sql.includes('UPDATE markets')), 'no quote republished')
+
+    assert.ok(!client.log.some(Rx.update.markets), 'no quote republished')
 })
 
 test('pollDrift with interval 0 never starts', async () => {
-    const client = fakeClient({
-        'UPDATE station_inventory'() { throw new Error('drift must not run') },
-    })
+    const client = fakeClient([
+        () => { throw new Error('drift must not run') },
+    ])
 
     const poller = pollDrift({}, fakeTransact(client), { interval: 0 })
     await setTimeout(20)
@@ -390,9 +424,9 @@ test('pollDrift with interval 0 never starts', async () => {
 
 test('pollDrift stop prevents further polling', async () => {
     let ticks = 0
-    const client = fakeClient({
-        'UPDATE station_inventory'() { ticks++; return { rows: []} },
-    })
+    const client = fakeClient([
+        () => { ticks++; return { rows: []} },
+    ])
 
     const poller = pollDrift({}, fakeTransact(client), { interval: 10 })
     await setTimeout(5)

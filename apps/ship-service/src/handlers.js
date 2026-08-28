@@ -51,15 +51,15 @@ export function createHandlers(pool, transact) {
     }
 
     // saga: every new player gets the starter ship, docked at sol.outpost
-    async function playerCreated({ eid: causation_id, correlation_id, payload: p }) {
-        const sid  = guid('ship')
-        const name = starterShip.name   // a getter - read once, so the row and the event agree
+    async function playerCreated({ eid: causation_id, correlation_id, payload: { pid }}) {
+        const sid = guid('ship')
+        const { stid, name, velocity, capacity } = starterShip // random name getter, read it once by destructing
 
         await transact(pool, async client => {
             await client.query(`
-                insert into ships (sid, pid, stid, name, capacity, velocity)
-                values ($1, $2, $3, $4, $5, $6)
-            `, [ sid, p.pid, starterShip.stid, name, starterShip.capacity, starterShip.velocity ])
+                INSERT INTO ships (sid, pid, stid, name, capacity, velocity)
+                     VALUES ($1, $2, $3, $4, $5, $6)
+            `, [ sid, pid, stid, name, capacity, velocity ])
 
             await Outbox.write(client, [
                 emit(EVT.ship.created, {
@@ -68,7 +68,7 @@ export function createHandlers(pool, transact) {
                     aggregate_id     : sid,
                     aggregate_type   : 'ship',
                     aggregate_version: 1,
-                    payload          : { sid, pid: p.pid, ...starterShip, name },
+                    payload          : { sid, pid, stid, name, capacity, velocity },
                 }),
             ])
         })
@@ -77,7 +77,7 @@ export function createHandlers(pool, transact) {
     async function shipTravelRequested({ cmd: causation_id, correlation_id, payload: p }) {
         await transact(pool, async client => {
 
-            const { rows: [ ship ] } = await client.query('select * from ships where sid = $1', [ p.sid ])
+            const { rows: [ ship ] } = await client.query('SELECT * FROM ships WHERE sid = $1', [ p.sid ])
 
             if (!ship)                    return reject(client, { reason: 'ship not found'                     , causation_id, correlation_id, p })
             if (ship.status !== 'docked') return reject(client, { reason: 'ship not docked'                    , causation_id, correlation_id, p })
@@ -101,18 +101,18 @@ export function createHandlers(pool, transact) {
             const departed = (new Date).toISOString()
 
             await client.query(`
-            update ships
-               set status         = 'transit',
-                   "from"         = $2,
-                   "to"           = $3,
-                   departs        = $4,
-                   arrives        = $5,
-                   manifest       = $6,
-                   causation_id   = $7,
-                   correlation_id = $8,
-                   updated        = now()
-             where sid = $1
-        `, [ p.sid, p.from, to, departed, arrives, manifest, causation_id, correlation_id ])
+                UPDATE ships
+                   SET status         = 'transit',
+                       "from"         = $2,
+                       "to"           = $3,
+                       departs        = $4,
+                       arrives        = $5,
+                       manifest       = $6,
+                       causation_id   = $7,
+                       correlation_id = $8,
+                       updated        = now()
+                 WHERE sid = $1
+            `, [ p.sid, p.from, to, departed, arrives, manifest, causation_id, correlation_id ])
 
             await Outbox.write(client, [
                 emit(EVT.ship.departed, {

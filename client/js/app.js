@@ -5,8 +5,8 @@ import { state } from './state.js'
 import { feedLine } from './feed.js'
 import { showAuth, logout } from './api.js'
 import { register, login, enterGame } from './session.js'
-import { travel, confirmTrade } from './commands.js'
-import { tickEta, openTradeDialog, updateTradeTotal, openNameDialog, confirmName } from './render.js'
+import { confirmTravel, confirmTrade } from './commands.js'
+import { tickEta, openTravelDialog, openTradeDialog, updateTradeTotal, openNameDialog, confirmName } from './render.js'
 
 Sync.base = location.origin
 Sync.head.set('content-type', 'application/json'); state.token &&
@@ -21,7 +21,7 @@ $('#password').addEventListener('keydown', e => e.key === 'Enter' && login())
 
 $('#travelBody').addEventListener('click', e => {
     const g = e.target.closest('[data-stid]')
-    g?.classList.contains('reachable') && travel(g.dataset.stid)
+    g?.classList.contains('reachable') && openTravelDialog(g.dataset.stid)
 })
 
 $('#game').addEventListener('click', e => {
@@ -38,6 +38,9 @@ $('#nameInput').addEventListener('keydown', e => e.key === 'Enter' && confirmNam
 $('#tradeQty').addEventListener('input', updateTradeTotal)
 $('#tradeConfirmBtn').addEventListener('click', confirmTrade)
 $('#tradeCancelBtn').addEventListener('click', () => $('#tradeDialog').close())
+
+$.id('travelConfirmBtn').addEventListener('click', confirmTravel)
+$.id('travelCancelBtn').addEventListener('click', () => $.id('travelDialog').close())
 
 // TODO: this is never ends, should stop on arrival, start on departure
 setInterval(tickEta, 250)

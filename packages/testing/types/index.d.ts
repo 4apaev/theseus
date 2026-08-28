@@ -21,10 +21,13 @@ export {
     makeCmd,
     fakePool,
     fakeClient,
+    fakeTablePool,
+    fakeTableClient,
     fakeTransact,
     outboxEvents,
     type FakePool,
     type FakeQuery,
     type FakeClient,
     type QueryOverrides,
+    type TableOverrides,
 } from './mocks.js'

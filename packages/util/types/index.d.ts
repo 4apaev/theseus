@@ -14,7 +14,7 @@ export declare const Codec: {
 // ─────────────────────────────────────────────────────────────
 
 export interface Poller { stop(): void }
-export function poll(fx: () => Promise<void>, ms?: number | string): Poller
+export function poll<A extends unknown[]>(fx: (...a: A) => Promise<unknown>, ms?: number | string, ...a: A): Poller
 
 // ── String ───────────────────────────────────────────────────
 

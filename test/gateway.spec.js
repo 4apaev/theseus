@@ -26,9 +26,9 @@ import { createReplies } from '#gateway/replies.js'
 import { seesAll       } from '#gateway/feed.js'
 
 import {
-    fakePool,
     waitFor,
     wsConnect,
+    fakeTablePool,
 } from '#testing/index.js?title=🧪 ⛩️ GATEWAY'
 
 const SECRET = 'test-secret'
@@ -86,16 +86,17 @@ const TRAFFIC = [
         stid: null, from: 'st1', to: 'st2', arrives: 'later', arrived: null, years_abs: 2 },
 ]
 
-function projectionPool() {
-    return fakePool({
-        // 'JOIN players p' must come first. fakeClient takes the first key
-        // that the sql contains, and the traffic query also says 'FROM ships'
-        'JOIN players p'    : ([     stid ]) => ({ rows: stid ? [ TRAFFIC[ 0 ] ] : TRAFFIC }),
-        'FROM players'      : ([      pid ]) => ({ rows: pid === 'p1' ? [{ pid, handle: 'alice', created: 'now', balance: 1000 }] : []}),
-        'FROM ships'        : ([      pid ]) => ({ rows: [{ sid: 's1' , pid , status: 'docked' }]}),
-        'FROM cargo'        : ([ sid, pid ]) => ({ rows: [{ gid: 'ore', pid , sid, quantity: 5  }]}),
-        'FROM market_prices': ([     stid ]) => ({ rows: [{ gid: 'ore', stid, price_buy: 30, price_sell: 25 }]}),
-        'FROM trade_history': () => ({ rows: []}),
+function projectionPool() { /*
+    keyed by the tables, both reach `ships`,
+    but only traffic() also joins `players`,
+    so the 2 never collide. fakeTablePool parses the table names
+ */ return fakeTablePool({
+        'players+wallets': ([      pid ]) => ({ rows: pid === 'p1' ? [{ pid, handle: 'alice', created: 'now', balance: 1000 }] : []}),
+        'players+ships'  : ([     stid ]) => ({ rows: stid ? [ TRAFFIC[ 0 ] ] : TRAFFIC }),
+        'cargo+ships'    : ([ sid, pid ]) => ({ rows: [{ gid: 'ore', pid , sid, quantity: 5  }]}),
+        ships            : ([      pid ]) => ({ rows: [{ sid: 's1' , pid , status: 'docked' }]}),
+        market_prices    : ([     stid ]) => ({ rows: [{ gid: 'ore', stid, price_buy: 30, price_sell: 25 }]}),
+        trade_history    : () => ({ rows: []}),
     })
 }
 
@@ -137,14 +138,12 @@ test('POST/register replies 409 when the handle is taken', async () => {
 
 test('POST/register falls back to 202 when no reply arrives', async () => {
     const lonely = createMemoryKafka()          // no player service listening
-    const alone  = await start(lonely, { pool: fakePool(), secret: SECRET, port: 0, timeout: 50 })
+    const alone  = await start(lonely, { pool: fakeTablePool(), secret: SECRET, port: 0, timeout: 50 })
 
+    const url = `http://127.0.0.1:${ alone.port }/register`
+    const body = { handle: 'alice', password: 'x' }
     try {
-        const rs = await Sync.post(
-            `http://127.0.0.1:${ alone.port }/register`,
-            { handle: 'alice', password: 'x' },
-        )
-
+        const rs = await Sync.post(url, body)
         assert.equal(rs.status, 202)
         assert.ok(rs.body.cmd)
         assert.ok(rs.body.correlation_id)
@@ -188,8 +187,9 @@ test('POST/travel publishes the command with pid from the token, not the body', 
 })
 
 test('POST/buy/sell publish market commands', async () => {
-    const buy  = await Sync.post('/buy',  { gid: 'ore', sid: 's1', stid: 'st1', quantity: 5, price_unit_max: 30 }).set(bear)
-    const sell = await Sync.post('/sell', { gid: 'ore', sid: 's1', stid: 'st1', quantity: 5, price_unit_min: 20 }).set(bear)
+    const data = { gid: 'ore', sid: 's1', stid: 'st1', quantity: 5 }
+    const buy  = await Sync.post('/buy',  { ...data, price_unit_max: 30 }).set(bear)
+    const sell = await Sync.post('/sell', { ...data, price_unit_min: 20 }).set(bear)
 
     assert.equal(buy.status, 202)
     assert.equal(sell.status, 202)
@@ -337,6 +337,15 @@ test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async
     assert.equal(trades, void 0)
 })
 
+// a good sold down to 0 stays a cargo row, not a deleted one - the
+// query must filter it out itself, hydrate can't rely on the live
+// socket path (mutateCargo() in events.js) to hide it for a fresh load
+test('GET /cargo/:sid excludes zero-quantity rows at the query level', async () => {
+    await Sync.get('/cargo/s1').set(bear)
+    const cargo = pool.client.log.find(({ sql }) => sql.includes('FROM cargo'))
+    assert.match(cargo.sql, /quantity > 0/)
+})
+
 // ── public ship traffic ──────────────────────────────────────────────────────
 
 test('GET/traffic needs a token - public means signed in, not anonymous', async () => {
@@ -384,10 +393,10 @@ test('GET/admin/players without the admin role replies 403', async () => {
 })
 
 test('admin routes: players, events, inventory, rebuild', async () => {
-    const pool = fakePool({
-        'ORDER BY p.created'           : () => ({ rows: [{ pid: 'p1', handle: 'alice', created: 'now', balance: 1000 }]}),
-        'FROM event_log'               : () => ({ rows: [{ eid: 'e1', event_type: 'player.created.v1', payload: {}, occurred: 'now', received: 'now' }]}),
-        'FROM market.station_inventory': () => ({ rows: [{ gid: 'ore', stock: 160, target: 100, updated: 'now' }]}),
+    const pool = fakeTablePool({
+        'players+wallets'          : () => ({ rows: [{ pid: 'p1', handle: 'alice', created: 'now', balance: 1000 }]}),
+        event_log                  : () => ({ rows: [{ eid: 'e1', event_type: 'player.created.v1', payload: {}, occurred: 'now', received: 'now' }]}),
+        'market.station_inventory' : () => ({ rows: [{ gid: 'ore', stock: 160, target: 100, updated: 'now' }]}),
     })
     const rebuild = async () => 3
     const admin   = await start(createMemoryKafka(), { pool, secret: SECRET, port: 0, rebuild })

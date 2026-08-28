@@ -46,7 +46,7 @@ export function quote(gid, stock, target) {
  * returns the count of new rows.
  */
 export async function seed(pool, transact) {
-    const { rows } = await pool.query('select stid, gid from station_inventory')
+    const { rows } = await pool.query('SELECT stid, gid FROM station_inventory')
     const have = new Set(rows.map(r => `${ r.stid }:${ r.gid }`))
 
     return transact(pool, async client => {
@@ -75,8 +75,19 @@ async function seedOne(client, station, gid) {
         price_sell,
     } = quote(gid, stock, TARGET)
 
-    await client.query(`insert into station_inventory (stid, gid, stock, target, updated) values ($1, $2, $3, $4, now()) on conflict (stid, gid) do nothing`, [ stid, gid, stock, TARGET ])
-    await client.query(`insert into markets (stid, gid, price_buy, price_sell, updated) values ($1, $2, $3, $4, now()) on conflict (stid, gid) do nothing`, [ stid, gid, price_buy, price_sell ])
+    await client.query(`
+        INSERT INTO station_inventory (stid, gid, stock, target, updated)
+             VALUES ($1, $2, $3, $4, now())
+        ON CONFLICT (stid, gid)
+         DO NOTHING
+    `, [ stid, gid, stock, TARGET ])
+
+    await client.query(`
+        INSERT INTO markets (stid, gid, price_buy, price_sell, updated)
+             VALUES ($1, $2, $3, $4, now())
+        ON CONFLICT (stid, gid)
+         DO NOTHING
+    `, [ stid, gid, price_buy, price_sell ])
 
     return emit(EVT.market.price.changed, {
 

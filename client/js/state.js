@@ -15,7 +15,7 @@ export const state = {
     trades  : [],
 
     traffic : new Map,   // sid → another player's ship, from GET /traffic
-    pending : new Map,   // correlation_id → { label, el }
+    pending : new Map,   // correlation_id → { label, el, timer }
 }
 
 /*  clear one player's data on logout.
@@ -30,6 +30,7 @@ export function resetPlayer() {
     state.market  = []
     state.trades  = []
     state.traffic = new Map
+    for (const { timer } of state.pending.values()) clearTimeout(timer)
     state.pending = new Map
 }
 

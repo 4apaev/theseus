@@ -5,14 +5,14 @@ export function feedLine(kind, text) {
 
     const el = $.of('div', { class: 'ln ' + kind }, `[${ t }] ${ text }`)
     const feed = $('#feed')
-    const down = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 4
+    const top = feed.scrollTop <= 4 // reading the newest, not scrolled into history
 
-    feed.appendChild(el)
+    feed.prepend(el)
     while (feed.children.length > 200)
-        feed.removeChild(feed.firstChild)
+        feed.removeChild(feed.lastChild)
 
-    if (down)
-        feed.scrollTop = feed.scrollHeight
+    if (top)
+        feed.scrollTop = 0
 
     return el
 }

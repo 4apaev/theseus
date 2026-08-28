@@ -19,43 +19,43 @@ export async function writeOutbox(client, records) {
 }
 
 export function pollOutbox(db, publish, { interval = 1000, batch = 10 } = {}) {
-    return poll(
-        () => withClient(db, async client => {
-            const rows = await fetchPending(client, batch)
-
-            for (const row of rows) {
-                await publish(toRecord(row))
-                await markPublished(client, row.id)
-            }
-        }),
-        interval,
-    )
+    return poll(withClient, interval, db, async client => {
+        for (const row of await fetchPending(client, batch)) {
+            await publish(toRecord(row))
+            await markPublished(client, row.id)
+        }
+    })
 }
 
 function insertOutboxRow(client, topic, key, value) {
-    const payload = Buffer.isBuffer(value) ? Codec.decode(value) : value
-    return client.query(
-        'insert into outbox (id, topic, key, payload) values ($1, $2, $3, $4)',
-        [ guid(), topic, key ?? null, JSON.stringify(payload) ],
+    const payload = JSON.stringify(
+        Buffer.isBuffer(value)
+            ? Codec.decode(value)
+            : value)
+
+    return client.query(`
+        INSERT INTO outbox (id, topic, key, payload)
+             VALUES ($1, $2, $3, $4)`, [
+        guid(), topic, key ?? null, payload ],
     )
 }
 
 function fetchPending(client, batch) {
-    return client.query(
-        `select id, topic, key, payload
-         from outbox
-         where published is null
-         order by created
-         limit $1`,
-        [ batch ],
-    ).then(r => r.rows)
+    return client.query(`
+        SELECT id, topic, key, payload
+          FROM outbox
+         WHERE published IS NULL
+         ORDER BY created
+         LIMIT $1
+    `, [ batch ]).then(r => r.rows)
 }
 
 function markPublished(client, id) {
-    return client.query(
-        'update outbox set published = now() where id = $1',
-        [ id ],
-    )
+    return client.query(`
+        UPDATE outbox
+           SET published = now()
+         WHERE id = $1
+        `, [ id ])
 }
 
 function toRecord({ key, topic, payload }) {

@@ -7,7 +7,12 @@ export async function withClient(pool, fx) {
         after return, before the returned promise resolves.
         client.release() fires while fx is still running.
         tus, needs await.
-     */ return await fx(client, Query(client))
+     */ return await fx(
+            client,
+            client.sql = Query(client),
+            client.insert = (t, d) => insert(client, t, d),
+            client.where = (...a) => client.query(...selectWhere(...a)),
+        )
     }
     finally {
         client.release()
@@ -33,6 +38,21 @@ export function Query(pool) {
         }
         return pool.query(sql.join(''), vals)
     }
+}
+
+export function insert(client, table, data) {
+    const ks = []
+    const ixs = []
+    const vls = []
+
+    each(data, (k, v, i) => {
+        ks.push(k)
+        vls.push(v ?? null)
+        ixs.push('$'.concat(1 + i))
+    })
+
+    const sql = `INSERT INTO ${ table } (${ ks }) VALUES (${ ixs })`
+    return client.query(sql, vls)
 }
 
 export function where(table, query) {

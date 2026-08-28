@@ -21,7 +21,7 @@ export function createInbox(pool) {
     return {
         async has(id) {
             const { rows } = await pool.query(
-                'select 1 from inbox where eid = $1',
+                'SELECT 1 FROM inbox WHERE eid = $1',
                 [ id ],
             )
             return rows.length > 0
@@ -29,7 +29,7 @@ export function createInbox(pool) {
 
         async mark(id) {
             await pool.query(
-                'insert into inbox (eid) values ($1) on conflict do nothing',
+                'INSERT INTO inbox (eid) VALUES ($1) ON CONFLICT DO NOTHING',
                 [ id ],
             )
             return true

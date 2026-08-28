@@ -26,14 +26,14 @@ export function createPool({ schema, database } = {}) {
 export function withTransaction(pool, fn) {
     return withClient(pool, async client => {
 
-        await client.query('begin')
+        await client.query('BEGIN')
         try {
             const result = await fn(client, Query(client))
-            await client.query('commit')
+            await client.query('COMMIT')
             return result
         }
         catch (e) {
-            await client.query('rollback')
+            await client.query('ROLLBACK')
             throw e
         }
     })

@@ -31,7 +31,7 @@ all touch `packages/domain`; 3.3, 3.4, 3.5 and 3.6 all touch the client)
 | step | what                                                             | status      |
 |------|-------------------------------------------------------------------|-------------|
 | 3.1  | ships name generator                                               | done ✔      |
-| 3.2  | tech debt sweep                                                    | not started |
+| 3.2  | tech debt sweep                                                    | done ✔      |
 | 3.3  | travel manifest visualization                                      | not started |
 | 3.4  | ship upgrades - capacity and velocity                              | not started |
 | 3.5  | player messenger - the ansible                                     | not started |
@@ -76,27 +76,57 @@ just not forced on first login.
 small, independent fixes, bundled because each is too small for its own
 step:
 
-- **make file**
-- **service uptime - done ✔** - `scripts/services-check.js` now reads
+- ✔ **service uptime** - `scripts/services-check.js` now reads
   `.logs/<name>.pid` (the same file `start.sh`/`stop.sh` already use),
   and reports up/down, pid, and real uptime per service, next to the
   existing role/owns metadata. exits 1 if anything is down.
-- **delete old git branches**
-- **`NODE_ENV=dev|prod|test`** (`tech.debt.md`) - gateway skips verbose
-  logging in test, `garage/compose` gains test-awareness
-- **cargo hydrate bug** - `apps/gateway/src/queries.js`'s `cargo()`
-  query has no `WHERE quantity > 0`, so a fresh page load can show a
-  "0 ore" line; the live socket path already hides it
-  (`mutateCargo()` in `client/js/events.js` already splices a
-  zero-quantity row out). add the same filter to the query.
-- **confirm dialog before travel** (`client.md` bugs list) - a misclick
+
+- ✔ **`NODE_ENV=dev|prod|test`** - `.env.dev` sets `NODE_ENV=test`,
+  which reaches gateway via `main.js` → `createRoutes({ nodeEnv })`;
+  the per-request log line skips itself in test. `garage/compose`
+  already reads `NODE_ENV` on its own - `test` falls into the same
+  branch as `dev` there, which is the wanted behavior, not a gap.
+
+- ✔ **cargo hydrate bug** - `apps/gateway/src/queries.js`'s
+  `cargo()` query now filters `AND c.quantity > 0`, matching what the
+  live socket path already did (`mutateCargo()` in `client/js/events.js`
+  splices a zero-quantity row out). a fresh page load can no longer show
+  a "0 ore" line the live path would have hidden.
+
+- ✔ **fix poll calls**, remove redundant function wrappers and fix types
+
+- ✔ **sql code style uppercase** - unify sql code style, make all
+  uppercase and aligned, `apps/gateway/src/queries.js`'s style.
+
+  the blocker went first: tests no longer mock by matching sql text at
+  all, so the reformat could no longer break one silently.
+  `packages/testing/src/mocks.js` gained 2 routing modes - `fakeClient`/
+  `fakePool` answer by call order (a queue, not a lookup); the shared,
+  many-caller pools in `test/gateway.spec.js` route by the sorted set of
+  tables a query touches, parsed from the query itself. neither ever
+  matches on sql wording. every unit test file (`db`, `gateway`,
+  `market`, `player`, `ship`) converted.
+
+  then the reformat itself: every raw sql string in `apps/market-service`,
+  `apps/player-service`, `apps/projection-service`, `apps/ship-service`,
+  `packages/db`, and `packages/service` now uppercases keywords and
+  right-aligns them, same as `queries.js`. migration `.sql` files stay as
+  they are - out of scope, a separate, larger surface.
+
+- ✔ **fetch - Sync** in tests: replace fetch, post calls with `garage/sync`
+
+- ✔ **confirm dialog before travel** (`client.md` bugs list) - a misclick
   shouldn't commit a ship to a trip, more so now a click can mean
-  several hops
-- **pending-command timeout** (`client.md` accepted risks) - a lost
-  command leaves a `…` feed line forever; a client-side timeout marks it
-  failed instead
-- **`using`/`Symbol.dispose`** for db client acquisition in
-  `packages/db` (`tech.debt.md` "nice to have")
+  several hops. a click on a reachable station opens `#travelDialog`
+  (same shape as the trade/rename dialogs) instead of sending `/travel`
+  straight away; `CONFIRM` sends it, `CANCEL` closes with nothing sent.
+
+- ✔ **pending-command timeout** (`client.md` accepted risks) - a lost
+  command leaves a `…` feed line forever; a client-side timeout now
+  marks it failed instead. `commands.js`'s `send()` starts a 15s timer
+  per `correlation_id`; `events.js`'s `dispatch()` clears it on the
+  normal resolve path; `resetPlayer()` clears any still running on
+  logout.
 
 (already fixed alongside this doc, not gated on this step: the stale
 travel-manifests TODO in `packages/domain/readme.md`.)
@@ -293,7 +323,10 @@ animations, a 3D client.
 
 from `tech.debt.md`: dockerized deploy (needs a real plan first, not
 scoped enough to schedule), a lit.dev-style frontend rewrite (the doc's
-own call: could be a standalone repo, not necessarily part of theseus).
+own call: could be a standalone repo, not necessarily part of theseus),
+`using`/`Symbol.dispose` for db client acquisition (fits
+`packages/db/src/query.js`'s `withClient` only, a small win - not worth
+this phase's time over the items above).
 
 from `client.md`: the stickable/draggable/resizable panel layout
 rework, `rs.file` cache headers (dev-only, stays noted not promoted -
