@@ -15,18 +15,16 @@ import { pollArrivals     } from '#ship/arrivals.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-const dockedShip = (over = {}) => ({
-    'select * from ships': () => ({ rows: [{
-        sid     : 's1',
-        pid     : 'p1',
-        stid    : 'sol.outpost',
-        name    : 'far treasure',
-        status  : 'docked',
-        capacity: 20,
-        velocity: '0.6', // pg numeric comes back as string
-        ...over,
-    }]}),
-})
+const dockedShip = (over = {}) => () => ({ rows: [{
+    sid     : 's1',
+    pid     : 'p1',
+    stid    : 'sol.outpost',
+    name    : 'far treasure',
+    status  : 'docked',
+    capacity: 20,
+    velocity: '0.6', // pg numeric comes back as string
+    ...over,
+}]})
 
 const trip = makeCmd({
     sid : 's1',
@@ -91,12 +89,15 @@ test('a route between stars leaves the speed to the ship', () => {
 })
 
 // ── travelRequested - rejections ─────────────────────────────────────────────
+// every case here rejects after exactly 1 meaningful query (the select) -
+// the outbox insert that follows never reads its own response, so 1 queue
+// entry safely answers both.
 
 for (const [ reason, over, cmd ] of [
-    [ 'ship not found'                     , { 'select * from ships': () => ({ rows: []}) }],
-    [ 'ship not docked'                    , dockedShip({ status: 'transit' }) ],
-    [ 'ship not at origin'                 , dockedShip({ stid: 'barnards.port' }) ],
-    [ 'origin and destination are the same', dockedShip(), makeCmd({ ...trip.payload, to: 'sol.outpost' }) ],
+    [ 'ship not found'                     , [ () => ({ rows: []}) ]],
+    [ 'ship not docked'                    , [ dockedShip({ status: 'transit' }) ]],
+    [ 'ship not at origin'                 , [ dockedShip({ stid: 'barnards.port' }) ]],
+    [ 'origin and destination are the same', [ dockedShip() ], makeCmd({ ...trip.payload, to: 'sol.outpost' }) ],
 ]) {
     test(`travelRequested rejects: ${ reason }`, async () => {
         const client   = fakeClient(over)
@@ -108,19 +109,19 @@ for (const [ reason, over, cmd ] of [
         assert.equal(events.length, 1)
         assert.equal(events[ 0 ].event_type, 'ship.travel.rejected.v1')
         assert.equal(events[ 0 ].payload.reason, reason)
-        assert.ok(!client.log.find(({ sql }) => sql.includes('update ships')), 'ship untouched')
+        assert.ok(!client.log.find(({ sql }) => sql.includes('UPDATE ships')), 'ship untouched')
     })
 }
 
 // ── travelRequested - departed ────────────────────────────────────────────────
 
 test('travelRequested updates ship to transit and emits ship.departed', async () => {
-    const client   = fakeClient(dockedShip())
+    const client   = fakeClient([ dockedShip() ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'ship.travel.requested.v1' ](trip)
 
-    const update = client.log.find(({ sql }) => sql.includes('update ships'))
+    const update = client.log.find(({ sql }) => sql.includes('UPDATE ships'))
     assert.ok(update, 'ship updated')
     assert.match(update.sql, /status\s+= 'transit'/)
     assert.deepEqual(update.params[ 5 ], [], 'a direct hop leaves no manifest')
@@ -144,12 +145,12 @@ test('travelRequested updates ship to transit and emits ship.departed', async ()
 // full hop sequence, and everything after the first hop becomes the
 // ship's manifest, consumed later by arrivals.js
 test('travelRequested resolves a multi-hop destination and stores the rest as manifest', async () => {
-    const client   = fakeClient(dockedShip())
+    const client   = fakeClient([ dockedShip() ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'ship.travel.requested.v1' ](makeCmd({ sid: 's1', pid: 'p1', from: 'sol.outpost', to: 'wolf.reach' }))
 
-    const update = client.log.find(({ sql }) => sql.includes('update ships'))
+    const update = client.log.find(({ sql }) => sql.includes('UPDATE ships'))
     assert.equal(update.params[ 2 ], 'alpha.exchange', 'the first hop, not the final destination')
     assert.deepEqual(update.params[ 5 ], [ 'wolf.reach' ], 'the rest of the path')
 
@@ -161,7 +162,7 @@ test('travelRequested resolves a multi-hop destination and stores the rest as ma
 test('travelRequested rejects when no path connects the stations', async t => {
     t.mock.method(universe, 'path', () => void 0)
 
-    const client   = fakeClient(dockedShip())
+    const client   = fakeClient([ dockedShip() ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'ship.travel.requested.v1' ](trip)
@@ -170,7 +171,7 @@ test('travelRequested rejects when no path connects the stations', async t => {
     assert.equal(events.length, 1)
     assert.equal(events[ 0 ].event_type, 'ship.travel.rejected.v1')
     assert.equal(events[ 0 ].payload.reason, 'no route to destination')
-    assert.ok(!client.log.find(({ sql }) => sql.includes('update ships')), 'ship untouched')
+    assert.ok(!client.log.find(({ sql }) => sql.includes('UPDATE ships')), 'ship untouched')
 })
 
 // ── player.created - starter ship saga ────────────────────────────────────────
@@ -185,7 +186,7 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
         payload       : { pid: 'p1', handle: 'alice' },
     })
 
-    const insert = client.log.find(({ sql }) => sql.includes('insert into ships'))
+    const insert = client.log.find(({ sql }) => sql.includes('INSERT INTO ships'))
     assert.ok(insert, 'ship inserted')
     assert.equal(insert.params[ 1 ], 'p1')
     assert.equal(insert.params[ 2 ], 'sol.outpost')
@@ -206,7 +207,7 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
 // ── renameRequested ──────────────────────────────────────────────────────────
 
 test('renameRequested updates the ship and emits ship.renamed', async () => {
-    const client   = fakeClient({ 'UPDATE ships': () => ({ rows: [{ sid: 's1', pid: 'p1', name: 'Argo' }]}) })
+    const client   = fakeClient([ () => ({ rows: [{ sid: 's1', pid: 'p1', name: 'Argo' }]}) ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'ship.rename.requested.v1' ](makeCmd({ sid: 's1', pid: 'p1', name: 'Argo' }))
@@ -222,7 +223,7 @@ test('renameRequested updates the ship and emits ship.renamed', async () => {
 
 // the update is scoped by pid, so a foreign sid matches no row
 test('renameRequested rejects a ship the player does not own', async () => {
-    const client   = fakeClient({ 'UPDATE ships': () => ({ rows: []}) })
+    const client   = fakeClient([ () => ({ rows: []}) ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'ship.rename.requested.v1' ](makeCmd({ sid: 'someone-elses', pid: 'p1', name: 'Argo' }))
@@ -233,8 +234,9 @@ test('renameRequested rejects a ship the player does not own', async () => {
 })
 
 // ── arrivals - poll & dock due ships ────────────────────────────────────────
-
-const docked = `'docked'`
+// arriveDue's claim response is the only one anything reads - every query
+// that follows (the outbox insert, and advanceManifest's own update +
+// insert) discards its response, so 1 queue entry covers a whole tick.
 
 test('pollArrivals docks a due ship and emits ship.arrived', async () => {
     const due = [{
@@ -248,9 +250,9 @@ test('pollArrivals docks a due ship and emits ship.arrived', async () => {
         correlation_id : 'corr-test',
     }]
 
-    const client = fakeClient({
-        [ docked ]: () => ({ rows: due.splice(0) }),
-    })
+    const client = fakeClient([
+        () => ({ rows: due.splice(0) }),
+    ])
 
     const poller = pollArrivals({}, fakeTransact(client), { interval: 10 })
     await setTimeout(20)
@@ -280,10 +282,9 @@ test('pollArrivals advances a ship with a manifest instead of leaving it docked'
         correlation_id : 'corr-test',
     }]
 
-    const client = fakeClient({
-        [ docked ]      : () => ({ rows: due.splice(0) }),
-        'WHERE sid = $1': () => ({ rows: []}),
-    })
+    const client = fakeClient([
+        () => ({ rows: due.splice(0) }),
+    ])
 
     const poller = pollArrivals({}, fakeTransact(client), { interval: 10 })
     await setTimeout(20)
@@ -305,9 +306,9 @@ test('pollArrivals advances a ship with a manifest instead of leaving it docked'
 })
 
 test('pollArrivals leaves not-yet-due ships alone', async () => {
-    const client = fakeClient({
-        [ docked ]: () => ({ rows: []}),
-    })
+    const client = fakeClient([
+        () => ({ rows: []}),
+    ])
 
     const poller = pollArrivals({}, fakeTransact(client), { interval: 10 })
     await setTimeout(20)
@@ -318,9 +319,9 @@ test('pollArrivals leaves not-yet-due ships alone', async () => {
 
 test('pollArrivals stop prevents further polling', async () => {
     let ticks = 0
-    const client = fakeClient({
-        [ docked ]() { ticks++; return { rows: []} },
-    })
+    const client = fakeClient([
+        () => { ticks++; return { rows: []} },
+    ])
 
     const poller = pollArrivals({}, fakeTransact(client), { interval: 10 })
     await setTimeout(5)

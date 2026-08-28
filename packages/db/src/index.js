@@ -24,4 +24,5 @@ export {
     Query,
     where,
     selectWhere,
+    insert,
 } from './query.js'

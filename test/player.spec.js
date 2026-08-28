@@ -24,8 +24,8 @@ test('registerPlayer inserts player and wallet', async () => {
         password: 'secret',
     }))
 
-    assert.ok(client.log.find(({ sql }) => sql.includes('insert into players')))
-    assert.ok(client.log.find(({ sql }) => sql.includes('insert into wallets')))
+    assert.ok(client.log.find(({ sql }) => sql.includes('INSERT INTO players')))
+    assert.ok(client.log.find(({ sql }) => sql.includes('INSERT INTO wallets')))
 })
 
 test('registerPlayer emits player.created and wallet.created', async () => {
@@ -73,13 +73,19 @@ test('registerPlayer sets causation_id from cmd', async () => {
 })
 
 test('registerPlayer emits registration.rejected on duplicate handle', async () => {
-    const client = fakeClient({
-        'insert into players'() {
+    // 1 entry answers every call - it must only throw the first time
+    // (the insert itself), not the 2nd transact's outbox write in the
+    // catch block that reports the rejection.
+    let thrown = false
+    const client = fakeClient([
+        () => {
+            if (thrown) return { rows: []}
+            thrown = true
             const e = new Error('unique violation')
             e.code = '23505'
             throw e
         },
-    })
+    ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'player.register.requested.v1' ](
@@ -94,9 +100,10 @@ test('registerPlayer emits registration.rejected on duplicate handle', async () 
 })
 
 test('registerPlayer rethrows non-23505 errors', async () => {
-    const client = fakeClient({
-        'insert into players'() { throw new Error('connection lost') },
-    })
+    // nothing else runs after this throws - a plain unconditional throw is fine
+    const client = fakeClient([
+        () => { throw new Error('connection lost') },
+    ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await assert.rejects(
@@ -116,8 +123,8 @@ function fakeProducer() {
     }
 }
 
-async function login(producer, players, payload) {
-    const pool     = fakePool(players)
+async function login(producer, overrides, payload) {
+    const pool     = fakePool(overrides)
     const handlers = createHandlers(pool, fakeTransact(pool.client), producer)
     await handlers[ 'player.login.requested.v1' ](makeCmd(payload))
 }
@@ -126,9 +133,9 @@ test('loginPlayer emits login.succeeded on correct password', async () => {
     const producer = fakeProducer()
     const stored   = await hash('secret')
 
-    await login(producer, {
-        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'player' }]}),
-    }, { handle: 'alice', password: 'secret' })
+    await login(producer, [
+        () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'player' }]}),
+    ], { handle: 'alice', password: 'secret' })
 
     const [ e ] = producer.events()
     assert.equal(e.event_type, 'player.login.succeeded.v1')
@@ -140,9 +147,11 @@ test('loginPlayer emits login.succeeded on correct password', async () => {
 test('loginPlayer promotes an ADMIN_HANDLES match, persists it, rides in the payload', async () => {
     const producer = fakeProducer()
     const stored   = await hash('secret')
-    const pool     = fakePool({
-        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'player' }]}),
-    })
+    // the promotion UPDATE's response is discarded either way (loginPlayer
+    // never reads it) - 1 entry safely answers both queries here.
+    const pool     = fakePool([
+        () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'player' }]}),
+    ])
     const handlers = createHandlers(pool, fakeTransact(pool.client), producer)
 
     process.env.ADMIN_HANDLES = 'alice'
@@ -153,7 +162,7 @@ test('loginPlayer promotes an ADMIN_HANDLES match, persists it, rides in the pay
         delete process.env.ADMIN_HANDLES
     }
 
-    const update = pool.client.log.find(({ sql }) => sql.includes('update players'))
+    const update = pool.client.log.find(({ sql }) => sql.includes('UPDATE players'))
     assert.deepEqual(update.params, [ 'admin', 'p1' ])
 
     const [ e ] = producer.events()
@@ -163,9 +172,9 @@ test('loginPlayer promotes an ADMIN_HANDLES match, persists it, rides in the pay
 test('loginPlayer does not re-persist role for an already-admin player', async () => {
     const producer = fakeProducer()
     const stored   = await hash('secret')
-    const pool     = fakePool({
-        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'admin' }]}),
-    })
+    const pool     = fakePool([
+        () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored, role: 'admin' }]}),
+    ])
     const handlers = createHandlers(pool, fakeTransact(pool.client), producer)
 
     process.env.ADMIN_HANDLES = 'alice'
@@ -176,7 +185,7 @@ test('loginPlayer does not re-persist role for an already-admin player', async (
         delete process.env.ADMIN_HANDLES
     }
 
-    assert.ok(!pool.client.log.some(({ sql }) => sql.includes('update players')), 'already admin - no write')
+    assert.ok(!pool.client.log.some(({ sql }) => sql.includes('UPDATE players')), 'already admin - no write')
     const [ e ] = producer.events()
     assert.equal(e.payload.role, 'admin')
 })
@@ -185,9 +194,9 @@ test('loginPlayer emits login.rejected on wrong password', async () => {
     const producer = fakeProducer()
     const stored   = await hash('secret')
 
-    await login(producer, {
-        'select pid, handle, hash': () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored }]}),
-    }, { handle: 'alice', password: 'wrong' })
+    await login(producer, [
+        () => ({ rows: [{ pid: 'p1', handle: 'alice', hash: stored }]}),
+    ], { handle: 'alice', password: 'wrong' })
 
     const [ e ] = producer.events()
     assert.equal(e.event_type, 'player.login.rejected.v1')
@@ -197,7 +206,7 @@ test('loginPlayer emits login.rejected on wrong password', async () => {
 test('loginPlayer emits login.rejected on unknown handle', async () => {
     const producer = fakeProducer()
 
-    await login(producer, {}, { handle: 'nobody', password: 'secret' })
+    await login(producer, [], { handle: 'nobody', password: 'secret' })
 
     const [ e ] = producer.events()
     assert.equal(e.event_type, 'player.login.rejected.v1')
@@ -216,15 +225,17 @@ test('loginPlayer never writes to the outbox', async () => {
 })
 
 // ── debitWallet ───────────────────────────────────────────────────────────────
+// debitWallet's real order: claimRfid, then select balance, then update
+// wallets (only on the accepted path) - each queue matches that.
 
-const claimedRfid = { wallet_transactions: () => ({ rows: [{ rfid: 'r1' }]}) }
+const claimedRfid = () => ({ rows: [{ rfid: 'r1' }]})
 
 test('debitWallet emits wallet.debited with updated balance', async () => {
-    const client = fakeClient({
-        ...claimedRfid,
-        'select balance': () => ({ rows: [{ balance: 500, version: 2 }]}),
-        'update wallets': () => ({ rows: [{ balance: 400, version: 3 }]}),
-    })
+    const client = fakeClient([
+        claimedRfid,
+        () => ({ rows: [{ balance: 500, version: 2 }]}),
+        () => ({ rows: [{ balance: 400, version: 3 }]}),
+    ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.debit.requested.v1' ](
@@ -239,10 +250,10 @@ test('debitWallet emits wallet.debited with updated balance', async () => {
 })
 
 test('debitWallet emits transaction.rejected on insufficient funds', async () => {
-    const client = fakeClient({
-        ...claimedRfid,
-        'select balance': () => ({ rows: [{ balance: 50, version: 1 }]}),
-    })
+    const client = fakeClient([
+        claimedRfid,
+        () => ({ rows: [{ balance: 50, version: 1 }]}),
+    ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.debit.requested.v1' ](
@@ -252,14 +263,14 @@ test('debitWallet emits transaction.rejected on insufficient funds', async () =>
     const events = outboxEvents(client)
     assert.equal(events[ 0 ].event_type, 'wallet.transaction.rejected.v1')
     assert.equal(events[ 0 ].payload.reason, 'insufficient funds')
-    assert.ok(!client.log.find(({ sql }) => sql.includes('update wallets')))
+    assert.ok(!client.log.find(({ sql }) => sql.includes('UPDATE wallets')))
 })
 
 test('debitWallet emits transaction.rejected when wallet not found', async () => {
-    const client = fakeClient({
-        ...claimedRfid,
-        'select balance': () => ({ rows: []}),
-    })
+    const client = fakeClient([
+        claimedRfid,
+        () => ({ rows: []}),
+    ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.debit.requested.v1' ](
@@ -272,7 +283,7 @@ test('debitWallet emits transaction.rejected when wallet not found', async () =>
 })
 
 test('debitWallet skips silently on duplicate rfid', async () => {
-    const client   = fakeClient({ wallet_transactions: () => ({ rows: []}) })
+    const client   = fakeClient([ () => ({ rows: []}) ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.debit.requested.v1' ](
@@ -280,16 +291,16 @@ test('debitWallet skips silently on duplicate rfid', async () => {
     )
 
     assert.equal(outboxEvents(client).length, 0)
-    assert.ok(!client.log.find(({ sql }) => sql.includes('select balance')))
+    assert.ok(!client.log.find(({ sql }) => sql.includes('SELECT balance')))
 })
 
 // ── creditWallet ──────────────────────────────────────────────────────────────
 
 test('creditWallet emits wallet.credited with updated balance', async () => {
-    const client = fakeClient({
-        ...claimedRfid,
-        'update wallets': () => ({ rows: [{ balance: 600, version: 2 }]}),
-    })
+    const client = fakeClient([
+        claimedRfid,
+        () => ({ rows: [{ balance: 600, version: 2 }]}),
+    ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.credit.requested.v1' ](
@@ -304,10 +315,10 @@ test('creditWallet emits wallet.credited with updated balance', async () => {
 })
 
 test('creditWallet sets causation_id from cmd', async () => {
-    const client = fakeClient({
-        ...claimedRfid,
-        'update wallets': () => ({ rows: [{ balance: 600, version: 2 }]}),
-    })
+    const client = fakeClient([
+        claimedRfid,
+        () => ({ rows: [{ balance: 600, version: 2 }]}),
+    ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.credit.requested.v1' ](
@@ -319,7 +330,7 @@ test('creditWallet sets causation_id from cmd', async () => {
 })
 
 test('creditWallet skips silently on duplicate rfid', async () => {
-    const client   = fakeClient({ wallet_transactions: () => ({ rows: []}) })
+    const client   = fakeClient([ () => ({ rows: []}) ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.credit.requested.v1' ](
@@ -327,7 +338,7 @@ test('creditWallet skips silently on duplicate rfid', async () => {
     )
 
     assert.equal(outboxEvents(client).length, 0)
-    assert.ok(!client.log.find(({ sql }) => sql.includes('update wallets')))
+    assert.ok(!client.log.find(({ sql }) => sql.includes('UPDATE wallets')))
 })
 
 // ── crypto ────────────────────────────────────────────────────────────────────

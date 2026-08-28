@@ -19,7 +19,7 @@ import {
     withClient, Query,
     where, selectWhere,
 } from '#packages/db/src/query.js'
-import { encodeJson } from '#packages/util/src/index.js'
+import { encodeJson, Fail } from '#packages/util/src/index.js'
 
 import {
     fakePool,
@@ -39,8 +39,8 @@ test('Inbox mark and has', () => {
 test('Inbox.identity extracts eid then cmd', () => {
     assert.equal(Inbox.identity({ eid: 'e1', cmd: 'c1' }), 'e1')
     assert.equal(Inbox.identity({ cmd: 'c1' }), 'c1')
-    assert.equal(Inbox.identity({}), undefined)
-    assert.equal(Inbox.identity(null), undefined)
+    assert.equal(Inbox.identity({}), void 0)
+    assert.equal(Inbox.identity(null), void 0)
 })
 
 test('Inbox toStringTag', () => {
@@ -63,7 +63,7 @@ test('inbox default export groups factory functions', () => {
 // ── createInbox (pool-backed) ─────────────────────────────────────────────────
 
 test('createInbox.has returns true when row found', async () => {
-    const pool = fakePool({ 'select 1 from inbox': () => ({ rows: [{}]}) })
+    const pool = fakePool([ () => ({ rows: [{}]}) ])
     assert.equal(await createInbox(pool).has('e1'), true)
 })
 
@@ -74,7 +74,7 @@ test('createInbox.has returns false when row absent', async () => {
 test('createInbox.mark inserts row and returns true', async () => {
     const pool = fakePool()
     assert.equal(await createInbox(pool).mark('e1'), true)
-    assert.ok(pool.client.log.some(q => q.sql.includes('insert into inbox')))
+    assert.ok(pool.client.log.some(q => q.sql.includes('INSERT INTO inbox')))
 })
 
 // ── writeOutbox ───────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ test('writeOutbox inserts one row per message', async () => {
             { key: 'p2', value: encodeJson({ eid: 'e2' }) },
         ],
     }])
-    assert.equal(client.log.filter(q => q.sql.includes('insert into outbox')).length, 2)
+    assert.equal(client.log.filter(q => q.sql.includes('INSERT INTO outbox')).length, 2)
 })
 
 test('writeOutbox decodes Buffer values for jsonb storage', async () => {
@@ -116,10 +116,10 @@ test('pollOutbox publishes pending rows then marks them', async () => {
     const published = []
     const marked    = []
 
-    const pool = fakePool({
-        'where published is null': () => ({ rows: pending.splice(0) }),
-        'update outbox'(p) { marked.push(p[ 0 ]); return { rows: []} },
-    })
+    const pool = fakePool([
+        () => ({ rows: pending.splice(0) }),
+        p => { marked.push(p[ 0 ]); return { rows: []} },
+    ])
 
     const poller = pollOutbox(pool, async rec => published.push(rec), { interval: 5 })
     await setTimeout(20)
@@ -133,10 +133,10 @@ test('pollOutbox marks row only after publish succeeds', async () => {
     const order = []
     const pending = [{ id: 'r1', topic: 't', key: null, payload: {}}]
 
-    const pool = fakePool({
-        'where published is null': () => ({ rows: pending.splice(0) }),
-        'update outbox'() { order.push('mark'); return { rows: []} },
-    })
+    const pool = fakePool([
+        () => ({ rows: pending.splice(0) }),
+        () => { order.push('mark'); return { rows: []} },
+    ])
 
     const poller = pollOutbox(pool, async () => { order.push('publish') }, { interval: 100 })
     await setTimeout(20)
@@ -147,9 +147,9 @@ test('pollOutbox marks row only after publish succeeds', async () => {
 
 test('pollOutbox stop prevents further polling', async () => {
     let fetches = 0
-    const pool = fakePool({
-        'where published is null'() { fetches++; return { rows: []} },
-    })
+    const pool = fakePool([
+        () => { fetches++; return { rows: []} },
+    ])
     const poller = pollOutbox(pool, async () => {}, { interval: 10 })
     await setTimeout(5)
     poller.stop()
@@ -169,17 +169,18 @@ test('migrate bootstraps schema_migrations and applies pending files', async () 
     const pool = fakePool()
     await migrate(pool)
     const { log } = pool.client
-    assert.ok(log.some(q => q.sql.includes('create table if not exists schema_migrations')))
-    assert.ok(log.some(q => q.sql.includes('insert into schema_migrations') && q.params))
+    assert.ok(log.some(q => q.sql.includes('CREATE TABLE IF NOT EXISTS schema_migrations')))
+    assert.ok(log.some(q => q.sql.includes('INSERT INTO schema_migrations') && q.params))
 })
 
 test('migrate skips already-applied files', async () => {
-    const pool = fakePool({
-        'select name from schema_migrations': () => ({ rows: [{ name: '001_inbox.sql' }]}),
-    })
+    const pool = fakePool([
+        () => ({ rows: []}),                                 // bootstrap
+        () => ({ rows: [{ name: '001_inbox.sql' }]}),         // appliedMigrations
+    ])
     await migrate(pool)
     const applied = pool.client.log
-        .filter(q => q.sql.includes('insert into schema_migrations') && q.params)
+        .filter(q => q.sql.includes('INSERT INTO schema_migrations') && q.params)
         .map(q => q.params[ 0 ])
     assert.ok(!applied.includes('001_inbox.sql'))
     assert.ok(applied.includes('002_outbox.sql'))
@@ -192,14 +193,14 @@ test('migrate rolls back on sql error', async () => {
         query(sql) {
             log.push(sql.trim())
             if (sql.includes('create table inbox'))
-                return Promise.reject(new Error('syntax error'))
+                return Fail.deny('syntax error')
             return Promise.resolve({ rows: []})
         },
     }
     const pool = { connect: () => Promise.resolve(client) }
 
     await assert.rejects(() => migrate(pool), /syntax error/)
-    assert.ok(log.includes('rollback'))
+    assert.ok(log.includes('ROLLBACK'))
 })
 
 // ── pool ──────────────────────────────────────────────────────────────────────
@@ -210,20 +211,20 @@ test('withTransaction commits and returns the fn result', async () => {
 
     assert.equal(rs, 42)
     const sqls = pool.client.log.map(q => q.sql)
-    assert.ok(sqls.includes('begin'))
-    assert.ok(sqls.includes('commit'))
-    assert.ok(!sqls.includes('rollback'))
+    assert.ok(sqls.includes('BEGIN'))
+    assert.ok(sqls.includes('COMMIT'))
+    assert.ok(!sqls.includes('ROLLBACK'))
 })
 
 test('withTransaction rolls back when fn throws', async () => {
     const pool = fakePool()
     await assert.rejects(
-        () => withTransaction(pool, async () => { throw new Error('boom') }),
+        () => withTransaction(pool, async () => { throw new Fail('boom') }),
         /boom/,
     )
     const sqls = pool.client.log.map(q => q.sql)
-    assert.ok(sqls.includes('rollback'))
-    assert.ok(!sqls.includes('commit'))
+    assert.ok(sqls.includes('ROLLBACK'))
+    assert.ok(!sqls.includes('COMMIT'))
 })
 
 test('createPool sets search_path option and remembers the schema', async () => {

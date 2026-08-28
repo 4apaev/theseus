@@ -21,6 +21,8 @@ export {
     makeCmd,
     fakePool,
     fakeClient,
+    fakeTablePool,
+    fakeTableClient,
     fakeTransact,
     outboxEvents,
 } from './mocks.js'
