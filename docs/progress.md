@@ -9,6 +9,25 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+confirm dialog before travel ✔
+------------------------------------------------
+
+closes [phase.3.md](phase.3.md) step 3.2's "confirm dialog before
+travel" item, and the matching bug in [client.md](client.md) ("confirm
+dialog for travel").
+
+a click on a reachable station used to send `/travel` straight away.
+now it opens `#travelDialog` (`render.js`'s `openTravelDialog(stid)`,
+same shape `#tradeDialog`/`#nameDialog` already use) naming the
+destination; `CONFIRM` (`commands.js`'s `confirmTravel()`) sends it,
+`CANCEL` closes with nothing sent. one misclick on the map no longer
+commits a ship - more so now a click can mean several hops.
+
+no new pattern - reuses the existing dialog markup (`class=tradeDialog`)
+and the open/confirm/cancel wiring the trade and rename dialogs
+already established.
+
+------------------------------------------------
 pending-command timeout ✔
 ------------------------------------------------
 

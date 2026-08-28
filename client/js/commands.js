@@ -30,13 +30,20 @@ function timedOut(coid) {
     p.el.textContent += ' timed out'
 }
 
-export function travel(to) {
+function travel(to) {
     state.ship?.status === 'docked'
     && send('/travel', {
         to,
         sid: state.ship.sid,
         from: state.ship.stid,
     }, 'travel', station(to))
+}
+
+// a click can commit a ship to several hops - confirm first, no misclicks.
+export function confirmTravel() {
+    const dialog = $.id('travelDialog')
+    travel(dialog.dataset.stid)
+    dialog.close()
 }
 
 /*  the same rule as field.shipName in the contract. the client checks it

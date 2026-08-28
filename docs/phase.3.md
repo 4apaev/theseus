@@ -117,9 +117,11 @@ step:
 
 - ✔ **fetch - Sync** in tests: replace fetch, post calls with `garage/sync`
 
-- **confirm dialog before travel** (`client.md` bugs list) - a misclick
+- ✔ **confirm dialog before travel** (`client.md` bugs list) - a misclick
   shouldn't commit a ship to a trip, more so now a click can mean
-  several hops
+  several hops. a click on a reachable station opens `#travelDialog`
+  (same shape as the trade/rename dialogs) instead of sending `/travel`
+  straight away; `CONFIRM` sends it, `CANCEL` closes with nothing sent.
 
 - ✔ **pending-command timeout** (`client.md` accepted risks) - a lost
   command leaves a `…` feed line forever; a client-side timeout now
