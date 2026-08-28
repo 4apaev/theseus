@@ -58,3 +58,5 @@ more economy
 tech debt
 ----------------
 - dockerized deploy
+- `using`/`Symbol.dispose` for db client acquisition, `packages/db/src/query.js`'s
+  `withClient` - deferred from phase 3 step 3.2, see [tech.debt.md](tech.debt.md)

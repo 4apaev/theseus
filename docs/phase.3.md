@@ -31,7 +31,7 @@ all touch `packages/domain`; 3.3, 3.4, 3.5 and 3.6 all touch the client)
 | step | what                                                             | status      |
 |------|-------------------------------------------------------------------|-------------|
 | 3.1  | ships name generator                                               | done ✔      |
-| 3.2  | tech debt sweep                                                    | not started |
+| 3.2  | tech debt sweep                                                    | done ✔      |
 | 3.3  | travel manifest visualization                                      | not started |
 | 3.4  | ship upgrades - capacity and velocity                              | not started |
 | 3.5  | player messenger - the ansible                                     | not started |
@@ -75,8 +75,6 @@ just not forced on first login.
 
 small, independent fixes, bundled because each is too small for its own
 step:
-
-- **make file**
 
 - ✔ **service uptime** - `scripts/services-check.js` now reads
   `.logs/<name>.pid` (the same file `start.sh`/`stop.sh` already use),
@@ -129,9 +127,6 @@ step:
   per `correlation_id`; `events.js`'s `dispatch()` clears it on the
   normal resolve path; `resetPlayer()` clears any still running on
   logout.
-
-- **`using`/`Symbol.dispose`** for db client acquisition in
-  `packages/db` (`tech.debt.md` "nice to have")
 
 (already fixed alongside this doc, not gated on this step: the stale
 travel-manifests TODO in `packages/domain/readme.md`.)
@@ -328,7 +323,10 @@ animations, a 3D client.
 
 from `tech.debt.md`: dockerized deploy (needs a real plan first, not
 scoped enough to schedule), a lit.dev-style frontend rewrite (the doc's
-own call: could be a standalone repo, not necessarily part of theseus).
+own call: could be a standalone repo, not necessarily part of theseus),
+`using`/`Symbol.dispose` for db client acquisition (fits
+`packages/db/src/query.js`'s `withClient` only, a small win - not worth
+this phase's time over the items above).
 
 from `client.md`: the stickable/draggable/resizable panel layout
 rework, `rs.file` cache headers (dev-only, stays noted not promoted -

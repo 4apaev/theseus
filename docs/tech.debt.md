@@ -26,12 +26,6 @@ whos online, status etc
 still covers kafka/postgres/pgadmin reachability.
 
 
-### make file
-consider adding `make` build. migrate scripts to `make`
-
-**scheduled** - see [phase.3.md](phase.3.md) step 3.2.
-
-
 ### NODE_ENV
 
 add `NODE_ENV = dev | prod | test`
@@ -60,7 +54,9 @@ nice to have
 - implement db connection and query with new `using` and `Symbol.dispose` API
     - [explicit-resource-management](https://v8.dev/features/explicit-resource-management)
     - [using keyword](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/using)
-    - **scheduled** - see [phase.3.md](phase.3.md) step 3.2
+    - fits `packages/db/src/query.js`'s `withClient` only - `withTransaction`
+      and `migrate.js` branch on commit vs rollback, not plain cleanup
+    - **deferred to phase 4** - see [phase.4.md](phase.4.md) tech debt
 
 
 
