@@ -9,6 +9,75 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+tests stop matching sql by text ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.2 (tech debt sweep - a
+prerequisite for the "sql code style uppercase" item, not that item
+itself, which stays open). the fake db client used to route its canned
+responses by matching a substring of the query's own sql text -
+`packages/testing/src/mocks.js`'s `fakeClient`/`fakePool`. reformatting
+a query's casing or wording, exactly what the uppercase pass would do,
+could silently stop a mock matching and break a test with no clear
+error.
+
+`packages/testing/src/mocks.js` now has 2 routing modes, neither of
+which ever inspects sql text:
+
+- `fakeClient`/`fakePool` - `overrides` is an ordered queue. call N
+  gets `overrides[N]`, given that call's params. one entry answers
+  every call (a poll's loop of same-shape calls needs only one);
+  several entries are a fixed sequence, falling back to `{ rows: [] }`
+  past the end - this covers one test driving one deterministic handler
+  call sequence, which is nearly everything.
+- `fakeTableClient`/`fakeTablePool` - for the one file that doesn't fit
+  that shape: `test/gateway.spec.js` shares one pool across ~30
+  independent tests hitting different routes in no fixed order. this
+  mode routes by the sorted, `+`-joined set of tables a query touches
+  (`'ships'`, `'cargo+ships'`, ...), parsed out of the query by the mock
+  itself - never hand-typed as a sql fragment by the test author.
+
+every unit spec (`db`, `gateway`, `market`, `player`, `ship`) converted.
+the trickiest part wasn't the common case - it was the tests where a
+poll's own query count varies per tick (`pollOutbox`: fetch, then mark
+only if a row came back) or where 2 differently-shaped calls interleave
+inside one loop (`pollDrift`: a station_inventory update, then a
+markets update whose response nothing reads). both needed tracing the
+real handler's exact query order first, not just carrying the old
+override across.
+
+------------------------------------------------
+sql code style, uppercase and aligned ✔
+------------------------------------------------
+
+closes [phase.3.md](phase.3.md) step 3.2's "sql code style uppercase"
+item, now that the fake-client blocker above is gone.
+`apps/gateway/src/queries.js` was the style to match: sql keywords
+uppercase, right-aligned to the widest keyword in the query.
+
+every raw sql string in `apps/market-service`, `apps/player-service`,
+`apps/projection-service`, `apps/ship-service`, `packages/db`, and
+`packages/service` now follows it. some queries were also reformatted
+from a single line into the aligned block shape, and 2 multi-column
+inserts (`apps/projection-service/src/handlers.js`'s `tradeExecuted`,
+`priceChanged`) lost their wrapped column lists in favor of one line
+each - shorter, and matching the pattern `apps/ship-service`'s own
+`shipCreated` insert already used.
+
+migration `.sql` files stay untouched - a separate, much larger
+surface, and out of this pass's scope.
+
+a handful of unit-test assertions matched a production query by a
+lowercase substring of its own sql text (`sql.includes('update ships')`
+and the like) - not the fake-client mock-routing fragility fixed above,
+but a real assertion on what query ran. those had to move to the new
+uppercase text alongside the production change, in `db`, `market`,
+`player`, and `ship` specs.
+
+lint, tsc, the full unit suite, and the integration suite (which runs
+every reformatted query against real postgres) are all clean.
+
+------------------------------------------------
 fetch → Sync in tests ✔
 ------------------------------------------------
 

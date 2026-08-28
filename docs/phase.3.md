@@ -77,6 +77,7 @@ small, independent fixes, bundled because each is too small for its own
 step:
 
 - **make file**
+
 - ✔ **service uptime** - `scripts/services-check.js` now reads
   `.logs/<name>.pid` (the same file `start.sh`/`stop.sh` already use),
   and reports up/down, pid, and real uptime per service, next to the
@@ -96,10 +97,23 @@ step:
 
 - ✔ **fix poll calls**, remove redundant function wrappers and fix types
 
-- **sql code style uppercase** unify sql code style.
-  make all uppercase.
-  make sure tests that uses sql strings as key are green.
-  i dont like that sql as key approach any way.
+- ✔ **sql code style uppercase** - unify sql code style, make all
+  uppercase and aligned, `apps/gateway/src/queries.js`'s style.
+
+  the blocker went first: tests no longer mock by matching sql text at
+  all, so the reformat could no longer break one silently.
+  `packages/testing/src/mocks.js` gained 2 routing modes - `fakeClient`/
+  `fakePool` answer by call order (a queue, not a lookup); the shared,
+  many-caller pools in `test/gateway.spec.js` route by the sorted set of
+  tables a query touches, parsed from the query itself. neither ever
+  matches on sql wording. every unit test file (`db`, `gateway`,
+  `market`, `player`, `ship`) converted.
+
+  then the reformat itself: every raw sql string in `apps/market-service`,
+  `apps/player-service`, `apps/projection-service`, `apps/ship-service`,
+  `packages/db`, and `packages/service` now uppercases keywords and
+  right-aligns them, same as `queries.js`. migration `.sql` files stay as
+  they are - out of scope, a separate, larger surface.
 
 - ✔ **fetch - Sync** in tests: replace fetch, post calls with `garage/sync`
 
