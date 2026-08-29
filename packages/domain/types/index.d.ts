@@ -32,3 +32,26 @@ export {
 export {
     randomShipName,
 } from './shipNames.js'
+
+export {
+    Fitting,
+    fitting,
+    hulls,
+    modules,
+    starterLoadout,
+    slotFamilies,
+    mounts,
+    previewLoadout,
+    deriveStats,
+    cargoLoad,
+    type Hull,
+    type Slot,
+    type Requirement,
+    type Effect,
+    type Design as ModuleDesign,
+    type Stats,
+    type Operation,
+    type LoadoutContext,
+    type LoadoutPreview,
+    type CargoLine,
+} from './modules.js'

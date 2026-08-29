@@ -38,7 +38,10 @@
           alone, so the winning route can change with the ship
     - `universe`    - the known universe singleton, 5 systems, 10 stations,
       15 links, 30 directed routes
-    - `goods`       - `{ gid: { name, price_base, elasticity } }` - ore / grain / spice
+    - `goods`       - `{ gid: { name, price_base, elasticity, kind, volume } }` -
+      ore / grain / spice (`kind: 'commodity'`) plus the packaged module
+      goods from `modules.js` (`kind: 'module'`) - one catalogue for
+      everything tradable, `kind` and `volume` drive cargo weighting
     - `starterShip` - docked `sol.outpost`, 0.6c, capacity 20 (name comes
       from `randomShipName()`, not a field on this object)
     - `randomShipName()` - a fresh ship name each call: some come from
@@ -48,11 +51,35 @@
       rules, `readEnv`-backed (defaults 20 / 0.05 / 1000) - single source of
       truth; ship-service and player-service import these instead of each
       reading their own env var with its own (driftable) default
-    - `universeData` - `{ systems, stations, routes, goods, starter, constants }`
+    - `universeData` - `{ systems, stations, routes, goods, hulls, modules, starter, constants }`
       - the full `GET /universe` wire payload, composed once at import time
 - `src/economy.js` - supply & demand, no state prices here
     - `price(base, stock, target, elasticity)` - scarcity ↑, glut ↓
     - `spread(price, margin)` → `{ price_buy, price_sell }` - station ask above bid
+- `src/modules.js` - ship modules catalogue + resolver. mechanics are
+  designed in [docs/modules.md](../../docs/modules.md) - read that first.
+    - `hulls` - `{ id: Hull }`, one entry today: `starter` (20 capacity,
+      0.6c, matching the existing starter ship before any upgrade)
+    - `modules` - `{ gid: ModuleDesign }` - family, mount, power draw,
+      install context, requirements/conflicts/provides (capability +
+      rank) and effects (flat/percent). a design is not a good - see
+      `goods` below, they join on a shared gid
+    - `starterLoadout` - `{ slot: gid }`, the starter hull's day-1 fit
+    - `mounts` / `slotFamilies` - ordering data for the client
+    - `Fitting` - the resolver, bound to one module catalogue at
+      construction (`modules` by default - tests pass their own toy
+      catalogue instead)
+        - `deriveStats(hull, fitted)` → `{ capacity, velocity, power: {
+          available, used } }` - hull base → flat → percent → hull cap,
+          the same fixed order for every stat
+        - `previewLoadout(hull, fitted, operation, context)` → `{
+          proposed, stats, errors }` - one install or remove, checked
+          against the *proposed* final loadout only, never history.
+          `errors` lists every violation, not just the first
+    - `fitting` - the live `Fitting` instance every service imports;
+      `deriveStats` / `previewLoadout` above are it, already bound
+    - `cargoLoad(cargo, goodsCatalog)` - `Σ(quantity × volume)`, so a
+      reactor and a crate of grain are not the same 1 cargo unit
 
 ------------------------------------------------
 

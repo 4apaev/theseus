@@ -1,8 +1,10 @@
 // @ts-check
 
 import { readEnv } from '@theseus/config'
-import { O, Is, Fail } from 'garage/util'
+import { O, Is, Fail, nil } from '@theseus/util'
+
 import randomShipName from './shipNames.js'
+import { hulls, modules } from './modules.js'
 
 export class Universe {
 
@@ -214,40 +216,49 @@ function trace(prev, from, to) {
     return route
 }
 
-/* ── the known universe ───────────────────────────────────────
+//  ── the known universe ───────────────────────────────────────
+/*
+    a system holds stations.
+    gateway - main station in a system, links to the other stars.
+    the rest are planets and moons linked only inside their own system.
 
-    a system holds stations. one station in each system links to the
-    other stars - the gateway. the rest are planets and moons. they
-    link only inside their own system.
+    star distances are real, in light years, from sol.outpost
+    the source is the HYG star catalogue (docs/hygdata_v42.csv).
 
-    star distances are real, in light years, from Sol. the source is
-    the HYG star catalogue (docs/hygdata_v42.csv).
+    an in-system distance is the gap between two mean orbit radii,
+    in astronomical units.
 
-    an in-system distance is the gap between two mean orbit radii, in
-    astronomical units. the radii are the standard NASA figures. this
-    is an approximation - the true distance moves with the planets.
+    the radii are the standard NASA figures. this is an approximation,
+    the true distance moves with the planets.
 
-    Sol Outpost has no orbit of its own. it sits at Earth's, 1.0 AU
-    out - home base, where every new player starts, not a remote
-    outpost. Ganymede and Titan are moons, so they sit at their
-    planet's orbit: Jupiter's and Saturn's.
+    sol outpost has no orbit of its own.
+    it sits at Earth's, 1.0 AU out - home base
+*/
 
-*/// one astronomical unit, in light years
-const AU = 1 / 63241.077
-const au = n => n * AU /*
+const AU       = 1 / 63241.077  // one astronomical unit, in light years
+const SUBLIGHT = 0.00008        // 24 km/s
 
+/*
     the speed limit of an in-system route.
     0.00008c is 24 km/s - 1.5 times voyager 2's speed.
 
-    the limit stops a short hop from ending before it starts. venus
-    sits 0.000013 ly from mars. at 0.6c that trip takes 0.0004 game
-    seconds. at 24 km/s it takes 3 seconds. mars to titan, the longest
-    hop in sol, takes 32 seconds - still far under a trip between
-    stars.  */
-const SUBLIGHT = 0.00008 // 24 km/s
-
+    the limit stops a short hop from ending before it starts.
+    venus sits 0.000013 ly from mars.
+    at 0.6c that trip takes 0.0004 game seconds.
+    at 24 km/s it takes 3 seconds.
+    mars to titan, the longest hop in sol, takes 32 seconds,
+    still far under a trip between stars.
+*/
 const universe = new Universe
 export default universe
+
+/**
+ * @param  { number  } n
+ * @return { number }
+ */
+function au(n) {
+    return n * AU
+}
 
 universe.system('sol',            { name: 'Sol',            star: 'G2V yellow dwarf' })
 universe.system('alpha.centauri', { name: 'Alpha Centauri', star: 'G2V + K1V binary' })
@@ -256,11 +267,11 @@ universe.system('wolf.359',       { name: 'Wolf 359',       star: 'M6V red dwarf
 universe.system('sirius',         { name: 'Sirius',         star: 'A1V + white dwarf' })
 
 /*
-    Sol is the built-out system. the stations are declared in orbit
-    order. the client map draws each cluster in that same order, so
-    Mercury sits next to the star. the outpost sits between Venus and
-    Mars, close to home. Sol Outpost is the gateway - it holds the
-    links to the other stars.
+    Sol is the built-out system. the stations are declared in orbit order.
+    the client map draws each cluster in that same order,
+    so Mercury sits next to the star.
+    the outpost sits between Venus and Mars, close to home.
+    Sol Outpost is the gateway - it holds the links to the other stars.
 */
 universe.node('sol.mercury',    { system: 'sol', name: 'Mercury Deep',   produces: { ore  : 10 }, consumes: { grain: 6 }})
 universe.node('sol.venus',      { system: 'sol', name: 'Venus Lab',      produces: { spice:  6 }, consumes: { ore  : 4 }})
@@ -269,7 +280,6 @@ universe.node('sol.mars',       { system: 'sol', name: 'Mars Hub',       produce
 universe.node('sol.ganymede',   { system: 'sol', name: 'Ganymede Yards', produces: { ore  :  6 }, consumes: { spice: 4 }})
 universe.node('sol.titan',      { system: 'sol', name: 'Titan Ring',     produces: { spice:  7 }, consumes: { grain: 5 }})
 
-// one station per system elsewhere. each one is its own gateway.
 universe.node('alpha.exchange', { system: 'alpha.centauri', name: 'Alpha Exchange', produces: { grain: 8 }, consumes: { spice: 5 }})
 universe.node('barnards.port',  { system: 'barnards.star',  name: 'Barnards Port',  produces: { spice: 8 }, consumes: { ore  : 5 }})
 universe.node('wolf.reach',     { system: 'wolf.359',       name: 'Wolf Reach',     produces: { grain: 9 }, consumes: { ore  : 6 }})
@@ -322,15 +332,28 @@ universe
 
 // ── goods ────────────────────────────────────────────────────
 
-export const goods = O.ƒ({
-    ore  : O.ƒ({ name: 'iron ore',    price_base: 40, elasticity: 1.2 }),
-    grain: O.ƒ({ name: 'hydro grain', price_base: 25, elasticity: 1.0 }),
-    spice: O.ƒ({ name: 'void spice',  price_base: 90, elasticity: 1.5 }),
+export const goods = nil({
+    ore  : { name: 'iron ore',    price_base: 40, elasticity: 1.2, kind: 'commodity', volume: 1 },
+    grain: { name: 'hydro grain', price_base: 25, elasticity: 1.0, kind: 'commodity', volume: 1 },
+    spice: { name: 'void spice',  price_base: 90, elasticity: 1.5, kind: 'commodity', volume: 1 },
+
+    /*
+        packaged modules - for family, mount, requirements.
+        sparse by design: only a few stations stock these, see drift.js.
+    */
+    'reactor.mk1': { name: 'reactor mk1',      price_base: 200,  elasticity: 1.0, kind: 'module', volume: 4 },
+    'reactor.mk2': { name: 'reactor mk2',      price_base: 900,  elasticity: 1.0, kind: 'module', volume: 4 },
+
+    'cruise.mk1' : { name: 'cruise drive mk1', price_base: 150,  elasticity: 1.0, kind: 'module', volume: 6 },
+    'cruise.mk2' : { name: 'cruise drive mk2', price_base: 1200, elasticity: 1.0, kind: 'module', volume: 6 },
+
+    'cargo.mk1'  : { name: 'cargo module mk1', price_base: 100,  elasticity: 1.0, kind: 'module', volume: 8 },
+    'cargo.mk2'  : { name: 'cargo module mk2', price_base: 500,  elasticity: 1.0, kind: 'module', volume: 8 },
 })
 
 // ── starter ship ─────────────────────────────────────────────
 
-export const starterShip = O.ƒ({
+export const starterShip = nil({
     get name() { return randomShipName() },
     stid    : 'sol.outpost',
     velocity: 0.6,
@@ -338,23 +361,16 @@ export const starterShip = O.ƒ({
 })
 
 // ── game mechanics ───────────────────────────────────────────
-/*
-the rules of this game. one source of truth for all of them.
-tunable through env vars - .env.dev shrinks TIME_SCALE, for fast tests.
 
-readEnv's .d.ts declares only a string fallback. the real function
-takes any type. it parses the env value to match
-(see config/src/env.js's format()).
-every other call site in the repo has this same gap.
-it shows up only here, because this file uses @ts-check.      */// @ts-ignore
-export const TIME_SCALE      = readEnv('TIME_SCALE', 20)        // @ts-ignore
-export const INTEREST_RATE   = readEnv('INTEREST_RATE', 0.05)   // @ts-ignore
+export const currency = '₢'                                  // @ts-ignore
+export const TIME_SCALE = readEnv('TIME_SCALE', 20)          // @ts-ignore
+export const INTEREST_RATE = readEnv('INTEREST_RATE', 0.05)  // @ts-ignore
 export const STARTER_CREDITS = readEnv('STARTER_CREDITS', 1000)
-
-export const currency = '₢'
-export const universeData = {
+export const universeData = nil({
     ...universe.toJSON(),
     goods,
+    hulls,
+    modules,
     starter: starterShip,
     constants: {
         time_scale     : TIME_SCALE,
@@ -362,7 +378,7 @@ export const universeData = {
         starter_credits: STARTER_CREDITS,
         currency,
     },
-}
+})
 
 /**
  * @typedef { import('../types/universe.js').Edge         } Edge
