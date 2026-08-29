@@ -62,6 +62,8 @@ export function low(s) { return s.toLowerCase() }
 export function trim(s) { return s.trim() }
 export function camel2snake(s, ...a) { return s.match(/[A-Z]?[a-z]+/g).map(low).concat(...a).join('_') }
 
+// ── Time ────────────────────────────────────────────────────
+
 // ms since some past instant → a short "1d 2h" / "3h 4m" / "5m 6s" / "7s" string
 export function fmtDuration(ms) {
     const s = Math.floor(ms / 1000)
@@ -92,6 +94,13 @@ export function formatTime(x) {
 }
 
 // ─────────────────────────────────────────────────────────────
+
+export function nil(x) {
+    if (Is.a(x)) return x.map(nil), x
+    return Is.x(x)
+        ? each(x, nil, O.setPrototypeOf(x, null))
+        : x
+}
 
 /*  a poll must survive one bad tick.
     without the catch, one rejection stops the loop for the life of the

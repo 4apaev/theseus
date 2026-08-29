@@ -1,3 +1,4 @@
+// import Buffer from 'node:buffer'
 export * from 'garage/util'
 export * as Constants from 'garage/constants'
 
@@ -28,4 +29,5 @@ export function camel2snake(s: string, ...a: string[]): string
 export function guid(prefix?: string): string
 export function formatTime(x: string | number): number
 export function fmtDuration(ms: number): string
+export function nil<T>(x: T): T
 
