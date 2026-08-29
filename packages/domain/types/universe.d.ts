@@ -72,6 +72,8 @@ export interface Good {
     name: string
     price_base: number
     elasticity: number
+    kind: 'commodity' | 'module'
+    volume: number
 }
 
 export declare const TIME_SCALE: number
@@ -81,6 +83,8 @@ export declare const STARTER_CREDITS: number
 export declare const currency: '₢'
 export declare const universeData: UniverseJSON & {
     goods: Good
+    hulls: import('./modules.js').Hull
+    modules: import('./modules.js').Design
     starter: Ship
     constants: {
         time_scale: number
@@ -93,7 +97,13 @@ export declare const universeData: UniverseJSON & {
 export declare const goods: Readonly<Record<
     | 'ore'
     | 'grain'
-    | 'spice',
+    | 'spice'
+    | 'reactor.mk1'
+    | 'reactor.mk2'
+    | 'cruise.mk1'
+    | 'cruise.mk2'
+    | 'cargo.mk1'
+    | 'cargo.mk2',
     Good
 >>
 

@@ -25,3 +25,16 @@ export {
 export {
     randomShipName,
 } from './shipNames.js'
+
+export {
+    Fitting,
+    fitting,
+    hulls,
+    modules,
+    starterLoadout,
+    slotFamilies,
+    mounts,
+    previewLoadout,
+    deriveStats,
+    cargoLoad,
+} from './modules.js'

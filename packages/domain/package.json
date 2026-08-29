@@ -10,6 +10,7 @@
         }
     },
     "dependencies": {
-        "@theseus/config": "*"
+        "@theseus/config": "*",
+        "@theseus/util": "*"
     }
 }
