@@ -143,13 +143,12 @@ scheduled - see [phase.2.md](phase.2.md) step 2.1.
 not.
 
 
-eve online
+game balance
 ------------------------------------------------
+theseus right now doesn't fell like a game, more like a simulation, (which is ok i guess).
 
-looking at you [eveonline!](https://www.eveonline.com/)     \
-make a reasearch of, learn about architecture of this game. \
-reading list: [eve.md](eve.md).
-> some day maybe even add 3D client.
+in order to feel like a real game it need a good balance.
+after most of the mechanics are implemented, the balance phase should be planed.
 
 
 ideas
@@ -204,7 +203,7 @@ let player decide about:
 - fuel / mass calculation
 
 **the brachistochrone trajectory model - scheduled**, see
-[phase.3.md](phase.3.md) step 3.6, in-system travel only. the fuller
+[phase.3.md](phase.3.md) step 3.5, in-system travel only. the fuller
 vision here - player-controlled burns, fuel mass, cargo weight - stays
 an idea, not scheduled (see phase.3.md's "explicitly out").
 
@@ -251,7 +250,7 @@ btw, player should be able to see other players at least in same station
   [phase.2.md](phase.2.md) steps 2.3 and 2.4. switching off a ship's
   transponder stays open, see [permissions.md](permissions.md).
 - the `ansible` device itself - scheduled, see [phase.3.md](phase.3.md)
-  step 3.5
+  step 3.4
 - player should be able to trade with other players - still an idea, not
   scheduled (phase 1 explicitly kept player-to-player markets out)
 
@@ -261,16 +260,44 @@ every new ship gets a random name
 or like item nameing in diablo
 or random words, up to 3,4 words for a name
 
-**done ✔** - see [phase.3.md](phase.3.md) step 3.1.
+**done ✔** - see [phase.3.md](phase.3.md) step 3.1. [progress.md](progress.md).
 
-### ship types & upgrades
-player should be able to rename ships - **done ✔**, see [progress.md](progress.md)
-player should be able upgrade ship's capacity
-player should be able upgrade ship's velocity
 
-capacity and velocity upgrades - **scheduled**, see
-[phase.3.md](phase.3.md) step 3.4. ship classes below stay an idea, not
-scheduled.
+### crew
+
+head hunt for best crew (nps)
+pilots, engineers, etc...
+each crew member should have traits.
+crew effectiveness = member traits compatibility.
+
+
+### weapons
+
+missiles.
+railguns.
+mass drivers.
+lasers only for short range if any.
+a spiled bucket of bolts in ship route may be fatal.
+
+
+### propulsion
+
+light sail.
+actual theseus (blindsight) telematter drive.
+
+
+### ship types & modules
+
+capacity and velocity changes now belong to a physical module and
+loadout system, not permanent stat purchases. packaged modules are
+market goods which can be bought, transported and resold; installation
+checks hull slots, capabilities, power and whether the work may happen
+in transit or requires port. the mechanics are designed in
+[modules.md](modules.md) and scheduled as [phase 3](phase.3.md) step 3.3.
+
+full ship classes and buying new hulls remain later work. phase 3 gives
+the existing starter ship a hull profile so compatibility rules are
+real rather than a collection of special-case ship names.
 
 introduce ship classes / types / kinds
 

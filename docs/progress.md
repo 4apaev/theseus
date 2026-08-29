@@ -9,6 +9,56 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+ship modules - domain catalogue and resolver ✔
+------------------------------------------------
+
+part of [phase.3.md](phase.3.md) step 3.3. mechanics are designed in
+[modules.md](modules.md); its own "implementation plan" section lays
+out all 7 delivery steps - this closes step 1, catalogue and pure
+rules. steps 2-7 (contracts, market-service, ship-service, projection,
+gateway, client) are still open.
+
+`packages/domain/src/modules.js` (new) holds the `hulls`/`modules`
+catalogues and `Fitting`, the resolver: `deriveStats(hull, fitted)` and
+`previewLoadout(hull, fitted, operation, context)`, matching the doc's
+own fixed-order formula (hull base → flat → percent → hull cap) and
+its call for every violation to come back at once, not just the first.
+`Fitting` takes its module catalogue at construction - `fitting` is the
+one real instance every service will import; tests build their own
+with a toy catalogue instead of the frozen real one.
+
+`universe.js`'s `goods` gained `kind: 'commodity' | 'module'` and
+`volume` on every entry, plus 6 new module goods (reactor/cruise/cargo,
+mk1/mk2) - a module design is not a good, they join on a shared gid.
+`universeData` now carries `hulls`/`modules` too, so the gateway will
+serve one immutable client catalogue with no extra route.
+
+the starter hull resolves to today's 20 capacity / 0.6c with its
+default loadout untouched - old and new players get the same valid
+starting point, matching the doc's own "done when" checklist. the
+mk1→mk2 reactor/cruise pair also proves the doc's dependency-graph
+model for real: `cruise.mk2` requires the `power` capability at rank 2,
+which only `reactor.mk2` provides - fitting the faster drive needs the
+better reactor, not a history of ever owning the slower one.
+
+one pre-existing test needed scoping, not fixing: "every good is
+produced somewhere" assumed every good sits in some station's
+`produces`/`consumes` profile. still true for commodities - the new
+module goods aren't seeded to any station yet. `modules.md` calls that
+"sparse... availability follows station production and specialization",
+explicit market-service work in step 3, not this one. narrowed to
+`kind === 'commodity'`, nothing else changed.
+
+`docs/mod.plan.md`, this repo's own first-draft implementation plan, is
+gone - `modules.md` grew a complete, more careful plan of its own
+(saga shape, `module_operations` durability, event versioning, the
+gateway preview route) that supersedes it point for point. no reason
+to keep 2 plans that can drift apart.
+
+lint, tsc and the full unit suite are clean. integration/smoke not run
+this pass - nothing here touches a service, postgres or kafka yet.
+
+------------------------------------------------
 confirm dialog before travel ✔
 ------------------------------------------------
 

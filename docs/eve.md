@@ -1,6 +1,9 @@
 eve online - architecture reading list
 ================================================
 
+[eve online](https://www.eveonline.com/)
+------------------------------------------------
+
 research spike for the `eve online` item in [game.md](game.md) - sources on
 how CCP built a single-shard mmo, picked because they map onto choices
 already made here (event sourcing, one pg schema per service, a
