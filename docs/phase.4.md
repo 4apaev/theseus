@@ -40,7 +40,7 @@ player
 physics
 ----------------
 
-- ship classes
+- full hull catalogue, ship classes and buying ships
 - orbital mechanics
 - interactive system maps
 - KSP style piloting

@@ -1,6 +1,9 @@
 phase 3 - close the open threads, add depth
 ================================================
 
+what is this branch pr/insights-88b3b3?
+
+
 phase 1 (done, see [phase.1.md](phase.1.md)) built one player's loop.
 phase 2 (done, see [phase.2.md](phase.2.md)) deepened it - a real
 universe, roles and visibility, ship traffic, dijkstra routing and
@@ -21,22 +24,21 @@ steps
 
 phase-scoped numbering (3.1-3.7), not a continuation of phase 2's.
 order follows priority, not file size: the name generator and tech-debt
-sweep open small and easy, ship upgrades, the player messenger and ΔV
-mechanics carry this phase's real player-facing depth, universe growth -
-more content on an already-proven pattern - closes it out last, being
-the least urgent of the seven. some steps share files (3.4, 3.6 and 3.7
-all touch `packages/domain`; 3.3, 3.4, 3.5 and 3.6 all touch the client)
-- none of that forces an order.
+sweep open small and easy, ship modules, the player messenger and ΔV
+mechanics carry this phase's real player-facing depth, universe growth
+and travel manifest visualization close it out. 3.3 is now a real
+dependency of 3.4's ansible hardware and 3.5's maneuver drive; the later
+content and visualization steps remain independent.
 
-| step | what                                                             | status      |
-|------|-------------------------------------------------------------------|-------------|
-| 3.1  | ships name generator                                               | done ✔      |
-| 3.2  | tech debt sweep                                                    | done ✔      |
-| 3.3  | travel manifest visualization                                      | not started |
-| 3.4  | ship upgrades - capacity and velocity                              | not started |
-| 3.5  | player messenger - the ansible                                     | not started |
-| 3.6  | ΔV mechanics - in-system travel                                    | not started |
-| 3.7  | universe growth - more stations, path() perf                       | not started |
+| step | what                                          | status |
+|------|----------------------------------------------|--------|
+| 3.1  | ships name generator                          | done ✔ |
+| 3.2  | tech debt sweep                               | done ✔ |
+| 3.3  | ship modules - loadouts and upgrades           | in progress |
+| 3.4  | player messenger - the ansible                |        |
+| 3.5  | ΔV mechanics - in-system travel               |        |
+| 3.6  | universe growth - more stations, path() perf  |        |
+| 3.7  | travel manifest visualization                 |        |
 
 
 ### step 3.1 - ships name generator
@@ -132,57 +134,29 @@ step:
 travel-manifests TODO in `packages/domain/readme.md`.)
 
 
-### step 3.3 - travel manifest visualization
+### step 3.3 - ship modules: loadouts and upgrades
 
-closes the client-facing half of phase 2.4. ship-service resolves and
-drives a manifest already; nothing shows it. `client.md`'s own old
-header mockup already sketches the target:
-`hops: mars → 2d → sol → 3y → alpha`.
+the important separations are acquisition, carriage and fitting. a
+player may buy and resell a railgun even when the current ship cannot fit
+it. fitting validates typed and sized slots, hull/module capabilities,
+power and the module's installation context.
 
-the manifest doesn't reach the client today - `ship.departed.v1`/
-`ship.arrived.v1` payloads don't carry it, a deliberate call made
-building 2.4 to keep the event shape unchanged. **open call at step
-start**: expose `manifest` on `GET /ships` only (cheap, hydrate-time,
-matches how the rest of `state.ship` already works) vs also putting it
-on the ws events (live-updates as hops advance, more wire surface).
-recommend REST-only - a manifest shortens once every few seconds at
-most, a re-hydrate on every `ship.arrived.v1` is enough.
+phase 3 proves a narrow but complete loop:
 
-touches `apps/gateway/src/queries.js` (`ships()`), `client/js/state.js`/
-`events.js` (carry `manifest` through), and a small ship-detail panel in
-`client/js/render.js`/`index.html`, styled after the existing mockup.
+- give the starter ship a hull profile and legal starting loadout
+- introduce sparse station markets for packaged modules
+- install, remove and atomically replace modules
+- derive capacity and interstellar velocity from hull plus loadout
+- ship a small power, cruise and cargo catalogue with real trade-offs
+- show requirements and before/after stats before confirmation
 
-
-### step 3.4 - ship upgrades: capacity and velocity
-
-`game.md`'s "ship types & upgrades" idea, narrowed to the 2 numeric
-stats - ship classes (freighter/military/exploration/privateer/etc.)
-stay out, see below.
-
-**open call at step start**, same shape 2.4's manifest-storage call had:
-the upgrade cost curve. nothing to reuse - `capitalCost()` prices
-time-in-transit, not a one-time stat purchase. recommend linear-per-point
-with a rising step; pin the actual numbers once this is scoped for real,
-not in this doc.
-
-new command/event pair (`ship.upgrade.requested` → `ship.upgraded` /
-`ship.upgrade.rejected`), matching the market buy/sell saga shape
-(`apps/market-service/src/handlers.js`): debit the wallet, then raise
-capacity/velocity, same transaction shape `shipRenameRequested` already
-uses. touches `packages/contracts`, `apps/ship-service`, a wallet debit
-call (cross-service, same shape the market buy saga already uses), and
-client upgrade UI.
-
-**worth knowing going in**: a velocity upgrade only pays off on
-interstellar legs. `travel()` already flies every in-system route at
-`min(velocity, c)`, and in-system `c` (`SUBLIGHT`, 24 km/s) sits so far
-below any ship's `velocity` in fraction-of-light-speed terms that the
-cap always wins - a ship's own speed is already irrelevant in-system
-today. step 3.6 is what finally gives an in-system stat something to
-upgrade toward.
+exact prices, increments and hull maximums stay balance data. full ship
+classes, manufacturing, damage and research trees remain later work.
+3.4 adds the ansible as a comms module; 3.5 adds maneuver drives through
+the same foundation.
 
 
-### step 3.5 - player messenger, the ansible
+### step 3.4 - player messenger, the ansible
 
 `game.md`'s "player 2 player communications" idea: "some kind of
 ansible device that enables faster than light speed coms. but still
@@ -205,6 +179,13 @@ that same idea, deliberately dropped from that step at the time.
   enough to be useful, slow enough that a cross-system reply is never in
   the same breath as the message. 0 delay when sender and recipient are
   docked at the same station.
+
+an ansible is fitted comms hardware from step 3.3, not an account power.
+both ships need a compatible fitted transceiver when the message is
+sent. once accepted into the delivery queue, later removing a
+transceiver does not recall the message. phase 3's one-ship-per-player
+loop makes the endpoints unambiguous; fleet messaging needs its own
+addressing decision later.
 
 **delivery is a poll, not a timer** - the same shape `arrivals.js`
 already proved, `arrives`/`arrived` and all: `message.send.requested`
@@ -237,7 +218,7 @@ routing), `client/js` (a messages panel - already sketched, never built,
 in `client.md`'s old layout mockup).
 
 
-### step 3.6 - ΔV mechanics, in-system travel
+### step 3.5 - ΔV mechanics, in-system travel
 
 `game.md`'s own reading list points straight at this: a brachistochrone
 trajectory - constant thrust to the midpoint, flip, constant thrust to
@@ -257,11 +238,11 @@ separate physics problem. ΔV applies to in-system travel only, where the
 accelerations involved are small enough for plain Newtonian mechanics
 and the numbers stay game-sized (seconds to minutes, not years).
 
-**the model**: symmetric brachistochrone, `t = 2 · √(d / a)`, `a` a
-ship's own acceleration stat (new field, needs an AU/s² - or a
-converted m/s² - unit decision at step start; today's distances are in
-AU). replaces `SUBLIGHT`'s flat cap the way `c` already caps an
-interstellar leg - a route can still set an upper bound a ship can't
+**the model**: symmetric brachistochrone, `t = 2 · √(d / a)`, `a`
+derived from the hull and fitted maneuver drive designed in step 3.3.
+it still needs an AU/s² - or converted m/s² - unit decision at step
+start; today's distances are in AU. it replaces `SUBLIGHT`'s flat cap.
+an in-system route may still set an upper bound a ship cannot
 out-accelerate. `apps/ship-service/src/travel.js` branches on route type:
 `c < 1` → brachistochrone using `acceleration`, `c === 1` → today's
 formula, untouched.
@@ -269,25 +250,26 @@ formula, untouched.
 **left out of this step, on purpose**: player-controlled burns (choosing
 accelerate/coast/decelerate, fuel mass, cargo weight affecting thrust) -
 `game.md`'s fuller vision ("let player decide about acceleration/burn
-duration/fuel mass"). this step ships the physics model with a fixed
-per-ship acceleration stat; a tunable-burn, `fuel`-and-cargo-`weight`
-economy is a distinct, later idea (see "explicitly out" - orbital
-mechanics) since it changes the game's controls, not only its math.
+duration/fuel mass"). this step uses a loadout-derived acceleration but
+no burn controls. a tunable-burn, `fuel`-and-cargo-`weight` economy is a
+distinct, later idea (see "explicitly out" - orbital mechanics) since it
+changes the game's controls, not only its math. acceleration is
+snapshotted for a leg at departure; propulsion cannot be refitted in
+transit, so an existing arrival time never changes under the ship.
 
-touches `apps/ship-service/src/travel.js` (the branch),
-`packages/domain/src/universe.js` (the `acceleration` stat, unit
-helpers), a new `apps/ship-service` migration, and client eta previews
+touches `apps/ship-service/src/travel.js` (the branch), the step 3.3
+hull/loadout model (acceleration and unit helpers), and client eta previews
 (`client/js/map.js`'s `routeInfo()`).
 
 
-### step 3.7 - universe growth, more stations
+### step 3.6 - universe growth, more stations
 
 only Sol is built out (`client.md` TODO, `packages/domain/readme.md`
 TODO). Alpha Centauri, Barnards Star, Wolf 359 and Sirius hold one
 station each. add 2-3 more per system, same pattern as Sol's build-out
 (`docs/progress.md`'s "universe growth - the stations" writeup): real
 orbital-radius data, produces/consumes pairs, `SUBLIGHT` in-system links
-to that system's own gateway station (or the new ΔV model from 3.6, if
+to that system's own gateway station (or the new ΔV model from 3.5, if
 that's landed by then).
 
 also closes the perf debt this growth motivates: `path()` is a linear
@@ -298,6 +280,26 @@ dozen stations, wrong at 10x this size (noted in `docs/progress.md` and
 touches `packages/domain/src/universe.js` only - `client/js/map.js`
 already lays stations out from count, not hardcoded positions (true
 since Sol's own build-out).
+
+### step 3.7 - travel manifest visualization
+
+closes the client-facing half of phase 2.4. ship-service resolves and
+drives a manifest already; nothing shows it. `client.md`'s own old
+header mockup already sketches the target:
+`hops: mars → 2d → sol → 3y → alpha`.
+
+the manifest doesn't reach the client today - `ship.departed.v1`/
+`ship.arrived.v1` payloads don't carry it, a deliberate call made
+building 2.4 to keep the event shape unchanged. **open call at step
+start**: expose `manifest` on `GET /ships` only (cheap, hydrate-time,
+matches how the rest of `state.ship` already works) vs also putting it
+on the ws events (live-updates as hops advance, more wire surface).
+recommend REST-only - a manifest shortens once every few seconds at
+most, a re-hydrate on every `ship.arrived.v1` is enough.
+
+touches `apps/gateway/src/queries.js` (`ships()`), `client/js/state.js`/
+`events.js` (carry `manifest` through), and a small ship-detail panel in
+`client/js/render.js`/`index.html`, styled after the existing mockup.
 
 
 explicitly out (phase 4+, someday, or standalone)
@@ -311,10 +313,11 @@ between players is not trading with them. admin mutating ops (credit a
 wallet, restock a station - `permissions.md`'s own words: "wait for a
 later phase"), a net-worth leaderboard.
 
-from `game.md`: ship classes/types (freighter, military, exploration,
-privateer, repair, passenger, prison barge), orbital mechanics +
+from `game.md`: the full hull catalogue and buying ships (freighter,
+military, exploration, privateer, repair, passenger, prison barge),
+orbital mechanics +
 interactive system maps + player-controlled burns (KSP-style piloting -
-the fuller version of step 3.6's physics, with fuel mass and player
+the fuller version of step 3.5's physics, with fuel mass and player
 control, not just the trajectory model), multi-good station
 consume/produce + non-good services (repair/security/tech/workforce),
 station types beyond visibility (research lab, military base, prison

@@ -5,52 +5,26 @@ tech debt
 debt
 ----------------
 
+### bug: missing ship
+after game restart, the ship is no longer recognizable by the game.
+when buying/selling goods, the trade is rejected with `missing ship` message.
+
+seems like infra/game restart issue, but why only the ship is missing?
+the other db entities are ok, like player itself etc...
+only the ship is affected.
+
+
 ### infra: deploy
 
 dockerize the game. need a real plan for this.
-
-`scripts/services-check.js`'s uptime check is a dev tool, not a
-production health check - it reads `.logs/<name>.pid` and does
-`kill(pid, 0)`, same idiom `stop.sh` uses. that's fine for one dev, one
-machine, freshly-started processes. it breaks on a real deployment:
-a different user running the check throws `EPERM`, and a long-lived box
-can recycle a pid back to an unrelated process, so `kill(pid, 0)`
-succeeds for the wrong reason. when this step lands, replace it with
-systemd/container-native liveness - don't harden the pid-file check.
-
-### infra: services health script
-
-whos online, status etc
-
-**done ✔** - see [phase.3.md](phase.3.md) step 3.2. `scripts/infra-health.js`
-still covers kafka/postgres/pgadmin reachability.
-
-
-### NODE_ENV
-
-add `NODE_ENV = dev | prod | test`
-turn off logging in gateway if `NODE_ENV == test`
-`NODE_ENV` should affect `garage/compose` - add test.
-
-**done ✔** - see [phase.3.md](phase.3.md) step 3.2. `garage/compose`
-already reads `NODE_ENV` - `production` picks the fast composer,
-anything else (including `test`) picks the one with dev-time checks. a
-test run wants those checks, not the fast path, so no `garage` change
-was needed there - `NODE_ENV=test` only had to reach it, which setting
-it in `.env.dev` already does.
-
-### ship name generator
-
-**done ✔** - see [phase.3.md](phase.3.md) step 3.1,
-`packages/domain/src/shipNames.js`. station names stay fixed, not part
-of this.
+uptime check is a dev tool, not a production health check,
+when this step lands, will be replaced with systemd/container-native
+health check
 
 
 nice to have
 ----------------
 - a mechanism to add new game assets
-- dijkstra multi-hop routing once the map outgrows the fully-connected triangle -
-  **done ✔**, see [progress.md](progress.md)
 - implement db connection and query with new `using` and `Symbol.dispose` API
     - [explicit-resource-management](https://v8.dev/features/explicit-resource-management)
     - [using keyword](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/using)
@@ -65,7 +39,6 @@ react like or custom elements [lit.dev](https://lit.dev/)
 with template syntax like jade/pug for html.
 and stylus/sass syntax for css.
 could be dedicated library, not nesessery part of `theseus`, but as repo
-
 
 
 ```pug
