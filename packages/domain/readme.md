@@ -58,13 +58,16 @@
     - `spread(price, margin)` → `{ price_buy, price_sell }` - station ask above bid
 - `src/modules.js` - ship modules catalogue + resolver. mechanics are
   designed in [docs/modules.md](../../docs/modules.md) - read that first.
+  `Design` and `Hull` are real classes - a bad or missing field throws
+  at construction, not on first use. jsdoc types alias
+  `types/modules.d.ts` rather than redefine it, so the two can't drift.
     - `hulls` - `{ id: Hull }`, one entry today: `starter` (20 capacity,
       0.6c, matching the existing starter ship before any upgrade)
-    - `modules` - `{ gid: ModuleDesign }` - family, mount, power draw,
-      install context, requirements/conflicts/provides (capability +
-      rank) and effects (flat/percent). a design is not a good - see
-      `goods` below, they join on a shared gid
-    - `starterLoadout` - `{ slot: gid }`, the starter hull's day-1 fit
+    - `modules` - `{ gid: Design }` - family, mount, power draw,
+      install context, requirements/conflicts/provides (rate + rank)
+      and effects (flat/percent). a design is not a good - see `goods`
+      below, they join on a shared gid
+    - `starterRig` - `{ slot: gid }`, the starter hull's day-1 fit
     - `mounts` / `slotFamilies` - ordering data for the client
     - `Fitting` - the resolver, bound to one module catalogue at
       construction (`modules` by default - tests pass their own toy
@@ -72,12 +75,12 @@
         - `deriveStats(hull, fitted)` → `{ capacity, velocity, power: {
           available, used } }` - hull base → flat → percent → hull cap,
           the same fixed order for every stat
-        - `previewLoadout(hull, fitted, operation, context)` → `{
+        - `previewRig(hull, fitted, operation, context)` → `{
           proposed, stats, errors }` - one install or remove, checked
-          against the *proposed* final loadout only, never history.
+          against the *proposed* final rig only, never history.
           `errors` lists every violation, not just the first
     - `fitting` - the live `Fitting` instance every service imports;
-      `deriveStats` / `previewLoadout` above are it, already bound
+      `deriveStats` / `previewRig` above are it, already bound
     - `cargoLoad(cargo, goodsCatalog)` - `Σ(quantity × volume)`, so a
       reactor and a crate of grain are not the same 1 cargo unit
 
