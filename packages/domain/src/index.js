@@ -28,13 +28,15 @@ export {
 
 export {
     Fitting,
+    Design,
+    Hull,
     fitting,
     hulls,
     modules,
-    starterLoadout,
+    starterRig,
     slotFamilies,
     mounts,
-    previewLoadout,
+    previewRig,
     deriveStats,
     cargoLoad,
 } from './modules.js'

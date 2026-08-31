@@ -15,9 +15,9 @@ import {
     randomShipName,
     hulls,
     modules,
-    starterLoadout,
+    starterRig,
     Fitting,
-    previewLoadout,
+    previewRig,
     deriveStats,
     cargoLoad,
 } from '@theseus/domain'
@@ -260,21 +260,21 @@ test('every module design joins a real good by gid', () => {
         assert.ok(goods[ gid ], `${ gid } has no matching good`)
 })
 
-test('starter loadout resolves to todays capacity and velocity, before any upgrade', () => {
-    const stats = deriveStats(hulls.starter, starterLoadout)
+test('starter rig resolves to todays capacity and velocity, before any upgrade', () => {
+    const stats = deriveStats(hulls.starter, starterRig)
     assert.equal(stats.capacity, 20)
     assert.equal(stats.velocity, 0.6)
 })
 
 test('power tracks reactor supply against every fitted modules draw', () => {
-    const { power } = deriveStats(hulls.starter, starterLoadout)
+    const { power } = deriveStats(hulls.starter, starterRig)
     assert.equal(power.available, 8) // hull 3 + reactor.mk1 +5
     assert.equal(power.used, 2)      // reactor 1 + cruise 1 + cargo 0
 })
 
 test('installing into an occupied slot replaces it, not a second slot', () => {
-    const { proposed, errors } = previewLoadout(
-        hulls.starter, starterLoadout,
+    const { proposed, errors } = previewRig(
+        hulls.starter, starterRig,
         { type: 'install', slot: 'power1', gid: 'reactor.mk2' },
         { docked: true },
     )
@@ -283,16 +283,17 @@ test('installing into an occupied slot replaces it, not a second slot', () => {
     assert.equal(Object.keys(proposed).length, 3, 'still one module per slot')
 })
 
-test('a faster drive is gated on the reactors capability, not on owning the old drive', () => {
-    const stuck = previewLoadout(
-        hulls.starter, starterLoadout,
+test('a faster drive is gated on the reactors rate, not on owning the old drive', () => {
+    const stuck = previewRig(
+        hulls.starter,
+        starterRig,
         { type: 'install', slot: 'cruise1', gid: 'cruise.mk2' },
         { docked: true },
     )
     assert.ok(stuck.errors.some(e => e.includes('power')), 'reactor.mk1 only grants power rank 1')
 
-    const withBetterReactor = { ...starterLoadout, power1: 'reactor.mk2' }
-    const fitted = previewLoadout(
+    const withBetterReactor = { ...starterRig, power1: 'reactor.mk2' }
+    const fitted = previewRig(
         hulls.starter, withBetterReactor,
         { type: 'install', slot: 'cruise1', gid: 'cruise.mk2' },
         { docked: true },
@@ -302,8 +303,8 @@ test('a faster drive is gated on the reactors capability, not on owning the old 
 })
 
 test('removing a module empties its slot', () => {
-    const { proposed, errors } = previewLoadout(
-        hulls.starter, starterLoadout,
+    const { proposed, errors } = previewRig(
+        hulls.starter, starterRig,
         { type: 'remove', slot: 'cargo1' },
         { docked: true },
     )
@@ -312,10 +313,10 @@ test('removing a module empties its slot', () => {
 })
 
 test('removing an empty slot fails', () => {
-    const fitted = { ...starterLoadout }
+    const fitted = { ...starterRig }
     delete fitted.cargo1
 
-    const { errors } = previewLoadout(hulls.starter, fitted, { type: 'remove', slot: 'cargo1' }, { docked: true })
+    const { errors } = previewRig(hulls.starter, fitted, { type: 'remove', slot: 'cargo1' }, { docked: true })
     assert.ok(errors.some(e => e.includes('nothing fitted')))
 })
 
@@ -323,7 +324,7 @@ test('removing an empty slot fails', () => {
 // takes any catalogue via `new Fitting(catalog)` - see below.
 function toyHull(overrides = {}) {
     return {
-        capacity_base: 0, velocity_base: 0, power_base: 5, capabilities: [],
+        capacity_base: 0, velocity_base: 0, power_base: 5, rates: [],
         slots: [
             { id: 'small', family: 'cargo', size: 'light' },
             { id: 'big',   family: 'cargo', size: 'medium' },
@@ -338,71 +339,71 @@ const toyCatalog = {
     tooBig  : part({ family: 'cargo', mount: 'medium' }),
     wrongFam: part({ family: 'power', mount: 'light'  }),
     hungry  : part({ family: 'cargo', mount: 'light', power: 20 }),
-    inField : part({ family: 'cargo', mount: 'light', installContext: 'field' }),
+    inField : part({ family: 'cargo', mount: 'light', context: 'field' }),
     flat10  : part({ family: 'cargo', mount: 'light', effects: [{ stat: 'capacity', kind: 'flat', value: 10 }]}),
     pct50   : part({ family: 'cargo', mount: 'light', effects: [{ stat: 'capacity', kind: 'percent', value: 0.5 }]}),
-    gated   : part({ family: 'cargo', mount: 'light', requires: [{ capability: 'clear', rank: 1 }]}),
-    grants  : part({ family: 'cargo', mount: 'light', provides: [{ capability: 'clear', rank: 1 }]}),
-    hostile : part({ family: 'cargo', mount: 'light', conflicts: [{ capability: 'clear' }]}),
-    multiFail: part({ family: 'cargo', mount: 'light', power: 50, requires: [{ capability: 'clear', rank: 1 }]}),
+    gated   : part({ family: 'cargo', mount: 'light', requires: [{ rate: 'clear', rank: 1 }]}),
+    grants  : part({ family: 'cargo', mount: 'light', provides: [{ rate: 'clear', rank: 1 }]}),
+    hostile : part({ family: 'cargo', mount: 'light', conflicts: [{ rate: 'clear' }]}),
+    multiFail: part({ family: 'cargo', mount: 'light', power: 50, requires: [{ rate: 'clear', rank: 1 }]}),
 }
 
-function part({ family, mount, power = 0, installContext = 'port', requires = [], conflicts = [], provides = [], effects = []}) {
-    return { family, mount, power, installContext, requires, conflicts, provides, effects }
+function part({ family, mount, power = 0, context = 'port', requires = [], conflicts = [], provides = [], effects = []}) {
+    return { family, mount, power, context, requires, conflicts, provides, effects }
 }
 
 test('a module must match the slots family', () => {
     const f = new Fitting(toyCatalog)
-    const { errors } = f.previewLoadout(toyHull(), {}, { type: 'install', slot: 'small', gid: 'wrongFam' }, { docked: true })
+    const { errors } = f.previewRig(toyHull(), {}, { type: 'install', slot: 'small', gid: 'wrongFam' }, { docked: true })
     assert.ok(errors.some(e => e.includes('does not fit')))
 })
 
 test('a module cannot exceed its slots mount size, but fits a bigger slot', () => {
     const f = new Fitting(toyCatalog)
 
-    const overflow = f.previewLoadout(toyHull(), {}, { type: 'install', slot: 'small', gid: 'tooBig' }, { docked: true })
+    const overflow = f.previewRig(toyHull(), {}, { type: 'install', slot: 'small', gid: 'tooBig' }, { docked: true })
     assert.ok(overflow.errors.some(e => e.includes('too large')))
 
-    const fits = f.previewLoadout(toyHull(), {}, { type: 'install', slot: 'big', gid: 'fits' }, { docked: true })
+    const fits = f.previewRig(toyHull(), {}, { type: 'install', slot: 'big', gid: 'fits' }, { docked: true })
     assert.deepEqual(fits.errors, [])
 })
 
 test('a port-only module needs the ship docked, a field module never cares', () => {
     const f = new Fitting(toyCatalog)
 
-    const transit = f.previewLoadout(toyHull(), {}, { type: 'install', slot: 'small', gid: 'fits' }, { docked: false })
+    const transit = f.previewRig(toyHull(), {}, { type: 'install', slot: 'small', gid: 'fits' }, { docked: false })
     assert.ok(transit.errors.some(e => e.includes('port')))
 
-    const inTransit = f.previewLoadout(toyHull(), {}, { type: 'install', slot: 'small', gid: 'inField' }, { docked: false })
+    const inTransit = f.previewRig(toyHull(), {}, { type: 'install', slot: 'small', gid: 'inField' }, { docked: false })
     assert.deepEqual(inTransit.errors, [])
 })
 
 test('a module cannot draw more power than is available', () => {
     const f = new Fitting(toyCatalog)
-    const { errors } = f.previewLoadout(toyHull(), {}, { type: 'install', slot: 'small', gid: 'hungry' }, { docked: true })
+    const { errors } = f.previewRig(toyHull(), {}, { type: 'install', slot: 'small', gid: 'hungry' }, { docked: true })
     assert.ok(errors.some(e => e.includes('power')))
 })
 
-test('a requirement checks the proposed loadout, satisfied by any fitted module', () => {
+test('a requirement checks the proposed rig, satisfied by any fitted module', () => {
     const f = new Fitting(toyCatalog)
 
-    const missing = f.previewLoadout(toyHull(), {}, { type: 'install', slot: 'small', gid: 'gated' }, { docked: true })
+    const missing = f.previewRig(toyHull(), {}, { type: 'install', slot: 'small', gid: 'gated' }, { docked: true })
     assert.ok(missing.errors.some(e => e.includes('clear')))
 
-    const satisfied = f.previewLoadout(toyHull(), { big: 'grants' }, { type: 'install', slot: 'small', gid: 'gated' }, { docked: true })
+    const satisfied = f.previewRig(toyHull(), { big: 'grants' }, { type: 'install', slot: 'small', gid: 'gated' }, { docked: true })
     assert.deepEqual(satisfied.errors, [])
 })
 
-test('a conflicting capability blocks fitting', () => {
+test('a conflicting rate blocks fitting', () => {
     const f = new Fitting(toyCatalog)
-    const { errors } = f.previewLoadout(toyHull(), { big: 'grants' }, { type: 'install', slot: 'small', gid: 'hostile' }, { docked: true })
+    const { errors } = f.previewRig(toyHull(), { big: 'grants' }, { type: 'install', slot: 'small', gid: 'hostile' }, { docked: true })
     assert.ok(errors.some(e => e.includes('conflicts')))
 })
 
 test('one operation reports every violation at once, not just the first', () => {
     const f = new Fitting(toyCatalog)
     // wrong family, unmet requirement and over budget, all together
-    const { errors } = f.previewLoadout(toyHull(), {}, { type: 'install', slot: 'plug', gid: 'multiFail' }, { docked: true })
+    const { errors } = f.previewRig(toyHull(), {}, { type: 'install', slot: 'plug', gid: 'multiFail' }, { docked: true })
     assert.ok(errors.length >= 3, `expected several reasons, got ${ errors.length }: ${ errors }`)
 })
 
