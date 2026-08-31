@@ -5,15 +5,6 @@ tech debt
 debt
 ----------------
 
-### bug: missing ship
-after game restart, the ship is no longer recognizable by the game.
-when buying/selling goods, the trade is rejected with `missing ship` message.
-
-seems like infra/game restart issue, but why only the ship is missing?
-the other db entities are ok, like player itself etc...
-only the ship is affected.
-
-
 ### db
 
 - indexes
@@ -66,7 +57,7 @@ the package sees full types; editing the `.js` source shows none - the
   separate problem). 2 were real, live bugs the type checker caught,
   not annotation gaps: `shipNames.js`'s `shuffle()` compared a function
   to a number instead of calling it - name pools never shuffled.
-  `previewLoadout`'s argument type had an optional/required mismatch.
+  `previewRig`'s argument type had an optional/required mismatch.
 - cost: jsdoc for real generics and unions (event envelopes keyed by
   `event_type`, the module resolver's `flat | percent` effect union)
   is verbose - it is ts's type system wearing a comment.

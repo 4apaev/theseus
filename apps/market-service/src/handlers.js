@@ -139,19 +139,24 @@ function rejectTrade(client, side, data) {
 
 // ─────────────────────────────────────────────────────────────
 
-export function createHandlers(pool, transact) {
+/*
+    the ships mirror, from events.ship - pure and idempotent,
+    no outbox writes, no side effects. that also makes it the full
+    replay set for scripts/rebuild-market-ships.js: a postgres-only
+    reset can empty `ships` while this consumer group keeps its
+    committed offset, so it never re-consumes the events that would
+    refill it (docs/tech.debt.md's "missing ship" bug). cargo/trades/
+    station_inventory stay out of that rebuild on purpose - they are
+    saga-owned, and replaying their own commands would re-fire the
+    saga's side effects (wallet debits, outbox writes), not just
+    restate a fact.
+*/
+export function shipMirrorHandlers(pool) {
     return {
-        [ EVT.ship.created                ]: shipCreated,
-        [ EVT.ship.departed               ]: shipDeparted,
-        [ EVT.ship.arrived                ]: shipArrived,
-        [ CMD.market.buy.requested        ]: marketBuyRequested,
-        [ CMD.market.sell.requested       ]: marketSellRequested,
-        [ EVT.wallet.debited              ]: walletDebited,
-        [ EVT.wallet.credited             ]: walletCredited,
-        [ EVT.wallet.transaction.rejected ]: walletTransactionRejected,
+        [ EVT.ship.created  ]: shipCreated,
+        [ EVT.ship.departed ]: shipDeparted,
+        [ EVT.ship.arrived  ]: shipArrived,
     }
-
-    // ── ships mirror, from events.ship ──────────────────────────
 
     async function shipCreated({ payload: { sid, pid, stid, capacity }}) {
         await pool.query(`
@@ -176,6 +181,17 @@ export function createHandlers(pool, transact) {
                SET status = 'docked', stid = $2
              WHERE sid = $1
         `, [ sid, stid ])
+    }
+}
+
+export function createHandlers(pool, transact) {
+    return {
+        ...shipMirrorHandlers(pool),
+        [ CMD.market.buy.requested        ]: marketBuyRequested,
+        [ CMD.market.sell.requested       ]: marketSellRequested,
+        [ EVT.wallet.debited              ]: walletDebited,
+        [ EVT.wallet.credited             ]: walletCredited,
+        [ EVT.wallet.transaction.rejected ]: walletTransactionRejected,
     }
 
     // ── buy saga ─────────────────────────────────────────────────
