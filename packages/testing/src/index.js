@@ -27,11 +27,29 @@ export {
     outboxEvents,
 } from './mocks.js'
 
-const title = (
-    new URL(import.meta.url, 'file:')
-        .searchParams.get('title')
-        ?? process.argv[ 1 ]
-).replace(process.cwd(), '')
+const dict = {
+    auth      : ' 🔐  AUTH      🧪',
+    bump      : ' 🏷️  BUMP      🧪',
+    config    : ' 🎛️  CONFIG    🧪',
+    contracts : ' 📜  CONTRACTS 🧪',
+    db        : ' 📇  DB        🧪',
+    domain    : ' 🧮  DOMAIN    🧪',
+    gateway   : ' ⛩️  GATEWAY   🧪',
+    kafka     : ' 📬  KAFKA     🧪',
+    market    : ' 🎰  MARKET    🧪',
+    player    : ' 🎮  PLAYER    🧪',
+    ship      : ' 🛸  SHIP      🧪',
+    skeleton  : ' 🚀  SKELETON  🧪',
+    testing   : ' 🧪  TESTING   🧪',
+    util      : ' 🪏  UTIL      🧪',
+
+}
+
+const name = process.argv[ 1 ]
+    .replace(/.+\/test\/([^/]+)\.spec\.js$/i, '$1')
+    .toLowerCase()
+
+const title = dict[ name ] ?? `🤔 🤷‍♀️ 🤔 🤷‍♀️ ${ name } 🧪🧪🧪`
 
 console.log(
     '\n%s\n',
