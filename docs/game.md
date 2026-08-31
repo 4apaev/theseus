@@ -289,9 +289,9 @@ actual theseus (blindsight) telematter drive.
 ### ship types & modules
 
 capacity and velocity changes now belong to a physical module and
-loadout system, not permanent stat purchases. packaged modules are
+rig system, not permanent stat purchases. packaged modules are
 market goods which can be bought, transported and resold; installation
-checks hull slots, capabilities, power and whether the work may happen
+checks hull slots, rates, power and whether the work may happen
 in transit or requires port. the mechanics are designed in
 [modules.md](modules.md) and scheduled as [phase 3](phase.3.md) step 3.3.
 

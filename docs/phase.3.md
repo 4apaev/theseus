@@ -34,7 +34,7 @@ content and visualization steps remain independent.
 |------|----------------------------------------------|--------|
 | 3.1  | ships name generator                          | done ✔ |
 | 3.2  | tech debt sweep                               | done ✔ |
-| 3.3  | ship modules - loadouts and upgrades           | in progress |
+| 3.3  | ship modules - rigs and upgrades               | in progress |
 | 3.4  | player messenger - the ansible                |        |
 | 3.5  | ΔV mechanics - in-system travel               |        |
 | 3.6  | universe growth - more stations, path() perf  |        |
@@ -135,19 +135,19 @@ step:
 travel-manifests TODO in `packages/domain/readme.md`.)
 
 
-### step 3.3 - ship modules: loadouts and upgrades
+### step 3.3 - ship modules: rigs and upgrades
 
 the important separations are acquisition, carriage and fitting. a
 player may buy and resell a railgun even when the current ship cannot fit
-it. fitting validates typed and sized slots, hull/module capabilities,
+it. fitting validates typed and sized slots, hull/module rates,
 power and the module's installation context.
 
 phase 3 proves a narrow but complete loop:
 
-- give the starter ship a hull profile and legal starting loadout
+- give the starter ship a hull profile and legal starting rig
 - introduce sparse station markets for packaged modules
 - install, remove and atomically replace modules
-- derive capacity and interstellar velocity from hull plus loadout
+- derive capacity and interstellar velocity from hull plus rig
 - ship a small power, cruise and cargo catalogue with real trade-offs
 - show requirements and before/after stats before confirmation
 
@@ -251,7 +251,7 @@ formula, untouched.
 **left out of this step, on purpose**: player-controlled burns (choosing
 accelerate/coast/decelerate, fuel mass, cargo weight affecting thrust) -
 `game.md`'s fuller vision ("let player decide about acceleration/burn
-duration/fuel mass"). this step uses a loadout-derived acceleration but
+duration/fuel mass"). this step uses a rig-derived acceleration but
 no burn controls. a tunable-burn, `fuel`-and-cargo-`weight` economy is a
 distinct, later idea (see "explicitly out" - orbital mechanics) since it
 changes the game's controls, not only its math. acceleration is
@@ -259,7 +259,7 @@ snapshotted for a leg at departure; propulsion cannot be refitted in
 transit, so an existing arrival time never changes under the ship.
 
 touches `apps/ship-service/src/travel.js` (the branch), the step 3.3
-hull/loadout model (acceleration and unit helpers), and client eta previews
+hull/rig model (acceleration and unit helpers), and client eta previews
 (`client/js/map.js`'s `routeInfo()`).
 
 
@@ -322,7 +322,7 @@ this step is the backfill for everything written before that rule.
 72 errors across 15 files. 2 were real bugs, caught only by the type
 checker: `shipNames.js`'s `shuffle()` compared a function reference to
 a number instead of calling it, so the name pools never actually
-shuffled; `previewLoadout`'s `operation` argument had an optional/
+shuffled; `previewRig`'s `operation` argument had an optional/
 required shape mismatch. most of the rest were one-line annotation
 gaps. the number stays small enough to do as one step, not a phase of
 its own.

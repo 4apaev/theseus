@@ -10,13 +10,13 @@ premise
 
 a module is a physical piece of ship equipment. while packaged it is
 cargo: it can be bought, carried to another station and sold. once
-installed it becomes part of one ship's loadout and changes what that
+installed it becomes part of one ship's rig and changes what that
 ship can do.
 
-the system should create loadout choices, not a staircase of permanent
+the system should create rig choices, not a staircase of permanent
 stat purchases. a faster ship should have paid for that speed with
 money, space, power, specialization or some combination of them. there
-must not be one loadout that is simply the previous loadout plus every
+must not be one rig that is simply the previous rig plus every
 number being larger.
 
 
@@ -31,7 +31,7 @@ module design ──produces──> packaged module ──install──> fitted 
       │                                                   │
       └──── requirements and effects ─────────────────────┘
 
-hull ── slots + capabilities + limits ──> legal loadout ──> ship stats
+hull ── slots + rates + limits ──> legal rig ──> ship stats
 ```
 
 - **module design** - the catalogue entry: family, mount, requirements,
@@ -45,7 +45,7 @@ hull ── slots + capabilities + limits ──> legal loadout ──> ship sta
   cargo.
 
 - **hull** - the immutable chassis: base stats, maximums, slots and
-  built-in capabilities. modules change the loadout, not the hull.
+  built-in rates. modules change the rig, not the hull.
 
 damage, wear, quality rolls and player modification would make individual
 modules unique. those mechanics are deferred.
@@ -72,7 +72,7 @@ a hull supplies:
 - base in-system acceleration once the delta-v mechanic exists
 - available power
 - typed, sized module slots
-- capabilities such as `light-frame`, `cargo-frame`,
+- rates such as `light-frame`, `cargo-frame`,
   `military-hardpoint`, `passenger-rated` or `atmospheric`
 - integrated essentials which cannot be removed if doing so would leave
   the ship unable to exist or travel
@@ -116,26 +116,26 @@ system would be numerology.
 
 
 
-requirements and capabilities
+requirements and rates
 --------------------------------
 
 a module may require:
 
 - a slot family and maximum mount size
-- one or more hull or fitted-module capabilities, optionally at a
+- one or more hull or fitted-module rates, optionally at a
   minimum rank
-- the absence of a conflicting capability
-- enough power in the resulting loadout
+- the absence of a conflicting rate
+- enough power in the resulting rig
 - an installation context: `field`, `port` or `dockyard`
 - a station facility for specialist work; deferred until station
   services exist
 
-modules provide capabilities as well as numeric effects. higher ranks
+modules provide rates as well as numeric effects. higher ranks
 satisfy lower requirements. this makes dependencies composable: an
 ansible may require `power: 2` and `comms-array: 1`; a railgun may require
 `military-hardpoint: 2`, `power: 3` and `targeting: 2`.
 
-requirements inspect the proposed final loadout. they do not inspect
+requirements inspect the proposed final rig. they do not inspect
 history. "the player once owned mark i" is not a physical property of
 the ship.
 
@@ -145,7 +145,7 @@ progression is a graph, not one tree
 --------------------------------
 
 the ui may draw branches like a technology tree, but the underlying
-mechanic is a dependency graph. real modules commonly need capabilities
+mechanic is a dependency graph. real modules commonly need rates
 from several families:
 
 ```
@@ -217,15 +217,15 @@ phase 3 installation is immediate. timed refits, crew requirements and
 repair queues can come later without changing the requirement model.
 
 replacing one module with another is one atomic operation: validate the
-final loadout, remove the old module and fit the new one. this avoids a
+final rig, remove the old module and fit the new one. this avoids a
 ship having to pass through an impossible no-reactor or no-drive state.
 the same validation removes the incoming package from cargo, returns the
 outgoing package to cargo and checks the resulting load.
 
-removal is rejected when the resulting loadout would be illegal. common
+removal is rejected when the resulting rig would be illegal. common
 cases:
 
-- another fitted module would lose a required capability
+- another fitted module would lose a required rate
 - power draw would exceed the remaining supply
 - removing a cargo module would leave the hold overloaded
 - there is not enough resulting cargo space for the newly packaged
@@ -261,9 +261,9 @@ effective = min(hull maximum, (hull base + flat additions) ×
 negative additions and modifiers are allowed; they are how a module can
 buy one advantage with another disadvantage without hidden exceptions.
 
-capabilities use the highest provided rank unless a specific mechanic
+rates use the highest provided rank unless a specific mechanic
 says that sources stack. requirements and budgets are validated against
-the complete proposed loadout before any change takes effect.
+the complete proposed rig before any change takes effect.
 
 speed modules are grades, not a button which may be pressed forever. one
 primary cruise slot prevents unlimited multiplication. a grade may raise
@@ -331,7 +331,7 @@ a progress bar as a hat.
 player-facing validation
 --------------------------------
 
-the fitting screen should preview the proposed loadout and every changed
+the fitting screen should preview the proposed rig and every changed
 stat before confirmation. unmet requirements are visible there; rejected
 commands should mostly represent stale state or races, not information
 the ui concealed.
@@ -347,16 +347,16 @@ fit or removal failures:
 
 - module not carried by this ship
 - incompatible or occupied slot
-- missing or conflicting capability
+- missing or conflicting rate
 - insufficient power
 - ship is in the wrong state
 - required facility unavailable
-- resulting loadout invalid
+- resulting rig invalid
 - resulting cargo exceeds capacity
 
 one rejection may report all unmet requirements.
 returning only the first makes a player repair
-the same loadout several times by attrition.
+the same rig several times by attrition.
 
 
 
@@ -367,10 +367,10 @@ step 3.3 should prove the loop without pretending to ship the final
 catalogue:
 
 1. starter ship gains hull profile, typed slots, base power and its
-   present equipment as a legal starting loadout
+   present equipment as a legal starting rig
 2. packaged modules as sparse, tradable market goods
 3. install, remove and atomic replace operations
-4. capacity and velocity derived from hull plus loadout
+4. capacity and velocity derived from hull plus rig
 5. small power branch, a cruise branch and a cargo branch
    with at least one meaningful incompatibility or trade-off
 6. show fit, requirements, power and before/after stats in the client
@@ -403,7 +403,6 @@ explicitly deferred
 
 
 
-
 implementation
 ================
 
@@ -417,7 +416,7 @@ implementation decisions
 
 1. ### no module-service
   ship-service owns hull identity, fitted modules,
-  loadout validation and effective ship stats.
+  rig validation and effective ship stats.
   market-service continues to own packaged cargo,
   station inventory and trades.
 
@@ -428,9 +427,9 @@ implementation decisions
 
 3. ### fitting is a saga
   market-service and ship-service must not write
-   each other's schemas. ship-service reserves a proposed loadout,
+   each other's schemas. ship-service reserves a proposed rig,
    market-service atomically exchanges packaged cargo, then ship-service
-   commits the fitted loadout.
+   commits the fitted rig.
 
 4. ### one pending refit per ship
   this is intentionally stricter than one per slot.
@@ -442,14 +441,17 @@ implementation decisions
   install exchanges the incoming package for the fitted
   module already in that slot; remove only empties a slot.
 
-6. ### `ship.created.v1` remains unchanged and supported
-  old events must remain valid during replay.
-  new ships emit `ship.created.v2` with a complete
-  initial hull/loadout snapshot, so later catalogue
-  edits cannot rewrite history during a rebuild.
+6. ### `ship.created.v1` gains hull id and rig fields directly, no v2
+  no player data exists yet at this stage of the project - infra gets
+  wiped clean before this lands, so there is no old `ship.created.v1`
+  row anywhere that needs a frozen legacy interpretation. versioning
+  the event now would pay for a replay guarantee nothing yet needs.
+  once real player ships exist, a later schema change earns its own
+  `v2` the normal way - unchanged old rows, a new type for the new
+  shape - this just isn't that day.
 
 7. ### `capacity` and `velocity` stay on the ship row as cached effective values
-  their source becomes hull plus loadout,
+  their source becomes hull plus rig,
   but keeping the columns avoids rewriting travel,
   routing and the market's ship mirror in the first pass.
 
@@ -476,7 +478,7 @@ client
   │ ship.module.install.requested
   ▼
 ship-service
-  │ validate proposed loadout + persist pending operation
+  │ validate proposed rig + persist pending operation
   │ cargo.module.exchange.requested
   ▼
 market-service
@@ -485,7 +487,7 @@ market-service
   ▼
 ship-service
   │ commit fitted modules + cached stats
-  │ ship.loadout.changed | ship.module.operation.rejected
+  │ ship.rig.changed | ship.module.operation.rejected
   ▼
 projection → gateway websocket → client
 ```
@@ -513,28 +515,29 @@ add the internal command on `commands.cargo`:
   optional incoming-package gid, optional returning-package gid and the
   proposed effective capacity
 
+extend `ship.created.v1`'s payload with hull id, rig version, every
+fitted slot and effective stats - required fields, not optional; there
+is no old-shaped row to stay compatible with.
+
 add events:
 
-- `ship.created.v2` - the existing identity/location fields plus hull id,
-  loadout version, every fitted slot and effective stats; new creation
-  uses this version while consumers retain the v1 handler
 - `cargo.module.exchanged.v1` - the operation id, cargo package removed,
   package returned, resulting load and proposed capacity
 - `cargo.module.exchange.rejected.v1` - operation id and all reasons
-- `ship.loadout.changed.v1` - a private full snapshot: operation id,
-  `pid`, `sid`, `hull_id`, monotonic loadout version, changed slot,
+- `ship.rig.changed.v1` - a private full snapshot: operation id,
+  `pid`, `sid`, `hull_id`, monotonic rig version, changed slot,
   incoming/outgoing gids, every fitted slot, effective capacity and
   velocity, and power used/available
 - `ship.module.operation.rejected.v1` - operation, `pid`, `sid` and all
   reasons
 
-the full loadout snapshot is deliberate. projection-service can replace
+the full rig snapshot is deliberate. projection-service can replace
 its fitted-module rows from one event, market-service gets the new
 capacity without reimplementing module math, and the client can recover
 from a missed intermediate render by rehydrating.
 
 extend contract validators and declarations for arrays, optional gids,
-slot ids, hull ids and loadout versions. add contract tests before any
+slot ids, hull ids and rig versions. add contract tests before any
 service consumes the new messages.
 
 no new kafka topic family is needed. ship-service already consumes
@@ -550,13 +553,13 @@ add a focused module under `packages/domain/src`, rather than expanding
 `universe.js` indefinitely. it owns:
 
 - immutable `hulls` and `modules` catalogues
-- the starter hull id and its default fitted loadout
+- the starter hull id and its default fitted rig
 - slot-family and mount-size ordering
 - requirement and conflict evaluation
-- capability rank collection
+- rate rank collection
 - power accounting
 - effective-stat calculation
-- a pure `previewLoadout(hull, fitted, operation, context)` result with
+- a pure `previewRig(hull, fitted, operation, context)` result with
   proposed modules, stats and every unmet requirement
 - pure weighted cargo-load and package-exchange preview helpers used by
   both market-service and the gateway preview
@@ -570,7 +573,7 @@ update the domain declarations for both fields; they are catalogue data,
 not message-contract fields.
 
 a module design contains its good id, family, mount, power draw,
-installation context, requirements, provided capabilities and numeric
+installation context, requirements, provided rates and numeric
 effects. it does not contain ownership, stock, price or fitted state.
 
 export hulls, modules and the resolver from `packages/domain/src/index.js`
@@ -581,13 +584,13 @@ catalogue.
 domain tests must cover:
 
 - slot family and size compatibility
-- ranked and conflicting capabilities
+- ranked and conflicting rates
 - power supply and draw
 - flat then percentage effects, followed by the hull cap
 - replacement of a module in the same slot
 - multiple simultaneous failure reasons
 - deterministic output regardless of fitted-module input order
-- the starter loadout resolving to today's effective capacity and
+- the starter rig resolving to today's effective capacity and
   velocity before any upgrade
 
 
@@ -596,12 +599,11 @@ ship-service persistence
 
 add the next ship migration:
 
-- `ships.hull_id`, backfilled to the starter hull id and then made
-  non-null
-- `ships.loadout_version`, initially `0` for legacy backfill
+- `ships.hull_id`, not null - no existing row to backfill
+- `ships.rig_version`, starts at `1` on creation - no legacy `0` state
 - `fitted_modules(sid, slot, gid, fitted_at, primary key (sid, slot))`
 - `module_operations` with operation id, player, ship, slot,
-  incoming/outgoing gids, proposed loadout and derived stats, status,
+  incoming/outgoing gids, proposed rig and derived stats, status,
   causation/correlation ids and timestamps
 - a partial unique index allowing only one pending operation per ship
 
@@ -609,13 +611,11 @@ keep `ships.capacity` and `ships.velocity`; update both in the same
 transaction that replaces the fitted-module rows. do not let handlers
 increment those values directly.
 
-ship-service boot seeds default fitted rows only for legacy ships whose
-`loadout_version = 0`, derives their cached stats, then advances them to
-version `1` in the same transaction. testing for an empty fitted table is
-incorrect: a legitimately empty optional loadout must stay empty after a
-restart. new ships insert hull, version `1` and default modules in the
-existing player-created transaction and emit the complete
-`ship.created.v2` snapshot.
+new ships insert hull, version `1` and default modules in the existing
+player-created transaction and emit the complete `ship.created.v1`
+snapshot. no legacy boot-seeding path is needed - every ship that will
+ever exist from this point on is created with a hull and a rig from
+birth.
 
 
 ship-service fitting saga
@@ -635,7 +635,7 @@ the install/remove request handler:
 
 travel must reject while a refit is pending. this closes the interval
 between validating a port-only operation and receiving the cargo reply.
-rename may remain allowed because it changes no loadout condition.
+rename may remain allowed because it changes no rig condition.
 
 the cargo-success continuation:
 
@@ -643,9 +643,9 @@ the cargo-success continuation:
 2. replaces the fitted slot from the stored proposed snapshot
 3. recomputes the snapshot with the current catalogue as a corruption
    check
-4. updates cached ship stats and increments the loadout version
+4. updates cached ship stats and increments the rig version
 5. marks the operation complete
-6. emits `ship.loadout.changed.v1`
+6. emits `ship.rig.changed.v1`
 
 the cargo-rejection continuation marks the operation rejected and emits
 `ship.module.operation.rejected.v1` with the market reasons. duplicate or
@@ -680,7 +680,7 @@ goods can both pass before either wallet continuation loads its cargo.
 
 add market migrations for:
 
-- `ships.refit_id`, nullable, plus the mirrored loadout version
+- `ships.refit_id`, nullable, plus the mirrored rig version
 - `cargo_module_operations`, keyed by the ship operation id, for durable
   exchange status and audit
 
@@ -700,9 +700,9 @@ command in one transaction:
 8. emit one success or rejection event through the outbox
 
 ordinary market buys and sells reject while `refit_id` is set.
-`ship.loadout.changed.v1` updates the mirrored effective capacity and
+`ship.rig.changed.v1` updates the mirrored effective capacity and
 clears the matching refit id. it must not clear a different operation's
-id or apply an older loadout version.
+id or apply an older rig version.
 
 buy capacity checks count both fitted cargo and pending-buy reservations.
 settlement or compensation converts or releases that reservation in the
@@ -717,25 +717,17 @@ projection and replay
 
 add projection migrations for:
 
-- `ships.hull_id`, loadout version, effective power used and available
+- `ships.hull_id`, rig version, effective power used and available
 - `fitted_modules(sid, slot, gid, primary key (sid, slot))`
 
-an idempotent projection seed backfills the starter hull and default
-fitted rows for live legacy projections. replay cannot depend on that
-one-time database state, so the event handler still performs the same
-initialization at loadout version `1` from every legacy
-`ship.created.v1` event.
+no seed/backfill step is needed - `ship.created.v1` now always carries
+a hull id and a rig, so the `ship.created.v1` handler projects them
+straight from the event payload, for every row it will ever see.
 
-the `ship.loadout.changed.v1` handler replaces one ship's fitted rows and
+the `ship.rig.changed.v1` handler replaces one ship's fitted rows and
 updates its effective stats atomically only when its version is newer.
 the cargo-exchanged handler applies the incoming/outgoing package deltas
 to the cargo projection.
-
-the existing `ship.created.v1` handler initializes the frozen legacy
-starter hull/loadout when replaying old history. `ship.created.v2`
-projects its explicit snapshot instead. a later loadout snapshot replaces
-either. this preserves old `event_log` rows without letting current
-catalogue defaults reinterpret new creation events.
 
 add `fitted_modules` to `scripts/rebuild.js`'s truncate set and extend the
 projection rebuild integration snapshot. rebuilding an old history and a
@@ -755,7 +747,7 @@ extend owner-only reads:
 add authenticated routes:
 
 - `post /modules/preview` - loads the projection's hull, fitted modules
-  and cargo, then runs the shared loadout and package-exchange preview
+  and cargo, then runs the shared rig and package-exchange preview
   helpers without publishing a command
 - `post /modules/install` - publishes the install command with `pid`
   taken only from the token
@@ -765,14 +757,14 @@ add authenticated routes:
 preview is advisory because projections may lag. install/remove command
 validation remains authoritative and may still reject.
 
-`ship.loadout.changed.v1` and both rejection events stay owner/admin
-only. do not add them to `feed.js`'s public ship allowlist; loadouts,
+`ship.rig.changed.v1` and both rejection events stay owner/admin
+only. do not add them to `feed.js`'s public ship allowlist; rigs,
 power and module cargo are private.
 
-`ship.created.v2` does need a public allowlist entry because new ships
-remain visible traffic. its stranger-facing shape must match v1's safe
-shape and omit hull, modules, power, capacity and velocity. owners and
-admins receive the full event.
+`ship.created.v1` already has a public allowlist entry - new ships
+remain visible traffic. its stranger-facing redaction needs to keep
+omitting hull, modules, power, capacity and velocity now that the
+payload carries them. owners and admins receive the full event.
 
 update gateway query/route declarations, readmes and tests together.
 
@@ -787,7 +779,7 @@ the first client surface is one fitting panel based on the slot sketches
 already in `client.md`:
 
 - one row/card per hull slot, including empty slots
-- fitted module, mount size, power draw and provided capabilities
+- fitted module, mount size, power draw and provided rates
 - effective capacity, velocity, used power and available power
 - compatible packaged modules carried in cargo
 - explicit display of incompatible carried modules and every reason
@@ -797,8 +789,8 @@ selecting an action calls the preview route and shows before/after stats,
 cargo load and all failures. confirmation publishes the command through
 the existing pending-correlation mechanism.
 
-handle the new websocket events, including `ship.created.v2`, by
-rehydrating ship, cargo and fitted modules from their owner-only
+handle the new websocket events, including the extended `ship.created.v1`,
+by rehydrating ship, cargo and fitted modules from their owner-only
 endpoints. the event carries enough data
 for an immediate patch, but rehydration is safer for this first slice and
 keeps the client out of the business of replaying a distributed saga.
@@ -814,7 +806,7 @@ delivery sequence
 ### 1. catalogue and pure rules
 
 touch `packages/domain`, its declarations/readme and `test/domain.spec.js`.
-finish with a starter hull and default loadout that reproduce `20` cargo
+finish with a starter hull and default rig that reproduce `20` cargo
 capacity and `0.6c`, plus a minimal power, cruise and cargo module set.
 these are compatibility fixtures, not final balance.
 
@@ -832,13 +824,13 @@ this independently before ship-service starts sending exchange commands.
 
 ### 4. ship persistence and saga
 
-add hull/loadout migrations, legacy seeding, pending operations and
-install/remove continuations. keep travel on cached effective velocity
-and block travel during a pending refit.
+add hull/rig migrations, pending operations and install/remove
+continuations. keep travel on cached effective velocity and block
+travel during a pending refit.
 
 ### 5. projections and rebuild
 
-project complete loadout snapshots and cargo exchanges. update rebuild
+project complete rig snapshots and cargo exchanges. update rebuild
 before exposing any new read route; otherwise the new feature disappears
 after an admin rebuild.
 
@@ -851,14 +843,14 @@ and websocket rehydration. preserve the public feed allowlist.
 
 exercise the actual player loop:
 
-1. register and receive the legacy-equivalent starter loadout
+1. register and receive the starter rig
 2. travel to a station stocking a module
 3. buy it as cargo
 4. install or replace it
 5. observe cargo package removal and changed effective stats
 6. travel and observe the new velocity affecting route time
 7. remove the module, receive its package and sell it
-8. rebuild projections and recover the same loadout, cargo and stats
+8. rebuild projections and recover the same rig, cargo and stats
 
 
 test matrix and gates
@@ -903,7 +895,7 @@ not a reason to weaken or skip those tests outside it.
 done when
 --------------------------------
 
-- old players and new players both have the same valid starter loadout
+- old players and new players both have the same valid starter rig
 - current trade/travel behavior is unchanged before fitting anything
 - packaged modules are scarce station goods and can be traded by an
   incompatible ship
@@ -914,6 +906,6 @@ done when
 - cargo can never exceed the resulting effective capacity
 - a pending refit cannot race travel or a pending market trade
 - effective velocity changes route timing but never changes an active leg
-- module events and reads reveal no private loadout to other players
+- module events and reads reveal no private rig to other players
 - projection rebuild reproduces fitted modules, cargo and effective stats
 - the full validation gates pass
