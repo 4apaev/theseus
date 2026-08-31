@@ -12,7 +12,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
-} from '#packages/testing/src/index.js?title=🧪 INTEGRATION 🎮 PLAYER'
+} from '#packages/testing/src/index.js'
 
 import {
     eventTree as EVT,

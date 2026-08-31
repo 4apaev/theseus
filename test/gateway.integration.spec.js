@@ -18,7 +18,7 @@ import {
     guid,
     waitFor,
     wsConnect,
-} from '#packages/testing/src/index.js?title=🧪 INTEGRATION ⛩️ GATEWAY'
+} from '#packages/testing/src/index.js'
 
 const PRFX = 'itg_gateway'
 // ─────────────────────────────────────────────────────────────────────────────

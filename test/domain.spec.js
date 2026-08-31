@@ -1,7 +1,7 @@
 import test   from 'node:test'
 import assert from 'node:assert/strict'
 
-import '#packages/testing/src/index.js?title=🧪 🧮 DOMAIN'
+import '#packages/testing/src/index.js'
 
 import {
     universe,

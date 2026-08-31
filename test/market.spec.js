@@ -8,7 +8,7 @@ import {
     fakeClient,
     fakeTransact,
     outboxEvents,
-} from '#testing/index.js?title=🧪 🎰 MARKET'
+} from '#testing/index.js'
 
 import { goods, universe } from '@theseus/domain'
 

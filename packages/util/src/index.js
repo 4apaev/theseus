@@ -64,24 +64,37 @@ export function camel2snake(s, ...a) { return s.match(/[A-Z]?[a-z]+/g).map(low).
 
 // ── Time ────────────────────────────────────────────────────
 
-// ms since some past instant → a short "1d 2h" / "3h 4m" / "5m 6s" / "7s" string
+/**
+ * milliseconds to time string: [ 42d 23h 32m 16s | 20h 30m 7s | 32m 16s ]
+ *
+ * @param  {number} ms
+ * @return {string}
+ */
 export function fmtDuration(ms) {
-    const s = Math.floor(ms / 1000)
-    const d =   s / 86400     | 0,
-            h = s / 3600 % 24 | 0,
-            m = s / 60 % 60   | 0
+    const rs = [],
+            s = 0 | ms / 1000,
+            d = 0 | s  / 86400,
+            h = 0 | s  / 3600 % 24,
+            m = 0 | s  / 60 % 60
 
-    if (d) return `${ d }d ${ h }h`
-    if (h) return `${ h }h ${ m }m`
-    if (m) return `${ m }m ${ s % 60 }s`
-    return `${ s }s`
+    d && rs.push(d + 'd')
+    h && rs.push(h + 'h')
+    m && rs.push(m + 'm')
+    s && rs.push(s % 60 + 's')
+    return rs.join(' ')
 }
 
+/**
+ * time string: [ 16d | 23h | 4m | 6s ] to milliseconds
+ *
+ * @param  {string|number} x
+ * @return {number}
+ */
 export function formatTime(x) {
-    if (Is.not.s(x)) return x
+    if (typeof x != 'string') return x
 
-    let [ , n, t ] = x.trim().toLowerCase().match(/^([\d.]+) *(s|m|h|d|w)?/) ?? []
-    isNaN(n = +n) && Fail.raise(`invalid time string "${ x }"`)
+    let [ , n, t ] = low(x).match(/^ *([\d.]+) *(s|m|h|d|w)?/) ?? []
+    isNaN(n = +n) && Fail.raise(`invalid time string "${ x }"`, x, formatTime)
 
     switch (t) {
         case 's': return n * 1000
@@ -93,22 +106,16 @@ export function formatTime(x) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-
-export function nil(x) {
-    if (Is.a(x)) return x.map(nil), x
-    return Is.x(x)
-        ? each(x, nil, O.setPrototypeOf(x, null))
-        : x
-}
-
-/*  a poll must survive one bad tick.
-    without the catch, one rejection stops the loop for the life of the
-    process, and nothing reports it. pollOutbox runs on this: a single
-    failed publish would stop every event the service sends.
-    this cost 2 real bugs before the catch existed. */
-export function poll(fx, ms, ...args) {
-    ms = formatTime(ms ?? 0)
+/**
+ * @template {(...a: any[]) => any} F
+ *
+ * @param {F} fx
+ * @param {string | number} [x]
+ * @param {Parameters<F>} [args]
+ * @return {Promise<{ result: ReturnType<F>, stop: () => void }>}
+ */
+export function poll(fx, x, ...args) {
+    const ms = formatTime(x ?? 0)
     let rs, tid, stopped = 0
 
     async function tick() {
@@ -121,10 +128,109 @@ export function poll(fx, ms, ...args) {
         stopped || (tid = setTimeout(tick, ms))
     }
     tick()
-    return {
+    return { // @ts-ignore
         get result() { return rs },
         stop() {
             stopped = 1
             clearTimeout(tid)
         } }
 }
+
+/**
+ * creates `then` function that returns time diff
+ * between two calls.
+ *
+ * the method `valueOf` of `now` and `then` returns a number,
+ * which enables number like behavior for both.
+ *
+ * `now.valueOf` returns Date.now
+ * `then.valueOf` returns the time when it was invoked
+ *
+ * now(ms) -> produces `then`
+ * then()  -> actual diff
+ * now > then -> true
+ *
+ * @param  {string|number} ms
+ * @return {() => number}
+ */
+export function now(ms) {            // @ts-ignore
+    const start = formatTime(ms) + now   // @ts-ignore
+    const then = () => now - start
+    then.valueOf = () => start
+    return then
+}
+now.valueOf = Date.now
+
+/**
+ * @template {Fx} F
+ * @param {F} fx
+ * @param {string|number} [ms]
+ * @param {string|number} [delay]
+ * @param {Parameters<F>} [args]
+ * @return {Promise<ReturnType<F>>}
+ */
+export async function wait(fx, ms, delay, ...args) {
+    delay = formatTime(delay ?? 50)
+    const deadline =  now(ms ?? delay * 10)
+
+    // @ts-ignore
+    while (now < deadline) {
+        const rs = await fx(...args)
+        if (rs) return rs
+        await sleep(delay)
+    }
+    throw new Fail('waitFor timed out', { cause: deadline }, wait)
+}
+
+/**
+ * @template T
+ * @param {string|number} ms
+ * @param {T} [x]
+ * @return {Promise<T>}
+ */
+export function sleep(ms, x) {
+    return new Promise(ok => setTimeout(ok, formatTime(ms), x))
+}
+
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @template T
+ * @param {ArrayLike<T>} it
+ * @param {AQuery<T>} query
+ * @param {unknown} [ctx]
+ * @return {T[]|undefined}
+ */
+export function where(it, query, ctx) {
+    const rs = A.where(it, query, ctx)
+    return rs.length ? rs : void 0
+}
+
+/**
+ * @template T
+ * @param {ArrayLike<T>} it
+ * @param {AQuery<T>} query
+ * @param {unknown} [ctx]
+ * @return {T}
+ */
+export function findWhere(it, query, ctx) {
+    return it.find(A.pre(query), ctx)
+}
+
+/**
+ * @template T
+ * @param {unknown} [x]
+ * @return {T}
+ */
+export function nil(x) {
+    if (Is.a(x)) return x.map(nil), x
+    return Is.x(x)
+        ? each(x, nil, O.setPrototypeOf(x, null))
+        : x
+}
+
+/**
+ * @typedef {(...a: any[]) => any} Fx
+ * @typedef {typeof A.pre} AQuery
+ *
+ */

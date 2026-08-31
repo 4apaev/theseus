@@ -10,7 +10,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
-} from '#packages/testing/src/index.js?title=🧪 INTEGRATION 🛸 SHIP'
+} from '#packages/testing/src/index.js'
 
 import {
     eventTree as EVT,

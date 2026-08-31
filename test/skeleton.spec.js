@@ -9,7 +9,7 @@ import { commandTopics, createCommandEnvelope          } from '#packages/contrac
 import { capitalCost, commonFrameYears, shipFrameYears } from '#packages/domain/src/index.js'
 import { createTopicRecord, decodeJson                 } from '#packages/kafka/src/index.js'
 
-import '#packages/testing/src/index.js?title=🧪 🚀 SKELETON'
+import '#packages/testing/src/index.js'
 
 test('repo skeleton exposes service entrypoints', () => {
     assert.equal(gatewayServiceName, 'gateway')

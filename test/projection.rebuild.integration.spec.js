@@ -9,7 +9,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
-} from '#testing/index.js?title=🧪 INTEGRATION 🔁 REBUILD'
+} from '#testing/index.js'
 
 import startPlayer     from '@theseus/player-service'
 import startShip       from '@theseus/ship-service'

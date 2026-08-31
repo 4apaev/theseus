@@ -11,7 +11,7 @@ import {
     fakeClient,
     fakeTransact,
     outboxEvents,
-} from '#packages/testing/src/index.js?title=🧪 🎮 PLAYER'
+} from '#packages/testing/src/index.js'
 
 // ── registerPlayer ───────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { createFakeKafka } from '#packages/testing/src/index.js?title=🧪 📬 KAFKA'
+import { createFakeKafka } from '#packages/testing/src/index.js'
 import {
     Store,
     createConsumer,

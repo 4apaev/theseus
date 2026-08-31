@@ -7,7 +7,7 @@ import {
     Raw, up, low, trim, guid,
 } from '#packages/util/src/index.js'
 
-import '#packages/testing/src/index.js?title=🧪 🪏 UTIL'
+import '#packages/testing/src/index.js'
 
 // ── poll ──────────────────────────────────────────────────────────────────────
 

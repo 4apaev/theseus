@@ -2,6 +2,11 @@
 export * from 'garage/util'
 export * as Constants from 'garage/constants'
 
+import {
+    A,
+    AQuery,
+    FQuery,
+} from 'garage/util'
 // ── Codec ────────────────────────────────────────────────────
 
 export function encodeJson(value: unknown): Buffer
@@ -30,4 +35,14 @@ export function guid(prefix?: string): string
 export function formatTime(x: string | number): number
 export function fmtDuration(ms: number): string
 export function nil<T>(x: T): T
+export function now(ms?: number): () => number
+export function wait<F extends (...a: any[]) => Promise<any>>(
+    fx: F,
+    ms?: string | number,
+    delay?: string | number,
+    ...args: Parameters<F>
+): ReturnType<F>
 
+export function sleep<T>(ms?: string | number, x?: T): Promise<T>
+export function findWhere<T>(it: ArrayLike<T>, query: AQuery<T>, ctx?: unknown): T
+export function where<T>(it: ArrayLike<T>, query: AQuery<T>, ctx?: unknown): T

@@ -4,7 +4,7 @@ import test   from 'node:test'
 import { format, readEnv, requireEnv } from '#packages/config/src/env.js'
 import { bootService, isMain         } from '#packages/config/src/service.js'
 
-import '#packages/testing/src/index.js?title=🧪 🎛️  CONFIG'
+import '#packages/testing/src/index.js'
 
 // ── format ──────────────────────────────────────────────────────────────────
 
