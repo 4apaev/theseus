@@ -39,6 +39,7 @@ content and visualization steps remain independent.
 | 3.5  | ΔV mechanics - in-system travel               |        |
 | 3.6  | universe growth - more stations, path() perf  |        |
 | 3.7  | travel manifest visualization                 |        |
+| 3.8  | jsdoc pass - close the types gap              |        |
 
 
 ### step 3.1 - ships name generator
@@ -300,6 +301,44 @@ most, a re-hydrate on every `ship.arrived.v1` is enough.
 touches `apps/gateway/src/queries.js` (`ships()`), `client/js/state.js`/
 `events.js` (carry `manifest` through), and a small ship-detail panel in
 `client/js/render.js`/`index.html`, styled after the existing mockup.
+
+
+### step 3.8 - jsdoc pass, close the types gap
+
+last step of the phase, on purpose - it touches every package and app,
+so it runs after everything else lands, not before.
+
+today's split: each package's real types live in a hand-written
+`types/*.d.ts`, separate from its untyped `.js` implementation. a
+consumer importing the package sees full types (`package.json`'s
+`exports` field points there); editing the `.js` source directly shows
+none, since the two files are never linked. new files stop this from
+growing - see `.claude/CLAUDE.md`'s "Types" section, JSDoc from here on.
+this step is the backfill for everything written before that rule.
+
+**scope, proven by a real dry run**: turning on `checkJs` against
+`apps/` + `packages/` (excluding `test/`, `scripts/`, and the broken
+`?title=` test-import convention - a separate, unrelated fix) surfaced
+72 errors across 15 files. 2 were real bugs, caught only by the type
+checker: `shipNames.js`'s `shuffle()` compared a function reference to
+a number instead of calling it, so the name pools never actually
+shuffled; `previewLoadout`'s `operation` argument had an optional/
+required shape mismatch. most of the rest were one-line annotation
+gaps. the number stays small enough to do as one step, not a phase of
+its own.
+
+the actual work: fold each package's `types/*.d.ts` into JSDoc inside
+the `.js` files they describe, then delete the now-redundant `.d.ts`.
+turn `checkJs` on in the root `tsconfig.json` once the fold is done.
+`packages/service/src/index.js`'s base class (14 of the 72 dry-run
+errors alone) is the one spot that looked like a real typing-design
+gap, not just a missing annotation - its subclasses don't cleanly fit
+the inferred shape, worth deciding deliberately rather than papering
+over with `any`.
+
+a full TypeScript migration and a Go rewrite were both considered and
+set aside for now - see `tech.debt.md`'s "language/types migration"
+entry for the reasoning.
 
 
 explicitly out (phase 4+, someday, or standalone)
