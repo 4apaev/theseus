@@ -15,6 +15,7 @@ export {
     waitFor,
     collectEvents,
     createPublisher,
+    wherePayload,
 } from './integration.js'
 
 export {
@@ -28,20 +29,28 @@ export {
 } from './mocks.js'
 
 const dict = {
-    auth      : ' 🔐  AUTH      🧪',
-    bump      : ' 🏷️  BUMP      🧪',
-    config    : ' 🎛️  CONFIG    🧪',
-    contracts : ' 📜  CONTRACTS 🧪',
-    db        : ' 📇  DB        🧪',
-    domain    : ' 🧮  DOMAIN    🧪',
-    gateway   : ' ⛩️  GATEWAY   🧪',
-    kafka     : ' 📬  KAFKA     🧪',
-    market    : ' 🎰  MARKET    🧪',
-    player    : ' 🎮  PLAYER    🧪',
-    ship      : ' 🛸  SHIP      🧪',
-    skeleton  : ' 🚀  SKELETON  🧪',
-    testing   : ' 🧪  TESTING   🧪',
-    util      : ' 🪏  UTIL      🧪',
+    auth      : '🔐  AUTH      🧪 ',
+    bump      : '🏷️  BUMP      🧪 ',
+    config    : '🎛️  CONFIG    🧪 ',
+    contracts : '📜  CONTRACTS 🧪 ',
+    db        : '📇  DB        🧪 ',
+    domain    : '🧮  DOMAIN    🧪 ',
+    gateway   : '⛩️  GATEWAY   🧪 ',
+    kafka     : '📬  KAFKA     🧪 ',
+    market    : '🎰  MARKET    🧪 ',
+    player    : '🎮  PLAYER    🧪 ',
+    ship      : '🛸  SHIP      🧪 ',
+    skeleton  : '🚀  SKELETON  🧪 ',
+    testing   : '🧪  TESTING   🧪 ',
+    util      : '🪏  UTIL      🧪 ',
+
+    'game.integration'               : '🚦 🚀 ∫∫ GAME    ',
+    'gateway.integration'            : '🚦 ⛩️ ∫∫ GATEWAY ',
+    'ship.integration'               : '🚦 🛸 ∫∫ SHIP    ',
+    'player.integration'             : '🚦 🎮 ∫∫ PLAYER  ',
+    'market.integration'             : '🚦 🎰 ∫∫ MARKET  ',
+    'market.rebuild.integration'     : '🚦 🎰 ∫∫ REBUILD MARKET     ',
+    'projection.rebuild.integration' : '🚦 📺 ∫∫ REBUILD PROJECTION ',
 
 }
 
@@ -49,9 +58,9 @@ const name = process.argv[ 1 ]
     .replace(/.+\/test\/([^/]+)\.spec\.js$/i, '$1')
     .toLowerCase()
 
-const title = dict[ name ] ?? `🤔 🤷‍♀️ 🤔 🤷‍♀️ ${ name } 🧪🧪🧪`
+const title = dict[ name ] ?? `🤔 🤷‍♀️ 🤔 🤷‍♀️ ${ name } 🧪🧪🧪 `
 
 console.log(
-    '\n%s\n',
-    `── ${ title } `.padEnd(64, '─'),
+    '\n──%s\n',
+    title.padEnd(64, '─'),
 )

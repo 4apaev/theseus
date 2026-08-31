@@ -29,7 +29,7 @@ import {
     waitFor,
     wsConnect,
     fakeTablePool,
-} from '#testing/index.js?title=🧪 ⛩️ GATEWAY'
+} from '#testing/index.js'
 
 const SECRET = 'test-secret'
 const jwt    = create(SECRET)

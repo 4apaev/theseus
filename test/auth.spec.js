@@ -1,7 +1,7 @@
 import test   from 'node:test'
 import assert from 'node:assert/strict'
 
-import '#packages/testing/src/index.js?title=🧪 🔐 AUTH'
+import '#packages/testing/src/index.js'
 import * as Auth from '@theseus/auth'
 
 const SECRET = 'test-secret'

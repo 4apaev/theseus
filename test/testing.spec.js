@@ -9,7 +9,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
-} from '#packages/testing/src/index.js?title=🧪 🧪 TESTING'
+} from '#packages/testing/src/index.js'
 
 // ── guid ─────────────────────────────────────────────────────────────────────
 

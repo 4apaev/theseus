@@ -5,7 +5,7 @@ import Os      from 'node:os'
 import Pt      from 'node:path'
 import { execFileSync } from 'node:child_process'
 
-import '#testing/index.js?title=🧪 🏷️  BUMP'
+import '#testing/index.js'
 
 import bump from '../scripts/bump.js'
 

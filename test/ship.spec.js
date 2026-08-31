@@ -7,7 +7,7 @@ import {
     fakeClient,
     fakeTransact,
     outboxEvents,
-} from '#testing/index.js?title=🧪 🛸 SHIP'
+} from '#testing/index.js'
 
 import { createHandlers   } from '#ship/handlers.js'
 import { travel, distance } from '#ship/travel.js'

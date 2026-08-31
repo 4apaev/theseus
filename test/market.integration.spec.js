@@ -11,7 +11,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
-} from '#testing/index.js?title=🧪 INTEGRATION 🎰 MARKET'
+} from '#testing/index.js'
 
 import {
     eventTree as EVT,

@@ -24,7 +24,7 @@ import { encodeJson, Fail } from '#packages/util/src/index.js'
 import {
     fakePool,
     fakeClient,
-} from '#packages/testing/src/index.js?title=🧪 📇 DB'
+} from '#packages/testing/src/index.js'
 
 // ── Inbox (memory) ────────────────────────────────────────────────────────────
 

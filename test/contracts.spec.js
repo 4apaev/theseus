@@ -14,7 +14,7 @@ import {
     eventTypes,
 } from '#packages/contracts/src/index.js'
 import { field } from '#packages/contracts/src/field.js'
-import '#packages/testing/src/index.js?title=🧪 📜 CONTRACTS'
+import '#packages/testing/src/index.js'
 
 // ── catalog ────────────────────────────────────────────────────────────────
 
