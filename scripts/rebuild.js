@@ -1,5 +1,3 @@
-/* eslint-disable camelcase */
-
 import { DB }             from '@theseus/db'
 import { isMain }         from '@theseus/config'
 import { createHandlers } from '@theseus/projection-service'
@@ -25,13 +23,13 @@ async function replay(client, sql) {
     await client.query(`truncate table ${ TABLES } cascade`)
 
     const { rows } = await sql`
-        SELECT event_type, payload
+        SELECT etype, payload
           FROM event_log
          ORDER BY received, eid
     `
 
-    for (const { event_type, payload } of rows) {
-        const fx = dispatch[ event_type ]
+    for (const { etype, payload } of rows) {
+        const fx = dispatch[ etype ]
         fx && await fx({ payload })
     }
     return rows.length

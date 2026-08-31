@@ -20,8 +20,10 @@ step `6` done - see [docs/phase.1.md](../../docs/phase.1.md), tracked in [docs/p
 
 
 ### exports
-- `src/main.js`     - `Market extends Service` - seed + consumer(`commands.market`, `events.wallet`, `events.ship`)
-- `src/handlers.js` - ships mirror + buy / sell sagas + continuation / compensation
+- `src/main.js`     - `Market extends Service` - seed + consumer(`commands.market`, `events.wallet`, `events.ship`),
+  `logEvents = true` feeds `event_log` for `scripts/rebuild-market-ships.js`
+- `src/handlers.js` - `shipMirrorHandlers(pool)` (the ships mirror, also the rebuild replay
+  set) + buy / sell sagas + continuation / compensation
 - `src/seed.js`     - `seed(pool, transact)` adds the missing markets and returns
   how many, `stockFor(station, gid)`, `quote(gid, stock, target)`
 
@@ -35,6 +37,8 @@ step `6` done - see [docs/phase.1.md](../../docs/phase.1.md), tracked in [docs/p
 - `003_ships.sql`             : `sid` pk, `pid`, `stid`, `status`, `capacity` - mirror from `events.ship`
 - `004_cargo.sql`             : (`sid`, `gid`) pk, `quantity`
 - `005_trades.sql`            : `tid` pk, saga state - `pending` → `executed` | `rejected`
+- `006_event_log.sql`         : `eid` pk, `etype`, `payload` jsonb, `occurred`,
+                                `received` - every consumed message, `ships` rebuild source
 
 ------------------------------------------------------------------------------------------------
 
@@ -83,17 +87,21 @@ wallet rejection returns the cargo.
 
 ------------------------------------------------------------------------------------------------
 
-### known gap - mirror staleness, no rebuild here
+### `ships` mirror rebuild - `npm run rebuild:market-ships`
 
-`ships` and `cargo` are pure mirrors of `events.ship` / `events.cargo`, exposed to the
-same failure as `projection-service` before its step 10 fix: a consumer group resumes
-from its committed offset on restart, not by replay, so a mirror emptied independently
-of that offset can never self-heal (hit for real once - see `docs/progress.md`, step 10).
-`projection-service` got a truncate + `event_log` replay for this; **`market-service`
-does not** - `ships` / `cargo` sit in the same schema as saga-owned state
-(`station_inventory`, `trades`), and a blanket truncate + replay would wrongly wipe the
-trade state machine along with the mirrors. left as a documented gap, not fixed in this
-pass.
+`ships` is a pure mirror of `events.ship`, exposed to the same failure as
+`projection-service` before its step 10 fix: a consumer group resumes from its
+committed offset on restart, not by replay, so a mirror emptied independently of that
+offset can never self-heal (hit for real - `docs/tech.debt.md`'s "missing ship" bug).
+`logEvents = true` (`src/main.js`) feeds `market.event_log`; `scripts/rebuild-market-ships.js`
+truncates + replays `ships` alone through `handlers.js`'s `shipMirrorHandlers` -
+`shipCreated` / `shipDeparted` / `shipArrived`, all pure and idempotent.
+
+**`cargo`, `trades` and `station_inventory` stay out of this on purpose.** they are
+saga-owned, not pure mirrors - replaying `market.buy.requested` or a `wallet.debited`
+continuation would re-fire the saga's own side effects (wallet debits, outbox writes),
+not just restate a fact. a blanket truncate + replay of the whole schema would
+therefore corrupt the trade state machine, not repair it. left as a documented gap.
 
 ------------------------------------------------------------------------------------------------
 
@@ -105,3 +113,7 @@ pass.
 - [x] integration: `test/game.integration.spec.js` - **the full loop** with player +
       ship + market: register → buy ore at `sol.outpost` → fly to `barnards.port` →
       sell → trader ends richer than ₢1000
+- [x] integration: `test/market.rebuild.integration.spec.js` - reproduces the "missing
+      ship" bug for real (truncate `ships` directly, kafka offset untouched), a trade
+      then rejects `ship unknown`, `rebuild()` restores the exact row, the same trade
+      then succeeds

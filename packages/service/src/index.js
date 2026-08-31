@@ -75,7 +75,10 @@ export default class Service {
             groupId: ctor.service,
             topics : ctor.topics,
             async handler({ value }) {
-                ctor.logEvents && await logEvent(pool, value)
+                // commands have no eid/event_type/occurred - only an
+                // event is loggable, a consumer mixing both (market-
+                // service) must not try to log a command as one
+                ctor.logEvents && value?.event_type && await logEvent(pool, value)
                 const fx = dispatch[ value?.command_type ?? value?.event_type ]
                 fx && await fx(value)
             },
@@ -133,7 +136,7 @@ export default class Service {
 
 function logEvent(pool, { eid, event_type, payload, occurred }) {
     return pool.query(`
-        INSERT INTO event_log (eid, event_type, payload, occurred)
+        INSERT INTO event_log (eid, etype, payload, occurred)
              VALUES ($1, $2, $3, $4)
         ON CONFLICT (eid)
          DO NOTHING

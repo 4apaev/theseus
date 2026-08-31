@@ -11,6 +11,7 @@ export class Market extends Service {
     static schema     = 'market'
     static service    = 'market-service'
     static migrations = new URL('../migrations', import.meta.url)
+    static logEvents  = true    // event_log feeds scripts/rebuild-market-ships.js
     static topics     = [ commandTopics.market, eventTopics.wallet, eventTopics.ship ]
     static owns       = [ 'cargo', 'trades', 'markets', 'station_inventory' ]
     static role       =   'station markets, prices, inventory, and trade sagas'
@@ -38,6 +39,8 @@ export class Market extends Service {
         super.stop()
     }
 }
+
+export { shipMirrorHandlers } from './handlers.js'
 
 export const service = Market.service
 export const describeService = () => Market.describe()

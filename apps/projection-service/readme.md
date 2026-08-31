@@ -31,7 +31,7 @@
 - `004_cargo.sql`         : (sid, gid) pk, quantity, updated
 - `005_market_prices.sql` : (stid, gid) pk, price_buy, price_sell, updated
 - `006_trade_history.sql` : tid pk, gid, pid, sid, stid, quantity, price_*, side, created
-- `007_event_log.sql`     : eid pk, event_type, payload jsonb, occurred, received - replay source for `scripts/rebuild.js`
+- `007_event_log.sql`     : eid pk, etype, payload jsonb, occurred, received - replay source for `scripts/rebuild.js`
 
 full column detail in [migrations/](./migrations/), schema overview in [docs/phase.1.md](../../docs/phase.1.md)
 

@@ -9,6 +9,57 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+tech debt: bug - missing ship after restart - fixed ✔
+------------------------------------------------
+
+closed `docs/tech.debt.md`'s "bug: missing ship" - a real, hit-for-real bug, not
+theoretical. after some restarts a ship's trades started rejecting `ship unknown`,
+while the player and everything else stayed fine.
+
+**cause**: `market.ships` is a pure mirror of `events.ship`
+(`shipCreated`/`shipDeparted`/`shipArrived` in `apps/market-service/src/handlers.js`),
+kept in sync only by consuming that topic. market-service's consumer group resumes
+from its own committed offset on restart, not by replay - the exact failure mode
+`apps/market-service/readme.md` already named as a known gap, once step 10 fixed it
+for `projection-service` but explicitly left market-service's `ships`/`cargo` alone
+(cargo sits in the same schema as saga-owned `station_inventory`/`trades`, where a
+blanket replay would re-fire wallet debits, not just restate a fact - genuinely
+harder, still an open gap). if `market.ships` is ever emptied independently of that
+offset - a postgres-only reset, a manual truncate - the row for an existing ship
+can never come back on its own. the ship still exists in `ship.ships`
+(ship-service's own table, the real source of truth); market-service just stops
+knowing it.
+
+**fix, scoped to the safe half of the gap**: `Market` (`src/main.js`) now sets
+`logEvents = true`, feeding a new `market.event_log` (`006_event_log.sql`, same
+shape as projection's). `handlers.js`'s three ship-mirror functions moved into
+their own `shipMirrorHandlers(pool)` factory - pure, idempotent, no outbox writes,
+so replaying them is safe. `scripts/rebuild-market-ships.js` (`npm run
+rebuild:market-ships`) truncates + replays `ships` alone through that factory -
+never touching `cargo`/`trades`/`station_inventory`, which stay the documented,
+still-open half of the gap.
+
+**a second, real bug found while building this**: `packages/service/src/index.js`'s
+shared `logEvent()` assumed every consumed message is an event
+(`eid`/`event_type`/`occurred`). `projection-service` never noticed because it only
+ever consumes event topics. market-service consumes commands too
+(`commands.market`) - the moment `logEvents` turned on, the first `market.buy.requested`
+command through the pipe crashed the consumer (`eid` is `undefined` on a command,
+violating `event_log`'s primary key). fixed at the base class: only log when
+`value?.event_type` is present, so a command is silently skipped rather than
+logged wrong. any future service mixing commands and `logEvents` would have hit
+this identically.
+
+**proved for real**, not just asserted: `test/market.rebuild.integration.spec.js`
+reproduces the bug on purpose - truncates `ships` directly (kafka offset
+untouched, exactly the failure mode) - confirms a real trade now rejects `ship
+unknown`, runs the rebuild, confirms the mirror row comes back byte-identical,
+then confirms the same trade succeeds. `npm run test int` (27/27) and `npm run
+smoke` (real broker, real postgres) both pass with `logEvents` live on
+market-service.
+
+
+------------------------------------------------
 ship modules - domain catalogue and resolver ✔
 ------------------------------------------------
 
