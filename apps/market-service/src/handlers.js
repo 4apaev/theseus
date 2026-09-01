@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { Outbox } from '@theseus/db'
 import { guid } from '@theseus/util'
-import { goods, cargoLoad } from '@theseus/domain'
+import { goods } from '@theseus/domain'
 import {
     createEmitter,
     createCommander,
@@ -14,114 +14,17 @@ import {
 } from '@theseus/contracts'
 
 import { quote } from './seed.js'
+import {
+    lockStock, bumpStock,
+    getShip, lockShip,
+    cargoTotal, lockCargo, bumpCargo,
+    settleTrade, pendingTrade,
+} from './queries.js'
 
 const emit    = createEmitter('market-service')
 const command = createCommander('market-service')
 
 const r2 = x => Math.round(x * 100) / 100
-
-// ── STOCK ────────────────────────────────────────────────────
-
-/**
- * @description
- * the locked stock:
- * every trade serializes on its station × good row,
- * prices are computed from the very stock the reservation decrements
- */
-async function lockStock(client, stid, gid) {
-    const { rows: [ row ] } = await client.query(`
-        SELECT stock, target
-          FROM station_inventory
-         WHERE stid = $1
-           AND gid = $2
-           FOR UPDATE
-    `, [ stid, gid ])
-    return row
-}
-
-function bumpStock(client, stid, gid, delta) {
-    return client.query(`
-        UPDATE station_inventory
-           SET stock = stock + $3, updated = now()
-         WHERE stid = $1
-           AND gid = $2
-     RETURNING stock, target
-    `, [ stid, gid, delta ]).then(rs => rs.rows[ 0 ])
-}
-
-// ── SHIPS ────────────────────────────────────────────────────
-
-async function getShip(client, sid) {
-    const { rows: [ row ] } = await client.query(`
-        SELECT *
-          FROM ships
-         WHERE sid = $1
-        `, [ sid ])
-    return row
-}
-
-async function lockShip(client, sid) {
-    const { rows: [ row ] } = await client.query(`
-        SELECT *
-          FROM ships
-         WHERE sid = $1
-           FOR UPDATE
-        `, [ sid ])
-    return row
-}
-
-// ── CARGO ────────────────────────────────────────────────────
-
-async function cargoTotal(client, sid) {
-    const { rows } = await client.query(`
-        SELECT gid, quantity
-          FROM cargo
-         WHERE sid = $1
-        `, [ sid ])
-    return cargoLoad(rows, goods)
-}
-
-async function lockCargo(client, sid, gid) {
-    const { rows: [ row ] } = await client.query(`
-        SELECT quantity
-          FROM cargo
-         WHERE sid = $1
-           AND gid = $2
-           FOR UPDATE
-    `, [ sid, gid ])
-    return row
-}
-
-function bumpCargo(client, sid, gid, delta) {
-    return client.query(`
-        INSERT INTO cargo (sid, gid, quantity, updated)
-             VALUES ($1, $2, $3, now())
-        ON CONFLICT (sid, gid)
-          DO UPDATE
-                SET quantity = cargo.quantity + $3, updated = now()
-    `, [ sid, gid, delta ])
-}
-
-// ── TRADES ───────────────────────────────────────────────────
-
-function settleTrade(client, tid, status) {
-    return client.query(`
-        UPDATE trades
-           SET status = $2, updated = now()
-         WHERE tid = $1`,
-    [ tid, status ])
-}
-
-async function pendingTrade(client, rfid) {
-    const { rows: [ row ] } = await client.query(`
-        SELECT *
-          FROM trades
-         WHERE tid = $1
-           AND status = 'pending'
-           FOR UPDATE
-    `, [ rfid ])
-    return row
-}
 
 // ── MARKETS ──────────────────────────────────────────────────
 
