@@ -476,19 +476,19 @@ the fitting flow is:
 ```
 client
   │ ship.module.install.requested
-  ▼
+  ↓
 ship-service
   │ validate proposed rig + persist pending operation
   │ cargo.module.exchange.requested
-  ▼
+  ↓
 market-service
   │ lock ship cargo + exchange incoming/outgoing packages
   │ cargo.module.exchanged | cargo.module.exchange.rejected
-  ▼
+  ↓
 ship-service
   │ commit fitted modules + cached stats
   │ ship.rig.changed | ship.module.operation.rejected
-  ▼
+  ↓
 projection → gateway websocket → client
 ```
 
