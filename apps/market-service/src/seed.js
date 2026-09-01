@@ -22,6 +22,10 @@ export function stockFor(station, gid) {
     return TARGET
 }
 
+function stocksAt(station, gid) {
+    return Uni.goods[ gid ].kind !== 'module' || !!station.stocks?.includes(gid)
+}
+
 export function quote(gid, stock, target) {
     const good = Uni.goods[ gid ]
     return Uni.spread(
@@ -54,8 +58,9 @@ export async function seed(pool, transact) {
 
         for (const station of Uni.universe.nodes.values()) {
             for (const gid of Object.keys(Uni.goods)) {
-                have.has(`${ station.stid }:${ gid }`)
-                    || fresh.push(await seedOne(client, station, gid))
+                stocksAt(station, gid)
+                    && !have.has(`${ station.stid }:${ gid }`)
+                    && fresh.push(await seedOne(client, station, gid))
             }
         }
 

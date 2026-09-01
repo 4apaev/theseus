@@ -74,7 +74,7 @@ const dockedShip = (over = {}) => () => ({ rows: [{
 }]})
 
 const stocked = (stock = 160, target = 100) => () => ({ rows: [{ stock, target }]})
-const noCargo = () => ({ rows: [{ total: 0 }]})
+const noCargo = () => ({ rows: []}) // cargoTotal now reads { gid, quantity } rows
 const empty   = () => ({ rows: []})
 
 function handlers(overrides = []) {
@@ -93,8 +93,9 @@ test('arbitrage exists: ore is cheap where produced, dear where craved', () => {
 // ── seed ──────────────────────────────────────────────────────────────────────
 
 test('seed fills every station × good and publishes a quote for each', async () => {
-    // one row per station × good. the universe decides how many.
-    const rows = universe.nodes.size * Object.keys(goods).length
+    // one row per station × good - commodities everywhere, modules only
+    // where a station stocks them. the universe decides how many.
+    const rows = stockableRows()
 
     const pool = fakePool()
     assert.equal(await seed(pool, fakeTransact(pool.client)), rows)
@@ -121,7 +122,7 @@ test('seed adds only the missing station * good', async () => {
         () => ({ rows: everyPair().filter(r => r.stid !== 'sol.mars') }),
     ])
 
-    assert.equal(await seed(pool, fakeTransact(pool.client)), Object.keys(goods).length)
+    assert.equal(await seed(pool, fakeTransact(pool.client)), stockableRows([ universe.nodes.get('sol.mars') ]))
     assert.ok(pool.client.log
         .filter(Rx.insert.station)
         .every(q => q.params[ 0 ] === 'sol.mars'))
@@ -131,6 +132,12 @@ function everyPair() {
     return universe.nodes.values()
         .flatMap(st => Object.keys(goods).map(gid => ({ stid: st.stid, gid })))
         .toArray()
+}
+
+// a station stocks every commodity, but a module gid only when it names it
+function stockableRows(stations = universe.nodes.values().toArray()) {
+    return stations.reduce((n, st) => n + Object.keys(goods)
+        .filter(gid => goods[ gid ].kind !== 'module' || st.stocks?.includes(gid)).length, 0)
 }
 
 // ── buy - rejections ──────────────────────────────────────────────────────────
@@ -143,7 +150,7 @@ for (const [ reason, overrides, cmd ] of [
     [ 'ship not docked here', [ stocked(), dockedShip({ status: 'transit' }) ]],
     [ 'ship not docked here', [ stocked(), dockedShip({ stid: 'barnards.port' }) ]],
     [ 'insufficient stock'  , [ stocked(5), dockedShip() ]],
-    [ 'over capacity'       , [ stocked(), dockedShip(), () => ({ rows: [{ total: 15 }]}) ]],
+    [ 'over capacity'       , [ stocked(), dockedShip(), () => ({ rows: [{ gid: 'ore', quantity: 15 }]}) ]],
     [ 'price above limit'   , [ stocked(), dockedShip(), noCargo ], buyCmd({ price_unit_max: 1 }) ],
 ]) {
     test(`buy rejects: ${ reason }`, async () => {
@@ -225,6 +232,99 @@ test('sell hands over cargo, records the trade, requests the credit', async () =
     assert.equal(credit.command_type, 'wallet.credit.requested.v1')
     assert.match(credit.payload.rfid, /^trade_/)
     assert.ok(credit.payload.amount > 500, 'scarcity pays')
+})
+
+// ── module exchange ──────────────────────────────────────────────────────────
+// cargoModuleExchangeRequested's real order: lockShip, lockCargo (incoming
+// only), cargoTotal - no station stock or trade involved.
+
+const exchangeCmd = (over = {}) => makeCmd({
+    pid          : 'p1',
+    sid          : 's1',
+    operation    : 'install',
+    incoming     : 'reactor.mk1',
+    capacity_next: 20,
+    ...over,
+})
+
+test('module exchange rejects: ship not found', async () => {
+    const { client, fx } = handlers([ empty ])
+    await fx[ 'cargo.module.exchange.requested.v1' ](exchangeCmd())
+
+    const [ e ] = outboxEvents(client)
+    assert.equal(e.event_type, 'cargo.module.exchange.rejected.v1')
+    assert.deepEqual(e.payload.reasons, [ 'ship not found' ])
+})
+
+test('module exchange rejects: incoming package not held', async () => {
+    const { client, fx } = handlers([ dockedShip(), empty ])
+    await fx[ 'cargo.module.exchange.requested.v1' ](exchangeCmd())
+
+    const [ e ] = outboxEvents(client)
+    assert.deepEqual(e.payload.reasons, [ 'reactor.mk1 not in cargo' ])
+})
+
+test('module exchange rejects: over capacity', async () => {
+    const { client, fx } = handlers([
+        dockedShip(),
+        () => ({ rows: [{ gid: 'reactor.mk1', quantity: 5 }]}),
+    ])
+    await fx[ 'cargo.module.exchange.requested.v1' ](exchangeCmd({
+        operation: 'remove', incoming: undefined, outgoing: 'reactor.mk2', capacity_next: 20,
+    }))
+
+    const [ e ] = outboxEvents(client)
+    assert.deepEqual(e.payload.reasons, [ 'over capacity' ])
+    assert.ok(!client.log.some(Rx.insert.cargo), 'cargo untouched')
+})
+
+test('module exchange install: incoming leaves cargo, ship.rig fields ride the event', async () => {
+    const { client, fx } = handlers([
+        dockedShip(),
+        () => ({ rows: [{ quantity: 1 }]}),
+        () => ({ rows: [{ gid: 'reactor.mk1', quantity: 1 }]}),
+    ])
+    await fx[ 'cargo.module.exchange.requested.v1' ](exchangeCmd())
+
+    const bump = client.log.find(Rx.insert.cargo)
+    assert.deepEqual(bump.params, [ 's1', 'reactor.mk1', -1 ])
+
+    const [ e ] = outboxEvents(client)
+    assert.equal(e.event_type, 'cargo.module.exchanged.v1')
+    assert.equal(e.payload.load, 0)
+    assert.equal(e.payload.incoming, 'reactor.mk1')
+    assert.equal(e.payload.outgoing, undefined)
+})
+
+test('module exchange remove: outgoing joins cargo, no incoming lookup issued', async () => {
+    const { client, fx } = handlers([ dockedShip(), empty ])
+    await fx[ 'cargo.module.exchange.requested.v1' ](exchangeCmd({
+        operation: 'remove', incoming: undefined, outgoing: 'reactor.mk1', capacity_next: 20,
+    }))
+
+    assert.ok(!client.log.some(Rx`SELECT +quantity\s+FROM +cargo`), 'no incoming to look up')
+
+    const bump = client.log.find(Rx.insert.cargo)
+    assert.deepEqual(bump.params, [ 's1', 'reactor.mk1', 1 ])
+
+    const [ e ] = outboxEvents(client)
+    assert.equal(e.payload.load, 4, 'reactor.mk1 volume')
+})
+
+test('module exchange replace: outgoing and incoming move atomically', async () => {
+    const { client, fx } = handlers([
+        dockedShip(),
+        () => ({ rows: [{ quantity: 1 }]}),
+        () => ({ rows: [{ gid: 'reactor.mk1', quantity: 1 }]}),
+    ])
+    await fx[ 'cargo.module.exchange.requested.v1' ](exchangeCmd({
+        operation: 'replace', incoming: 'reactor.mk1', outgoing: 'reactor.mk2', capacity_next: 20,
+    }))
+
+    const bumps = client.log.filter(Rx.insert.cargo)
+    assert.equal(bumps.length, 2)
+    assert.deepEqual(bumps[ 0 ].params, [ 's1', 'reactor.mk1', -1 ])
+    assert.deepEqual(bumps[ 1 ].params, [ 's1', 'reactor.mk2', 1 ])
 })
 
 // ── continuation ──────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 import { Outbox } from '@theseus/db'
 import { guid } from '@theseus/util'
+import { goods, cargoLoad } from '@theseus/domain'
 import {
     createEmitter,
     createCommander,
@@ -9,6 +10,7 @@ import {
 import {
     eventTree   as EVT,
     commandTree as CMD,
+    eventDefinition,
 } from '@theseus/contracts'
 
 import { quote } from './seed.js'
@@ -18,7 +20,7 @@ const command = createCommander('market-service')
 
 const r2 = x => Math.round(x * 100) / 100
 
-// ── row helpers ──────────────────────────────────────────────
+// ── STOCK ────────────────────────────────────────────────────
 
 /**
  * @description
@@ -58,16 +60,46 @@ async function getShip(client, sid) {
     return row
 }
 
+async function lockShip(client, sid) {
+    const { rows: [ row ] } = await client.query(`
+        SELECT *
+          FROM ships
+         WHERE sid = $1
+           FOR UPDATE
+        `, [ sid ])
+    return row
+}
+
 // ── CARGO ────────────────────────────────────────────────────
 
 async function cargoTotal(client, sid) {
-    const { rows: [ row ] } = await client.query(`
-        SELECT COALESCE(SUM(quantity), 0)
-            AS total
+    const { rows } = await client.query(`
+        SELECT gid, quantity
           FROM cargo
          WHERE sid = $1
         `, [ sid ])
-    return +row.total
+    return cargoLoad(rows, goods)
+}
+
+async function lockCargo(client, sid, gid) {
+    const { rows: [ row ] } = await client.query(`
+        SELECT quantity
+          FROM cargo
+         WHERE sid = $1
+           AND gid = $2
+           FOR UPDATE
+    `, [ sid, gid ])
+    return row
+}
+
+function bumpCargo(client, sid, gid, delta) {
+    return client.query(`
+        INSERT INTO cargo (sid, gid, quantity, updated)
+             VALUES ($1, $2, $3, now())
+        ON CONFLICT (sid, gid)
+          DO UPDATE
+                SET quantity = cargo.quantity + $3, updated = now()
+    `, [ sid, gid, delta ])
 }
 
 // ── TRADES ───────────────────────────────────────────────────
@@ -117,24 +149,42 @@ async function publishQuote(client, stid, gid, { stock, target }) {
     })
 }
 
-function rejectTrade(client, side, data) {
+// every reject path writes one event to the outbox - envelope fields
+// wrap around a payload the caller already shaped. rejectTrade and
+// rejectExchange below are the only 2 shapes; both funnel through this.
+// aggregate_type is the event's own topic - never a 3rd copy of it.
+function emitRejection(client, { event, aggregate_id }, { causation_id, correlation_id }, payload) {
     return Outbox.write(client, [
-        emit(EVT.trade.rejected, {
-            aggregate_type: 'trade',
-            aggregate_id  : data.payload.stid,
-            causation_id  : data.cmd ?? data.causation_id,
-            correlation_id: data.correlation_id,
-            payload       : {
-                side,
-                reason  : data.reason,
-                quantity: data.payload.quantity,
-                stid    : data.payload.stid,
-                gid     : data.payload.gid,
-                pid     : data.payload.pid,
-                sid     : data.payload.sid,
-            },
+        emit(event, {
+            aggregate_type: eventDefinition(event).topic,
+            aggregate_id,
+            causation_id,
+            correlation_id,
+            payload,
         }),
     ])
+}
+
+function rejectTrade(client, side, { reason, cmd, causation_id, correlation_id, payload }) {
+    return emitRejection(client,
+        { event: EVT.trade.rejected, aggregate_id: payload.stid },
+        { causation_id: cmd ?? causation_id, correlation_id },
+        {
+            side,
+            reason,
+            quantity: payload.quantity,
+            stid    : payload.stid,
+            gid     : payload.gid,
+            pid     : payload.pid,
+            sid     : payload.sid,
+        })
+}
+
+function rejectExchange(client, { reasons, causation_id, correlation_id, payload: p }) {
+    return emitRejection(client,
+        { event: EVT.cargo.module.exchange.rejected, aggregate_id: p.sid },
+        { causation_id, correlation_id },
+        { operation: p.operation, pid: p.pid, sid: p.sid, reasons })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -187,11 +237,12 @@ export function shipMirrorHandlers(pool) {
 export function createHandlers(pool, transact) {
     return {
         ...shipMirrorHandlers(pool),
-        [ CMD.market.buy.requested        ]: marketBuyRequested,
-        [ CMD.market.sell.requested       ]: marketSellRequested,
-        [ EVT.wallet.debited              ]: walletDebited,
-        [ EVT.wallet.credited             ]: walletCredited,
-        [ EVT.wallet.transaction.rejected ]: walletTransactionRejected,
+        [ CMD.market.buy.requested            ]: marketBuyRequested,
+        [ CMD.market.sell.requested           ]: marketSellRequested,
+        [ CMD.cargo.module.exchange.requested ]: cargoModuleExchangeRequested,
+        [ EVT.wallet.debited                  ]: walletDebited,
+        [ EVT.wallet.credited                 ]: walletCredited,
+        [ EVT.wallet.transaction.rejected     ]: walletTransactionRejected,
     }
 
     // ── buy saga ─────────────────────────────────────────────────
@@ -214,7 +265,8 @@ export function createHandlers(pool, transact) {
             if (inv.stock < payload.quantity) return reject('insufficient stock')
 
             const load = await cargoTotal(client, payload.sid)
-            if (load + payload.quantity > ship.capacity) return reject('over capacity')
+            const added = payload.quantity * goods[ payload.gid ].volume
+            if (load + added > ship.capacity) return reject('over capacity')
 
             const { price_buy } = quote(payload.gid, inv.stock, inv.target)
             if (price_buy > payload.price_unit_max) return reject('price above limit')
@@ -275,17 +327,7 @@ export function createHandlers(pool, transact) {
             if (ship.status  !== 'docked'
                 || ship.stid !== stid) return reject('ship not docked here')
 
-            const { rows: [ cargo ] } = await client.query(`
-                SELECT quantity
-                  FROM cargo
-                 WHERE sid = $1
-                   AND gid = $2
-                   FOR UPDATE
-            `, [
-                sid,
-                gid,
-            ])
-
+            const cargo = await lockCargo(client, sid, gid)
             if (!cargo || cargo.quantity < quantity) return reject('insufficient cargo')
 
             const { price_sell } = quote(
@@ -333,6 +375,59 @@ export function createHandlers(pool, transact) {
                         rfid  : tid,
                         amount: price_total,
                         reason: `trade ${ tid }`,
+                    },
+                }),
+            ])
+        })
+    }
+
+    /*
+        ── module exchange ──────────────────────────────────────────
+
+        ship-service already validated the rig.
+        this saga only moves the packages, weighted by volume
+        against the ship's proposed capacity.
+        no station stock or trade involved
+    */
+
+    async function cargoModuleExchangeRequested({ cmd: causation_id, correlation_id, payload }) {
+        const { pid, sid, operation, incoming, outgoing, capacity_next } = payload
+
+        await transact(pool, async client => {
+            const reject = reasons => rejectExchange(client, {
+                correlation_id,
+                causation_id,
+                reasons,
+                payload,
+            })
+
+            const ship = await lockShip(client, sid)
+            if (!ship) return reject([ 'ship not found' ])
+
+            if (incoming) {
+                const held = await lockCargo(client, sid, incoming)
+                if (!held || held.quantity < 1) return reject([ `${ incoming } not in cargo` ])
+            }
+
+            const delta = (outgoing ? goods[ outgoing ].volume : 0)
+                        - (incoming ? goods[ incoming ].volume : 0)
+
+            const load = await cargoTotal(client, sid)
+            if (load + delta > capacity_next) return reject([ 'over capacity' ])
+
+            incoming && await bumpCargo(client, sid, incoming, -1)
+            outgoing && await bumpCargo(client, sid, outgoing, 1)
+
+            await Outbox.write(client, [
+                emit(EVT.cargo.module.exchanged, {
+                    causation_id,
+                    correlation_id,
+                    aggregate_id  : sid,
+                    aggregate_type: 'cargo',
+                    payload       : {
+                        pid, sid, operation, incoming, outgoing,
+                        load: load + delta,
+                        capacity_next,
                     },
                 }),
             ])

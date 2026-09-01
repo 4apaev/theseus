@@ -11,6 +11,8 @@ export interface StationMeta {
     name?: string
     produces?: Record<string, number>
     consumes?: Record<string, number>
+    /** module gids this station stocks - sparse, unlike commodities */
+    stocks?: string[]
 }
 
 export interface Station extends StationMeta {
