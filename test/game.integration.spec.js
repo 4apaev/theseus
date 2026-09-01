@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 
 import {
     guid,
-    waitFor,
     collectEvents,
     createPublisher,
+    wherePayload,
 } from '#testing/index.js'
 
 import startPlayer from '@theseus/player-service'
@@ -31,10 +31,6 @@ const PRFX = 'itg_game'
     sell it dear                      (consumer scarcity)
     count the profit
 */
-
-function hasEvent(evt, key, id) {
-    return e => e.event_type === evt && e.payload[ key ] === id
-}
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -75,10 +71,10 @@ test('a trader can profit from ore arbitrage across the triangle', async () => {
     // ── register - player, wallet and the free ship appear ──
     await publish(CMD.player.register.requested, { handle, password: 'secret' })
 
-    const created = await waitFor(() => events.find(hasEvent(EVT.player.created, 'handle', handle)), '10s')
+    const created = await wherePayload(events, EVT.player.created, { handle }, '10s')
     const { pid } = created.payload
 
-    const freebie = await waitFor(() => events.find(hasEvent(EVT.ship.created, 'pid', pid)), '10s')
+    const freebie = await wherePayload(events, EVT.ship.created, { pid }, '10s')
     const { sid } = freebie.payload
     assert.equal(freebie.payload.stid, 'sol.outpost')
 
@@ -91,13 +87,9 @@ test('a trader can profit from ore arbitrage across the triangle', async () => {
         price_unit_max: 30,
     })
 
-    const bought = await waitFor(() =>
-        events.find(e =>
-            e.event_type === EVT.trade.executed
-            && e.payload.pid === pid
-            && e.payload.side === 'buy'), '15s')
+    const bought = await wherePayload(events, EVT.trade.executed, { pid, side: 'buy' }, '15s')
 
-    assert.ok(events.some(hasEvent(EVT.cargo.loaded, 'sid', sid)))
+    assert.ok(events.some(e => e.event_type === EVT.cargo.loaded && e.payload.sid === sid))
 
     // ── fly it where it is craved ──
     await publish(CMD.ship.travel.requested, {
@@ -106,7 +98,7 @@ test('a trader can profit from ore arbitrage across the triangle', async () => {
         to  : 'barnards.port',
     })
 
-    await waitFor(() => events.find(hasEvent(EVT.ship.arrived, 'sid', sid)), '15s')
+    await wherePayload(events, EVT.ship.arrived, { sid }, '15s')
 
     // ── sell into the scarcity ──
     await publish(CMD.market.sell.requested, {
@@ -117,13 +109,9 @@ test('a trader can profit from ore arbitrage across the triangle', async () => {
         price_unit_min: 50,
     })
 
-    const sold = await waitFor(() =>
-        events.find(e =>
-            e.event_type === EVT.trade.executed
-            && e.payload.pid === pid
-            && e.payload.side === 'sell'), '15s')
+    const sold = await wherePayload(events, EVT.trade.executed, { pid, side: 'sell' }, '15s')
 
-    const credited = await waitFor(() => events.find(hasEvent(EVT.wallet.credited, 'pid', pid)), '15s')
+    const credited = await wherePayload(events, EVT.wallet.credited, { pid }, '15s')
 
     stop()
 

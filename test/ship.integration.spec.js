@@ -10,6 +10,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
+    wherePayload,
 } from '#packages/testing/src/index.js'
 
 import {
@@ -69,10 +70,9 @@ test('player.created - seeds a starter ship that can fly', async () => {
         payload          : { pid, handle: guid(PRFX) },
     }))
 
-    const created = e => e.event_type === EVT.ship.created && e.payload.pid === pid
-    await waitFor(() => events.some(created))
+    const created = await wherePayload(events, EVT.ship.created, { pid })
 
-    const { sid } = events.find(created).payload
+    const { sid } = created.payload
     const ship = await sql`select * from ships where sid = ${ sid }`
 
     assert.equal(ship.status, 'docked')
@@ -89,8 +89,7 @@ test('player.created - seeds a starter ship that can fly', async () => {
         to  : 'alpha.exchange',
     })
 
-    const arrived = e => e.event_type === EVT.ship.arrived && e.payload.sid === sid
-    await waitFor(() => events.some(arrived))
+    await wherePayload(events, EVT.ship.arrived, { sid })
     stop()
 
     const after = await sql`select status, stid from ships where sid = ${ sid }`
@@ -114,19 +113,15 @@ test('travel - departs, then arrives and docks at destination', async () => {
     assert.equal(transit.status, 'transit')
     assert.equal(transit.to, 'alpha.exchange')
 
-    const departed = e => e.event_type === EVT.ship.departed && e.payload.sid === sid
-    const arrived  = e => e.event_type === EVT.ship.arrived  && e.payload.sid === sid
-
-    await waitFor(() => events.some(arrived))
+    const arr = await wherePayload(events, EVT.ship.arrived, { sid })
     stop()
 
-    const dep = events.find(departed)
+    const dep = events.find(e => e.event_type === EVT.ship.departed && e.payload.sid === sid)
     assert.equal(dep.payload.from, 'sol.outpost')
     assert.equal(dep.payload.to, 'alpha.exchange')
     assert.equal(dep.payload.years_abs, 4.32 / 0.6)
     assert.ok(dep.payload.years_rel < dep.payload.years_abs, 'proper time is shorter')
 
-    const arr = events.find(arrived)
     assert.equal(arr.payload.stid, 'alpha.exchange')
 
     const ship = await sql`select status, stid, arrived from ships where sid = ${ sid }`
@@ -181,11 +176,10 @@ test('travel - unknown ship emits travel.rejected', async () => {
         to  : 'alpha.exchange',
     })
 
-    const rejected = e => e.event_type === EVT.ship.travel.rejected && e.payload.sid === sid
-    await waitFor(() => events.some(rejected))
+    const rejected = await wherePayload(events, EVT.ship.travel.rejected, { sid })
     stop()
 
-    assert.equal(events.find(rejected).payload.reason, 'ship not found')
+    assert.equal(rejected.payload.reason, 'ship not found')
 })
 
 test('travel - wrong origin emits travel.rejected, ship stays docked', async () => {
@@ -199,11 +193,10 @@ test('travel - wrong origin emits travel.rejected, ship stays docked', async () 
         to  : 'alpha.exchange',
     })
 
-    const rejected = e => e.event_type === EVT.ship.travel.rejected && e.payload.sid === sid
-    await waitFor(() => events.some(rejected))
+    const rejected = await wherePayload(events, EVT.ship.travel.rejected, { sid })
     stop()
 
-    assert.equal(events.find(rejected).payload.reason, 'ship not at origin')
+    assert.equal(rejected.payload.reason, 'ship not at origin')
 
     const ship = await sql`select status, stid from ships where sid = ${ sid }`
     assert.equal(ship.status, 'docked')

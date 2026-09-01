@@ -153,8 +153,8 @@ export function poll(fx, x, ...args) {
  * @param  {string|number} ms
  * @return {() => number}
  */
-export function now(ms) {            // @ts-ignore
-    const start = formatTime(ms) + now   // @ts-ignore
+export function now(ms) {              // @ts-ignore
+    const start = formatTime(ms) + now // @ts-ignore
     const then = () => now - start
     then.valueOf = () => start
     return then
@@ -169,9 +169,9 @@ now.valueOf = Date.now
  * @param {Parameters<F>} [args]
  * @return {Promise<ReturnType<F>>}
  */
-export async function wait(fx, ms, delay, ...args) {
+export async function waitFor(fx, ms, delay, ...args) {
     delay = formatTime(delay ?? 50)
-    const deadline =  now(ms ?? delay * 10)
+    const deadline =  now(ms ?? 5000)
 
     // @ts-ignore
     while (now < deadline) {
@@ -179,7 +179,7 @@ export async function wait(fx, ms, delay, ...args) {
         if (rs) return rs
         await sleep(delay)
     }
-    throw new Fail('waitFor timed out', { cause: deadline }, wait)
+    throw new Fail('waitFor timed out', { cause: deadline }, waitFor)
 }
 
 /**
@@ -232,5 +232,4 @@ export function nil(x) {
 /**
  * @typedef {(...a: any[]) => any} Fx
  * @typedef {typeof A.pre} AQuery
- *
  */

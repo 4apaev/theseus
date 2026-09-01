@@ -11,6 +11,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
+    wherePayload,
 } from '#testing/index.js'
 
 import {
@@ -150,15 +151,13 @@ test('buy - reserves stock, requests debit, settles on wallet.debited', async ()
     // player-service says the money moved - settle
     await walletDebited(pid, debit.payload.rfid, debit.payload.amount)
 
-    const executed = hasEvent(EVT.trade.executed, 'pid',  pid)
-    await waitFor(() => events.some(executed), '5s')
+    const trade = await wherePayload(events, EVT.trade.executed, { pid }, '5s')
 
     // the quote republish is the last record of the settle batch -
     // wait for it too before we stop collecting
-    await waitFor(() => events.some(hasEvent(EVT.market.price.changed, 'gid', 'ore')), '5s')
+    await wherePayload(events, EVT.market.price.changed, { gid: 'ore' }, '5s')
     stop()
 
-    const trade = events.find(executed)
     assert.equal(trade.payload.side, 'buy')
     assert.equal(trade.payload.tid, debit.payload.rfid)
 
@@ -198,10 +197,9 @@ test('buy - price above limit rejects and leaves stock alone', async () => {
         price_unit_max: 0.01,
     })
 
-    const rejected = e => e.event_type === EVT.trade.rejected && e.payload.pid === pid
-    await waitFor(() => events.some(rejected), 8000)
+    const rejected = await wherePayload(events, EVT.trade.rejected, { pid }, 8000)
     stop()
 
-    assert.equal(events.find(rejected).payload.reason, 'price above limit')
+    assert.equal(rejected.payload.reason, 'price above limit')
     assert.equal(await selectStock('sol.outpost', 'ore'), before)
 })

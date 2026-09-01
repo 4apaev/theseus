@@ -12,6 +12,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
+    wherePayload,
 } from '#packages/testing/src/index.js'
 
 import {
@@ -82,11 +83,9 @@ test('registerPlayer - duplicate handle emits registration.rejected', async () =
     const { events, stop } = collectEvents(kafka, [ 'events.player' ])
     await publish(CMD.player.register.requested, { handle, password: 'x' })
 
-    const prFail = e => e.event_type === EVT.player.registration.rejected
-    await waitFor(() => events.some(prFail))
+    const { payload } = await wherePayload(events, EVT.player.registration.rejected)
     stop()
 
-    const { payload } = events.find(prFail)
     assert.equal(payload.handle, handle)
     assert.equal(payload.reason, 'handle taken')
 })
@@ -106,11 +105,9 @@ test('debitWallet - updates balance, emits wallet.debited', async () => {
         reason: 'purchase',
     })
 
-    const debited = e => e.event_type === EVT.wallet.debited
-    await waitFor(() => events.some(debited))
+    const { payload } = await wherePayload(events, EVT.wallet.debited)
     stop()
 
-    const { payload } = events.find(debited)
     assert.equal(+payload.balance, 900)
     assert.equal(+payload.amount, 100)
 
@@ -133,11 +130,9 @@ test('debitWallet - insufficient funds emits transaction.rejected', async () => 
         reason: 'too much',
     })
 
-    const trFail = e => e.event_type === EVT.wallet.transaction.rejected
-    await waitFor(() => events.some(trFail))
+    const { payload } = await wherePayload(events, EVT.wallet.transaction.rejected)
     stop()
 
-    const { payload } = events.find(trFail)
     assert.equal(payload.reason, 'insufficient funds')
 
     const wallet = await sql`select balance from wallets where pid = ${ pid }`
@@ -147,8 +142,6 @@ test('debitWallet - insufficient funds emits transaction.rejected', async () => 
 test('creditWallet - updates balance, emits wallet.credited', async () => {
     const handle = guid(PRFX)
     await publish(CMD.player.register.requested, { handle, password: 'x' })
-
-    const credited = e => e.event_type === EVT.wallet.credited
 
     const { pid } = await sql`select pid from players where handle = ${ handle }`
     const { events, stop } = collectEvents(kafka, [ 'events.wallet' ])
@@ -160,10 +153,9 @@ test('creditWallet - updates balance, emits wallet.credited', async () => {
         reason: 'reward',
     })
 
-    await waitFor(() => events.some(credited))
+    const { payload } = await wherePayload(events, EVT.wallet.credited)
     stop()
 
-    const { payload } = events.find(credited)
     assert.equal(+payload.balance, 1500)
 
     const wallet = await sql`select balance from wallets where pid = ${ pid }`
