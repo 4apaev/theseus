@@ -1,15 +1,25 @@
 /* eslint-disable camelcase */
 
-import { Outbox   } from '@theseus/db'
-import { guid, trim } from '@theseus/util'
-import { readEnv } from '@theseus/config'
-import { createEmitter } from '@theseus/kafka'
+import { Outbox          } from '@theseus/db'
+import { guid, trim      } from '@theseus/util'
+import { readEnv         } from '@theseus/config'
+import { createEmitter   } from '@theseus/kafka'
 import { STARTER_CREDITS } from '@theseus/domain'
-import Crypt       from './crypto.js'
+import Crypt               from './crypto.js'
 import {
     eventTree as EVT,
     commandTree as CMD,
 } from '@theseus/contracts'
+
+import {
+    findPlayerByHandle,
+    promoteToAdmin,
+    insertPlayer,
+    insertWallet,
+    lockWallet,
+    claimRfid,
+    updateWallet,
+} from './queries.js'
 
 const emit = createEmitter('player-service')
 
@@ -18,28 +28,6 @@ const emit = createEmitter('player-service')
 // see the admin bootstrap section in docs/permissions.md.
 function isAdmin(handle) {
     return readEnv('ADMIN_HANDLES', '').split(',').map(trim).includes(handle)
-}
-
-async function claimRfid(client, { pid, rfid, amount }, type) {
-    const { rows } = await client.query(`
-        INSERT INTO wallet_transactions (rfid, pid, amount, type)
-             VALUES ($1, $2, $3, $4)
-        ON CONFLICT DO NOTHING
-          RETURNING rfid
-    `, [ rfid, pid, amount, type ])
-    return rows.length > 0
-}
-
-async function updateWallet(opr, client, pid, amount) {
-    const rs = await client.query(`
-        UPDATE wallets
-           SET balance = balance ${ opr } $2,
-               version = version + 1
-         WHERE pid = $1
-     RETURNING balance, version
-    `, [ pid, amount ])
-    const row = rs.rows?.[ 0 ]
-    return row ? { balance: +row.balance, version: row.version } : void 0
 }
 
 async function walletTx(client, evtp, { cmd: causation_id, correlation_id, payload: p }) {
@@ -96,20 +84,14 @@ export function createHandlers(pool, transact, producer) {
     /*  login replies bypass the outbox on purpose - no domain write to
         keep atomic, and the gateway is waiting on the http request */
     async function loginPlayer({ cmd: causation_id, correlation_id, payload: p }) {
-        const { rows: [ player ] } = await pool.query(`
-            SELECT pid, handle, hash, role
-              FROM players
-             WHERE handle = $1
-            `, [ p.handle ],
-        )
-
+        const player = await findPlayerByHandle(pool, p.handle)
         const ok = !!player && await Crypt.verify(p.password, player.hash)
 
         // promote the player on a match.
         // do not demote the player.
         // an env change alone must not remove admin rights.
         if (ok && isAdmin(player.handle) && player.role !== 'admin') {
-            await pool.query('UPDATE players SET role = $1 WHERE pid = $2', [ 'admin', player.pid ])
+            await promoteToAdmin(pool, player.pid)
             player.role = 'admin'
         }
 
@@ -135,8 +117,8 @@ export function createHandlers(pool, transact, producer) {
 
         try {
             await transact(pool, async client => {
-                await client.query('INSERT INTO players (pid, handle, hash) VALUES ($1, $2, $3)', [ pid, p.handle, hash ])
-                await client.query('INSERT INTO wallets (pid, balance)      VALUES ($1, $2)'    , [ pid, STARTER_CREDITS ])
+                await insertPlayer(client, pid, p.handle, hash)
+                await insertWallet(client, pid, STARTER_CREDITS)
 
                 await Outbox.write(client, [
 
@@ -186,11 +168,7 @@ export function createHandlers(pool, transact, producer) {
         await transact(pool, async client => {
             if (!await claimRfid(client, cmd.payload, 'debit')) return
 
-            const { rows: [ wallet ] } = await client.query(
-                'SELECT balance, version FROM wallets WHERE pid = $1 FOR UPDATE',
-                [ cmd.payload.pid ],
-            )
-
+            const wallet = await lockWallet(client, cmd.payload.pid)
             if (!wallet || wallet.balance < cmd.payload.amount)
                 return rejectWallet(client, wallet, cmd)
             await walletTx(client, EVT.wallet.debited, cmd)
