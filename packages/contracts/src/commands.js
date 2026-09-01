@@ -13,8 +13,11 @@ import {
     walletCreditRequested,
     shipTravelRequested,
     shipRenameRequested,
+    shipModuleInstallRequested,
+    shipModuleRemoveRequested,
     cargoLoadRequested,
     cargoUnloadRequested,
+    cargoModuleExchangeRequested,
     marketBuyRequested,
     marketSellRequested,
 } from './schemas.js'
@@ -26,8 +29,11 @@ const definitions = [
     walletCreditRequested,
     shipTravelRequested,
     shipRenameRequested,
+    shipModuleInstallRequested,
+    shipModuleRemoveRequested,
     cargoLoadRequested,
     cargoUnloadRequested,
+    cargoModuleExchangeRequested,
     marketBuyRequested,
     marketSellRequested,
 ]
@@ -49,10 +55,15 @@ export const tree = freezer({
         credit: { requested: walletCreditRequested.slug }},
     ship: {
         travel: { requested: shipTravelRequested.slug },
-        rename: { requested: shipRenameRequested.slug }},
+        rename: { requested: shipRenameRequested.slug },
+        module: {
+            install: { requested: shipModuleInstallRequested.slug },
+            remove : { requested: shipModuleRemoveRequested.slug },
+        }},
     cargo: {
         load  : { requested: cargoLoadRequested.slug },
-        unload: { requested: cargoUnloadRequested.slug }},
+        unload: { requested: cargoUnloadRequested.slug },
+        module: { exchange: { requested: cargoModuleExchangeRequested.slug }}},
     market: {
         buy : { requested: marketBuyRequested.slug },
         sell: { requested: marketSellRequested.slug }},

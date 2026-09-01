@@ -151,12 +151,17 @@ function shipCreatedEvent(eid) {
         event_type       : eventTypes.ship_created_v1,
         producer         : 'ship-service',
         payload          : {
-            capacity: 20,
-            name    : 'courier',
-            pid     : 'player_test',
-            sid     : 'ship_test',
-            stid    : 'sol.outpost',
-            velocity: 0.6,
+            pid       : 'player_test',
+            sid       : 'ship_test',
+            stid      : 'sol.outpost',
+            name      : 'courier',
+            hull      : 'starter',
+            capacity  : 20,
+            velocity  : 0.6,
+            rig       : 1,
+            power     : 1,
+            power_pool: 8,
+            fitted    : [{ slot: 'power1', gid: 'reactor.mk1' }],
         },
     })
 }

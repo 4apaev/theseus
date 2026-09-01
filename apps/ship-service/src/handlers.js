@@ -2,7 +2,13 @@
 import { Outbox } from '@theseus/db'
 import { guid } from '@theseus/util'
 import { createEmitter } from '@theseus/kafka'
-import { starterShip, universe } from '@theseus/domain'
+import {
+    starterShip,
+    universe,
+    hulls,
+    starterRig,
+    deriveStats,
+} from '@theseus/domain'
 import {
     eventTree   as EVT,
     commandTree as CMD,
@@ -11,6 +17,17 @@ import {
 import { travel } from './travel.js'
 
 const emit = createEmitter('ship-service')
+
+/*
+    every new ship gets the starter hull and its default rig - there is
+    no per-ship hull choice yet (that's step 4's persistence work), so
+    this is one constant snapshot, not a per-ship lookup. `fitted` goes
+    on the wire as an array (slot ids aren't a fixed field set, so a
+    plain object can't be validated generically) - see docs/modules.md.
+*/
+const starterHull  = hulls.starter
+const starterStats = deriveStats(starterHull, starterRig)
+const starterFitted = Object.entries(starterRig).map(([ slot, gid ]) => ({ slot, gid }))
 
 // ─────────────────────────────────────────────────────────────
 
@@ -68,7 +85,14 @@ export function createHandlers(pool, transact) {
                     aggregate_id     : sid,
                     aggregate_type   : 'ship',
                     aggregate_version: 1,
-                    payload          : { sid, pid, stid, name, capacity, velocity },
+                    payload          : {
+                        sid, pid, stid, name, capacity, velocity,
+                        hull           : starterHull.id,
+                        rig           : 1,
+                        fitted         : starterFitted,
+                        power     : starterStats.power.used,
+                        power_pool: starterStats.power.available,
+                    },
                 }),
             ])
         })

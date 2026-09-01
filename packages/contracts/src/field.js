@@ -4,7 +4,10 @@ const CODE = 417 // EXPECTATION FAILED
 
 export const keyBy = A.prop
 
-const SHIP_NAME = /^[\p{L}\p{N} '.-]{1,24}$/u
+const SHIP_NAME = /^[\p{L}\p{N} '.-]{1,24}$/u  // TODO: add regex explanation
+
+// one fitted slot on the wire: { slot, gid } - see docs/modules.md
+const fittedSlotShape = shape({ slot: isNonEmptyString, gid: isNonEmptyString })
 
 export const field = Object.freeze({
     property      : A.prop,
@@ -20,7 +23,18 @@ export const field = Object.freeze({
     positiveNumber(x)          { return Is.n(x) && x > 0 },
     velocity(x)                { return Is.n(x) && x > 0 && x < 1 },
     shipName(x)                { return isNonEmptyString(x) && SHIP_NAME.test(x) && x.trim() === x },
+    arrayOf,
+    nonEmptyArrayOf,
+    shape,
+    fittedSlots: arrayOf(fittedSlotShape),
+    reasons    : nonEmptyArrayOf(isNonEmptyString),
 })
+
+// array/shape combinators - reusable, and how fittedSlots/reasons above
+// are themselves built
+function arrayOf(v)         { return x => Is.a(x) && x.every(v) }
+function nonEmptyArrayOf(v) { return x => Is.a(x) && x.length > 0 && x.every(v) }
+function shape(spec)        { return x => Is.T('Object', x) && O.keys(spec).every(k => spec[ k ](x[ k ])) }
 
 export function freezer(x) {
     return Is.x(x)
