@@ -275,9 +275,9 @@ universe.system('sirius',         { name: 'Sirius',         star: 'A1V + white d
 */
 universe.node('sol.mercury',    { system: 'sol', name: 'Mercury Deep',   produces: { ore  : 10 }, consumes: { grain: 6 }})
 universe.node('sol.venus',      { system: 'sol', name: 'Venus Lab',      produces: { spice:  6 }, consumes: { ore  : 4 }})
-universe.node('sol.outpost',    { system: 'sol', name: 'Sol Outpost',    produces: { ore  :  8 }, consumes: { grain: 5 }})
+universe.node('sol.outpost',    { system: 'sol', name: 'Sol Outpost',    produces: { ore  :  8 }, consumes: { grain: 5 }, stocks: [ 'reactor.mk1', 'cruise.mk1', 'cargo.mk1' ]})
 universe.node('sol.mars',       { system: 'sol', name: 'Mars Hub',       produces: { grain:  7 }, consumes: { spice: 5 }})
-universe.node('sol.ganymede',   { system: 'sol', name: 'Ganymede Yards', produces: { ore  :  6 }, consumes: { spice: 4 }})
+universe.node('sol.ganymede',   { system: 'sol', name: 'Ganymede Yards', produces: { ore  :  6 }, consumes: { spice: 4 }, stocks: [ 'reactor.mk2', 'cruise.mk2', 'cargo.mk2' ]})
 universe.node('sol.titan',      { system: 'sol', name: 'Titan Ring',     produces: { spice:  7 }, consumes: { grain: 5 }})
 
 universe.node('alpha.exchange', { system: 'alpha.centauri', name: 'Alpha Exchange', produces: { grain: 8 }, consumes: { spice: 5 }})

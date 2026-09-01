@@ -2,8 +2,8 @@ import test   from 'node:test'
 import assert from 'node:assert/strict'
 import Crypto from 'node:crypto'
 
+import * as Kfk from '@theseus/kafka'
 import { DB, Query } from '@theseus/db'
-import * as Kfk      from '@theseus/kafka'
 import { goods, universe } from '@theseus/domain'
 
 import {
@@ -12,7 +12,7 @@ import {
     collectEvents,
     createPublisher,
     wherePayload,
-} from '#testing/index.js'
+} from '@theseus/testing'
 
 import {
     eventTree as EVT,
@@ -62,6 +62,24 @@ async function selectStock(stid, gid) {
     return stock
 }
 
+async function stockedAt(stid, gid) {
+    const { n } = await sql`
+        SELECT count(*) AS n
+          FROM station_inventory
+         WHERE stid = ${ stid }
+           AND gid = ${ gid }`
+    return +n > 0
+}
+
+async function cargoQty(sid, gid) {
+    const { rows } = await query`
+        SELECT quantity
+          FROM cargo
+         WHERE sid = ${ sid }
+           AND gid = ${ gid }`
+    return rows[ 0 ]?.quantity ?? 0
+}
+
 function walletCommandFor(pid) {
     return kafka.messages('commands.wallet')
         .map(msg => Kfk.decodeJson(msg.value))
@@ -107,9 +125,18 @@ test('seed - every station:good has stock and a published quote', async () => {
 
     const { n: inv } = await sql`SELECT count(*) AS n FROM station_inventory`
     const { n: qts } = await sql`SELECT count(*) AS n FROM markets`
-
-    // one row per station × good. the universe decides how many.
-    const rows = universe.nodes.size * Object.keys(goods).length
+    /*
+        one row exists per station × good.
+        a station stocks every commodity.
+        a station stocks a module only
+        if it names the module.
+    */
+    const rows = universe.nodes
+        .values()
+        .reduce((n, st) =>
+            n + Object.keys(goods).filter(gid =>
+                goods[ gid ].kind !== 'module'
+                || st.stocks?.includes(gid)).length, 0)
 
     assert.equal(+inv, rows)
     assert.equal(+qts, rows)
@@ -205,4 +232,119 @@ test('buy - price above limit rejects and leaves stock alone', async () => {
 
     assert.equal(rejected.payload.reason, 'price above limit')
     assert.equal(await selectStock('sol.outpost', 'ore'), before)
+})
+
+// ── ship modules ─────────────────────────────────────────────────────────────
+
+test('seed - modules are sparse: a station stocks only what it names', async () => {
+    assert.ok(await stockedAt('sol.outpost', 'reactor.mk1'), 'starter dock: civilian line')
+    assert.ok(!await stockedAt('sol.outpost', 'reactor.mk2'), 'starter dock: no specialist line')
+    assert.ok(await stockedAt('sol.ganymede', 'reactor.mk2'), 'the yards: specialist line')
+    assert.ok(!await stockedAt('sol.mars', 'reactor.mk1'), 'a plain hub stocks no modules')
+})
+
+test('buy - a module purchase is weighed by volume, not counted by piece', async () => {
+    const sid = guid(PRFX)
+    const pid = guid(PRFX)
+
+    await shipCreated(sid, pid) // capacity 20
+
+    const { events: loaded, stop: stopLoaded } = collectEvents(kafka, [ 'events.cargo' ])
+
+    // 18 units of ore, volume 1 each - 18 of 20 capacity, leaves room by
+    // piece count but not once a volume-4 module is weighed in
+    await publish(CMD.market.buy.requested, {
+        pid, sid,
+        gid: 'ore',
+        stid: 'sol.outpost',
+        quantity: 18,
+        price_unit_max: 1000,
+    })
+
+    const oreDebit = await waitFor(walletCommandFor, '5s', 50, pid)
+    await walletDebited(pid, oreDebit.payload.rfid, oreDebit.payload.amount)
+    await wherePayload(loaded, EVT.cargo.loaded, { sid }, '5s')
+    stopLoaded()
+
+    const before = await selectStock('sol.outpost', 'reactor.mk1')
+    const { events, stop } = collectEvents(kafka, [ 'events.market' ])
+
+    await publish(CMD.market.buy.requested, {
+        pid, sid,
+        gid: 'reactor.mk1',
+        stid: 'sol.outpost',
+        quantity: 1,
+        price_unit_max: 10000,
+    })
+    const rejected = await wherePayload(events, EVT.trade.rejected, { pid }, '5s')
+    stop()
+
+    assert.equal(rejected.payload.reason, 'over capacity')
+    assert.equal(await selectStock('sol.outpost', 'reactor.mk1'), before, 'nothing reserved')
+})
+
+test('module exchange - install then remove round-trips the package, station stock untouched', async () => {
+    const sid = guid(PRFX)
+    const pid = guid(PRFX)
+
+    await shipCreated(sid, pid)
+
+    const { events, stop } = collectEvents(kafka, [ 'events.cargo' ])
+
+    await publish(CMD.market.buy.requested, {
+        pid, sid,
+        gid: 'reactor.mk1',
+        stid: 'sol.outpost',
+        quantity: 1,
+        price_unit_max: 10000,
+    })
+
+    const debit = await waitFor(walletCommandFor, '5s', 50, pid)
+    await walletDebited(pid, debit.payload.rfid, debit.payload.amount)
+    await wherePayload(events, EVT.cargo.loaded, { sid }, '5s')
+
+    assert.equal(await cargoQty(sid, 'reactor.mk1'), 1)
+    const stockBefore = await selectStock('sol.outpost', 'reactor.mk1')
+
+    await publish(CMD.cargo.module.exchange.requested, {
+        pid, sid,
+        operation: 'install',
+        incoming: 'reactor.mk1',
+        capacity_next: 20,
+    })
+
+    const installed = await wherePayload(events, EVT.cargo.module.exchanged, { sid, operation: 'install' }, '5s')
+
+    assert.equal(installed.payload.load, 0)
+    assert.equal(await cargoQty(sid, 'reactor.mk1'), 0)
+    assert.equal(await selectStock('sol.outpost', 'reactor.mk1'), stockBefore, 'exchange never touches station stock')
+
+    await publish(CMD.cargo.module.exchange.requested, {
+        pid, sid,
+        operation: 'remove',
+        outgoing: 'reactor.mk1',
+        capacity_next: 20,
+    })
+
+    const removed = await wherePayload(events, EVT.cargo.module.exchanged, { sid, operation: 'remove' }, '5s')
+    stop()
+
+    assert.equal(removed.payload.load, 4, 'reactor.mk1 volume, back in cargo')
+    assert.equal(await cargoQty(sid, 'reactor.mk1'), 1)
+})
+
+test('module exchange - rejects a ship that does not exist', async () => {
+    const { events, stop } = collectEvents(kafka, [ 'events.cargo' ])
+
+    await publish(CMD.cargo.module.exchange.requested, {
+        pid: guid(PRFX),
+        sid: guid(PRFX),
+        operation: 'install',
+        incoming: 'reactor.mk1',
+        capacity_next: 20,
+    })
+    const rejected = await wherePayload(events, EVT.cargo.module.exchange.rejected, { operation: 'install' }, '5s')
+    stop()
+
+    assert.deepEqual(rejected.payload.reasons, [ 'ship not found' ])
 })

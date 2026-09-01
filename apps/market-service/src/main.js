@@ -12,7 +12,7 @@ export class Market extends Service {
     static service    = 'market-service'
     static migrations = new URL('../migrations', import.meta.url)
     static logEvents  = true    // event_log feeds scripts/rebuild-market-ships.js
-    static topics     = [ commandTopics.market, eventTopics.wallet, eventTopics.ship ]
+    static topics     = [ commandTopics.market, commandTopics.cargo, eventTopics.wallet, eventTopics.ship ]
     static owns       = [ 'cargo', 'trades', 'markets', 'station_inventory' ]
     static role       =   'station markets, prices, inventory, and trade sagas'
 
