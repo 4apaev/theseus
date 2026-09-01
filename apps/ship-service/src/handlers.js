@@ -15,6 +15,12 @@ import {
 } from '@theseus/contracts'
 
 import { travel } from './travel.js'
+import {
+    renameShip,
+    insertShip,
+    getShip,
+    updateShipDeparture,
+} from './queries.js'
 
 const emit = createEmitter('ship-service')
 
@@ -43,13 +49,7 @@ export function createHandlers(pool, transact) {
         the name is already checked by the contract. */
     async function shipRenameRequested({ cmd: causation_id, correlation_id, payload: p }) {
         await transact(pool, async client => {
-            const { rows: [ ship ] } = await client.query(`
-                UPDATE ships
-                   SET name = $3, updated = now()
-                 WHERE sid = $1
-                   AND pid = $2
-             RETURNING sid, pid, name
-            `, [ p.sid, p.pid, p.name ])
+            const ship = await renameShip(client, p.sid, p.pid, p.name)
 
             if (!ship)
                 return rejectRename(client, { reason: 'ship not found', causation_id, correlation_id, p })
@@ -73,10 +73,7 @@ export function createHandlers(pool, transact) {
         const { stid, name, velocity, capacity } = starterShip // random name getter, read it once by destructing
 
         await transact(pool, async client => {
-            await client.query(`
-                INSERT INTO ships (sid, pid, stid, name, capacity, velocity)
-                     VALUES ($1, $2, $3, $4, $5, $6)
-            `, [ sid, pid, stid, name, capacity, velocity ])
+            await insertShip(client, { sid, pid, stid, name, capacity, velocity })
 
             await Outbox.write(client, [
                 emit(EVT.ship.created, {
@@ -101,7 +98,7 @@ export function createHandlers(pool, transact) {
     async function shipTravelRequested({ cmd: causation_id, correlation_id, payload: p }) {
         await transact(pool, async client => {
 
-            const { rows: [ ship ] } = await client.query('SELECT * FROM ships WHERE sid = $1', [ p.sid ])
+            const ship = await getShip(client, p.sid)
 
             if (!ship)                    return reject(client, { reason: 'ship not found'                     , causation_id, correlation_id, p })
             if (ship.status !== 'docked') return reject(client, { reason: 'ship not docked'                    , causation_id, correlation_id, p })
@@ -124,19 +121,9 @@ export function createHandlers(pool, transact) {
 
             const departed = (new Date).toISOString()
 
-            await client.query(`
-                UPDATE ships
-                   SET status         = 'transit',
-                       "from"         = $2,
-                       "to"           = $3,
-                       departs        = $4,
-                       arrives        = $5,
-                       manifest       = $6,
-                       causation_id   = $7,
-                       correlation_id = $8,
-                       updated        = now()
-                 WHERE sid = $1
-            `, [ p.sid, p.from, to, departed, arrives, manifest, causation_id, correlation_id ])
+            await updateShipDeparture(client, p.sid, {
+                from: p.from, to, departed, arrives, manifest, causation_id, correlation_id,
+            })
 
             await Outbox.write(client, [
                 emit(EVT.ship.departed, {
