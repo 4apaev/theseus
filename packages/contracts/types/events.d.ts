@@ -1,3 +1,5 @@
+import type { FittedSlot } from './schema.js'
+
 export declare const eventTopics: Readonly<{
     all: 'events.all'
     cargo: 'events.cargo'
@@ -29,11 +31,17 @@ export declare const tree: Readonly<{
         renamed: 'ship.renamed.v1',
         rename: { rejected: 'ship.rename.rejected.v1' },
         travel: { rejected: 'ship.travel.rejected.v1' },
+        rig: { changed: 'ship.rig.changed.v1' },
+        module: { operation: { rejected: 'ship.module.operation.rejected.v1' }},
     },
     cargo: {
         loaded: 'cargo.loaded.v1',
         unloaded: 'cargo.unloaded.v1',
         operation: { rejected: 'cargo.operation.rejected.v1' },
+        module: {
+            exchanged: 'cargo.module.exchanged.v1',
+            exchange: { rejected: 'cargo.module.exchange.rejected.v1' },
+        },
     },
     market: {
         price: {
@@ -87,6 +95,11 @@ export interface EventPayloads {
         sid: string
         stid: string
         velocity: number
+        hull: string
+        rig: number
+        fitted: FittedSlot[]
+        power: number
+        power_pool: number
     }
     'ship.departed.v1': {
         arrives: string
@@ -119,6 +132,27 @@ export interface EventPayloads {
         reason: string
         sid: string
     }
+    'ship.rig.changed.v1': {
+        operation: string
+        pid: string
+        sid: string
+        hull: string
+        rig: number
+        slot: string
+        incoming?: string
+        outgoing?: string
+        fitted: FittedSlot[]
+        capacity: number
+        velocity: number
+        power: number
+        power_pool: number
+    }
+    'ship.module.operation.rejected.v1': {
+        operation: string
+        pid: string
+        sid: string
+        reasons: string[]
+    }
     'cargo.loaded.v1': CargoPayload
     'cargo.unloaded.v1': CargoPayload
     'cargo.operation.rejected.v1': {
@@ -127,6 +161,21 @@ export interface EventPayloads {
         quantity?: number
         reason: string
         sid: string
+    }
+    'cargo.module.exchanged.v1': {
+        operation: string
+        pid: string
+        sid: string
+        incoming?: string
+        outgoing?: string
+        load: number
+        capacity_next: number
+    }
+    'cargo.module.exchange.rejected.v1': {
+        operation: string
+        pid: string
+        sid: string
+        reasons: string[]
     }
     'market.trade.executed.v1': {
         gid: string
@@ -216,9 +265,13 @@ export declare const eventTypes: Readonly<{
     ship_renamed_v1: 'ship.renamed.v1'
     ship_rename_rejected_v1: 'ship.rename.rejected.v1'
     ship_travel_rejected_v1: 'ship.travel.rejected.v1'
+    ship_rig_changed_v1: 'ship.rig.changed.v1'
+    ship_module_operation_rejected_v1: 'ship.module.operation.rejected.v1'
     cargo_loaded_v1: 'cargo.loaded.v1'
     cargo_unloaded_v1: 'cargo.unloaded.v1'
     cargo_operation_rejected_v1: 'cargo.operation.rejected.v1'
+    cargo_module_exchanged_v1: 'cargo.module.exchanged.v1'
+    cargo_module_exchange_rejected_v1: 'cargo.module.exchange.rejected.v1'
     market_trade_executed_v1: 'market.trade.executed.v1'
     market_trade_rejected_v1: 'market.trade.rejected.v1'
     market_price_changed_v1: 'market.price.changed.v1'

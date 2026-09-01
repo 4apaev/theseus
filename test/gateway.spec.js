@@ -585,7 +585,10 @@ test('ws sends ship created and arrived to everyone, without the pid', async () 
 
     await kafka.publish(emit(EVT.ship.created, {
         aggregate_id: 's1', aggregate_type: 'ship',
-        payload: { sid: 's1', pid: 'p1', stid: 'st1', name: 'Argo', capacity: 20, velocity: 0.6 },
+        payload: {
+            sid: 's1', pid: 'p1', stid: 'st1', name: 'Argo', capacity: 20, velocity: 0.6,
+            hull: 'starter', rig: 1, fitted: [], power: 0, power_pool: 8,
+        },
     }))
     await kafka.publish(emit(EVT.ship.arrived, {
         aggregate_id: 's1', aggregate_type: 'ship',

@@ -25,6 +25,9 @@ test('command catalog maps commands to topics', () => {
     assert.equal(commandTopic(commandTypes.ship_travel_requested_v1)    , commandTopics.ship)
     assert.equal(commandTopic(commandTypes.cargo_load_requested_v1)     , commandTopics.cargo)
     assert.equal(commandTopic(commandTypes.wallet_debit_requested_v1)   , commandTopics.wallet)
+    assert.equal(commandTopic(commandTypes.ship_module_install_requested_v1)  , commandTopics.ship)
+    assert.equal(commandTopic(commandTypes.ship_module_remove_requested_v1)   , commandTopics.ship)
+    assert.equal(commandTopic(commandTypes.cargo_module_exchange_requested_v1), commandTopics.cargo)
 })
 
 test('event catalog maps events to topics', () => {
@@ -35,6 +38,10 @@ test('event catalog maps events to topics', () => {
     assert.equal(eventTopic(eventTypes.player_created_v1), eventTopics.player)
     assert.equal(eventTopic(eventTypes.cargo_loaded_v1)  , eventTopics.cargo)
     assert.equal(eventTopics.all, 'events.all')
+    assert.equal(eventTopic(eventTypes.ship_rig_changed_v1)                , eventTopics.ship)
+    assert.equal(eventTopic(eventTypes.ship_module_operation_rejected_v1)  , eventTopics.ship)
+    assert.equal(eventTopic(eventTypes.cargo_module_exchanged_v1)          , eventTopics.cargo)
+    assert.equal(eventTopic(eventTypes.cargo_module_exchange_rejected_v1)  , eventTopics.cargo)
 })
 
 test('unknown command type throws', () => {
@@ -136,12 +143,17 @@ test('event envelope validates event-specific payloads', () => {
         event_type       : eventTypes.ship_created_v1,
         producer         : 'ship-service',
         payload          : {
-            capacity: 20,
-            name    : 'courier',
-            pid     : 'player_test',
-            sid     : 'ship_test',
-            stid    : 'sol.outpost',
-            velocity: 0.6,
+            pid       : 'player_test',
+            sid       : 'ship_test',
+            stid      : 'sol.outpost',
+            name      : 'courier',
+            hull      : 'starter',
+            rig       : 1,
+            velocity  : 0.6,
+            capacity  : 20,
+            power     : 1,
+            power_pool: 8,
+            fitted    : [{ slot: 'power1', gid: 'reactor.mk1' }],
         },
     })
 
@@ -203,6 +215,143 @@ test('cargo.operation.rejected rejects empty string for optional gid', () => {
         producer         : 'cargo-service',
         payload          : { pid: 'player_1', reason: 'no space', sid: 'ship_1', gid: '' },
     }), /gid/)
+})
+
+// ── ship modules ─────────────────────────────────────────────────────────────
+
+test('fittedSlots accepts a well-shaped array, rejects a malformed entry', () => {
+    assert.ok(field.fittedSlots([]))
+    assert.ok(field.fittedSlots([{ slot: 'power1', gid: 'reactor.mk1' }]))
+    assert.ok(!field.fittedSlots([{ slot: 'power1' }]), 'missing gid')
+    assert.ok(!field.fittedSlots('nope'), 'not an array at all')
+})
+
+test('reasons requires at least one non-empty reason', () => {
+    assert.ok(field.reasons([ 'ship unknown' ]))
+    assert.ok(!field.reasons([]), 'empty array is not a reason to reject anything')
+    assert.ok(!field.reasons([ '' ]), 'a blank reason is not a reason')
+})
+
+test('ship.module.install.requested is a valid command envelope', () => {
+    const cmd = createCommandEnvelope({
+        cmd         : 'cmd_1',
+        command_type: commandTypes.ship_module_install_requested_v1,
+        requested_by: 'player_1',
+        payload     : { pid: 'player_1', sid: 'ship_1', slot: 'power1', gid: 'reactor.mk2' },
+    })
+    assert.equal(cmd.command_type, commandTypes.ship_module_install_requested_v1)
+})
+
+test('ship.module.remove.requested is a valid command envelope', () => {
+    const cmd = createCommandEnvelope({
+        cmd         : 'cmd_1',
+        command_type: commandTypes.ship_module_remove_requested_v1,
+        requested_by: 'player_1',
+        payload     : { pid: 'player_1', sid: 'ship_1', slot: 'power1' },
+    })
+    assert.equal(cmd.command_type, commandTypes.ship_module_remove_requested_v1)
+})
+
+test('cargo.module.exchange.requested allows either package gid alone, or both', () => {
+    const install = { operation: 'op_1', pid: 'player_1', sid: 'ship_1', incoming: 'reactor.mk2', capacity_next: 20 }
+    const remove   = { operation: 'op_2', pid: 'player_1', sid: 'ship_1', outgoing: 'reactor.mk1', capacity_next: 20 }
+    const replace  = { ...install, outgoing: 'reactor.mk1' }
+
+    for (const payload of [ install, remove, replace ]) {
+        assert.equal(createCommandEnvelope({
+            cmd         : 'cmd_1',
+            command_type: commandTypes.cargo_module_exchange_requested_v1,
+            requested_by: 'ship-service',
+            payload,
+        }).command_type, commandTypes.cargo_module_exchange_requested_v1)
+    }
+})
+
+test('ship.rig.changed is a valid event, full snapshot included', () => {
+    const evt = createEventEnvelope({
+        aggregate_id     : 'ship_1',
+        aggregate_type   : 'ship',
+        aggregate_version: 2,
+        eid              : 'eid_1',
+        event_type       : eventTypes.ship_rig_changed_v1,
+        producer         : 'ship-service',
+        payload          : {
+            operation: 'op_1', pid: 'player_1', sid: 'ship_1',
+            hull: 'starter', rig: 2, slot: 'cruise1',
+            incoming: 'cruise.mk2', outgoing: 'cruise.mk1',
+            fitted: [
+                { slot: 'power1', gid: 'reactor.mk2' },
+                { slot: 'cruise1', gid: 'cruise.mk2' },
+                { slot: 'cargo1', gid: 'cargo.mk1' },
+            ],
+            capacity: 20, velocity: 0.648, power: 4, power_pool: 12,
+        },
+    })
+    assert.equal(evt.event_type, eventTypes.ship_rig_changed_v1)
+})
+
+test('ship.rig.changed rejects a malformed fitted slot', () => {
+    assert.throws(() => createEventEnvelope({
+        aggregate_id     : 'ship_1',
+        aggregate_type   : 'ship',
+        aggregate_version: 2,
+        eid              : 'eid_1',
+        event_type       : eventTypes.ship_rig_changed_v1,
+        producer         : 'ship-service',
+        payload          : {
+            operation: 'op_1', pid: 'player_1', sid: 'ship_1',
+            hull: 'starter', rig: 2, slot: 'cruise1',
+            fitted: [{ slot: 'cruise1' }], // no gid
+            capacity: 20, velocity: 0.6, power: 2, power_pool: 8,
+        },
+    }), /fitted/)
+})
+
+test('ship.module.operation.rejected requires at least one reason', () => {
+    const evt = createEventEnvelope({
+        aggregate_id     : 'ship_1',
+        aggregate_type   : 'ship',
+        aggregate_version: 1,
+        eid              : 'eid_1',
+        event_type       : eventTypes.ship_module_operation_rejected_v1,
+        producer         : 'ship-service',
+        payload          : { operation: 'op_1', pid: 'player_1', sid: 'ship_1', reasons: [ 'power draw 5 exceeds 4 available' ]},
+    })
+    assert.equal(evt.event_type, eventTypes.ship_module_operation_rejected_v1)
+
+    assert.throws(() => createEventEnvelope({
+        aggregate_id     : 'ship_1',
+        aggregate_type   : 'ship',
+        aggregate_version: 1,
+        eid              : 'eid_2',
+        event_type       : eventTypes.ship_module_operation_rejected_v1,
+        producer         : 'ship-service',
+        payload          : { operation: 'op_1', pid: 'player_1', sid: 'ship_1', reasons: []},
+    }), /reasons/)
+})
+
+test('cargo.module.exchanged and cargo.module.exchange.rejected are valid events', () => {
+    const exchanged = createEventEnvelope({
+        aggregate_id     : 'ship_1',
+        aggregate_type   : 'cargo',
+        aggregate_version: 1,
+        eid              : 'eid_1',
+        event_type       : eventTypes.cargo_module_exchanged_v1,
+        producer         : 'market-service',
+        payload          : { operation: 'op_1', pid: 'player_1', sid: 'ship_1', incoming: 'reactor.mk2', outgoing: 'reactor.mk1', load: 5, capacity_next: 20 },
+    })
+    assert.equal(exchanged.event_type, eventTypes.cargo_module_exchanged_v1)
+
+    const rejected = createEventEnvelope({
+        aggregate_id     : 'ship_1',
+        aggregate_type   : 'cargo',
+        aggregate_version: 1,
+        eid              : 'eid_2',
+        event_type       : eventTypes.cargo_module_exchange_rejected_v1,
+        producer         : 'market-service',
+        payload          : { operation: 'op_1', pid: 'player_1', sid: 'ship_1', reasons: [ 'over capacity' ]},
+    })
+    assert.equal(rejected.event_type, eventTypes.cargo_module_exchange_rejected_v1)
 })
 
 // ── helpers ─────────────────────────────────────────────────────────────────

@@ -96,6 +96,43 @@ export const shipRenameRequested = new Cmd({
     },
 })
 
+export const shipModuleInstallRequested = new Cmd({
+    topic  : 'ship',
+    type   : 'module.install.requested',
+    key    : 'sid',
+    payload: {
+        pid : field.nonEmptyString,
+        sid : field.nonEmptyString,
+        slot: field.nonEmptyString,
+        gid : field.nonEmptyString,
+    },
+})
+
+export const shipModuleRemoveRequested = new Cmd({
+    topic  : 'ship',
+    type   : 'module.remove.requested',
+    key    : 'sid',
+    payload: {
+        pid : field.nonEmptyString,
+        sid : field.nonEmptyString,
+        slot: field.nonEmptyString,
+    },
+})
+
+export const cargoModuleExchangeRequested = new Cmd({
+    topic  : 'cargo',
+    type   : 'module.exchange.requested',
+    key    : 'sid',
+    payload: {
+        pid          : field.nonEmptyString,
+        sid          : field.nonEmptyString,
+        operation    : field.nonEmptyString,
+        incoming     : field.optionalNonEmptyString,
+        outgoing     : field.optionalNonEmptyString,
+        capacity_next: field.positiveNumber,
+    },
+})
+
 export const cargoLoadRequested = new Cmd({
     topic  : 'cargo',
     type   : 'load.requested',
@@ -246,12 +283,17 @@ export const shipCreated = new Schema({
     type   : 'created',
     key    : 'sid',
     payload: {
-        pid     : field.nonEmptyString,
-        sid     : field.nonEmptyString,
-        stid    : field.nonEmptyString,
-        name    : field.nonEmptyString,
-        capacity: field.positiveInteger,
-        velocity: field.velocity,
+        pid            : field.nonEmptyString,
+        sid            : field.nonEmptyString,
+        stid           : field.nonEmptyString,
+        name           : field.nonEmptyString,
+        capacity       : field.positiveNumber,
+        velocity       : field.velocity,
+        fitted         : field.fittedSlots,
+        hull           : field.nonEmptyString,
+        rig            : field.positiveInteger,
+        power          : field.nonNegativeNumber,
+        power_pool: field.nonNegativeNumber,
     },
 })
 
@@ -316,6 +358,39 @@ export const shipTravelRejected = new Schema({
     },
 })
 
+export const shipRigChanged = new Schema({
+    topic  : 'ship',
+    type   : 'rig.changed',
+    key    : 'sid',
+    payload: {
+        pid       : field.nonEmptyString,
+        sid       : field.nonEmptyString,
+        slot      : field.nonEmptyString,
+        fitted    : field.fittedSlots,
+        capacity  : field.positiveNumber,
+        velocity  : field.velocity,
+        hull      : field.nonEmptyString,
+        rig       : field.positiveInteger,
+        operation : field.nonEmptyString,
+        incoming  : field.optionalNonEmptyString,
+        outgoing  : field.optionalNonEmptyString,
+        power     : field.nonNegativeNumber,
+        power_pool: field.nonNegativeNumber,
+    },
+})
+
+export const shipModuleOperationRejected = new Schema({
+    topic  : 'ship',
+    type   : 'module.operation.rejected',
+    key    : 'sid',
+    payload: {
+        pid      : field.nonEmptyString,
+        sid      : field.nonEmptyString,
+        operation: field.nonEmptyString,
+        reasons  : field.reasons,
+    },
+})
+
 export const cargoLoaded = new Schema({
     topic  : 'cargo',
     type   : 'loaded',
@@ -339,6 +414,33 @@ export const cargoUnloaded = new Schema({
         sid     : field.nonEmptyString,
         stid    : field.nonEmptyString,
         quantity: field.positiveInteger,
+    },
+})
+
+export const cargoModuleExchanged = new Schema({
+    topic  : 'cargo',
+    type   : 'module.exchanged',
+    key    : 'sid',
+    payload: {
+        pid          : field.nonEmptyString,
+        sid          : field.nonEmptyString,
+        operation    : field.nonEmptyString,
+        incoming     : field.optionalNonEmptyString,
+        outgoing     : field.optionalNonEmptyString,
+        load         : field.nonNegativeNumber,
+        capacity_next: field.positiveNumber,
+    },
+})
+
+export const cargoModuleExchangeRejected = new Schema({
+    topic  : 'cargo',
+    type   : 'module.exchange.rejected',
+    key    : 'sid',
+    payload: {
+        operation: field.nonEmptyString,
+        pid      : field.nonEmptyString,
+        sid      : field.nonEmptyString,
+        reasons  : field.reasons,
     },
 })
 

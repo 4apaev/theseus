@@ -202,6 +202,15 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
     assert.ok(e.payload.name.length > 0, 'ship gets a name')
     assert.equal(e.payload.capacity, 20)
     assert.equal(e.payload.velocity, 0.6)
+    assert.equal(e.payload.hull, 'starter')
+    assert.equal(e.payload.rig, 1)
+    assert.deepEqual(e.payload.fitted, [
+        { slot: 'power1', gid: 'reactor.mk1' },
+        { slot: 'cruise1', gid: 'cruise.mk1' },
+        { slot: 'cargo1', gid: 'cargo.mk1' },
+    ])
+    assert.equal(e.payload.power, 2)
+    assert.equal(e.payload.power_pool, 8)
 })
 
 // ── renameRequested ──────────────────────────────────────────────────────────

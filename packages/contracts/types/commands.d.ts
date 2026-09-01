@@ -17,11 +17,16 @@ export declare const tree: Readonly<{
     },
     ship: {
         travel: { requested: 'ship.travel.requested.v1' },
-        rename: { requested: 'ship.rename.requested.v1' }
+        rename: { requested: 'ship.rename.requested.v1' },
+        module: {
+            install: { requested: 'ship.module.install.requested.v1' },
+            remove: { requested: 'ship.module.remove.requested.v1' },
+        }
     },
     cargo: {
         load: { requested: 'cargo.load.requested.v1' },
-        unload: { requested: 'cargo.unload.requested.v1' }
+        unload: { requested: 'cargo.unload.requested.v1' },
+        module: { exchange: { requested: 'cargo.module.exchange.requested.v1' }}
     },
     market: {
         buy: { requested: 'market.buy.requested.v1' },
@@ -53,8 +58,27 @@ export interface CommandPayloads {
         pid: string
         sid: string
     }
+    'ship.module.install.requested.v1': {
+        pid: string
+        sid: string
+        slot: string
+        gid: string
+    }
+    'ship.module.remove.requested.v1': {
+        pid: string
+        sid: string
+        slot: string
+    }
     'cargo.load.requested.v1': CargoCommandPayload
     'cargo.unload.requested.v1': CargoCommandPayload
+    'cargo.module.exchange.requested.v1': {
+        operation: string
+        pid: string
+        sid: string
+        incoming?: string
+        outgoing?: string
+        capacity_next: number
+    }
     'market.buy.requested.v1': {
         gid: string
         price_unit_max: number
@@ -122,8 +146,11 @@ export declare const commandTypes: Readonly<{
     wallet_credit_requested_v1: 'wallet.credit.requested.v1'
     ship_travel_requested_v1: 'ship.travel.requested.v1'
     ship_rename_requested_v1: 'ship.rename.requested.v1'
+    ship_module_install_requested_v1: 'ship.module.install.requested.v1'
+    ship_module_remove_requested_v1: 'ship.module.remove.requested.v1'
     cargo_load_requested_v1: 'cargo.load.requested.v1'
     cargo_unload_requested_v1: 'cargo.unload.requested.v1'
+    cargo_module_exchange_requested_v1: 'cargo.module.exchange.requested.v1'
     market_buy_requested_v1: 'market.buy.requested.v1'
     market_sell_requested_v1: 'market.sell.requested.v1'
 }>
