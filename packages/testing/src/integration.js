@@ -1,29 +1,13 @@
-import { setTimeout } from 'node:timers/promises'
-
 import { Codec }             from '@theseus/kafka'
 import { createCommandEnvelope } from '@theseus/contracts'
 import {
     A,
-    wait,
+    echo,
     guid,
-    formatTime,
+    waitFor,
 }  from '@theseus/util'
 
-export { guid }
-
-export async function waitFor(fx, ms = 5000, interval = 50, ...a) {
-    ms = formatTime(ms)
-    interval = formatTime(interval)
-
-    const deadline = Date.now() + ms
-
-    while (Date.now() < deadline) {
-        const rs = await fx(...a)
-        if (rs) return rs
-        await setTimeout(interval)
-    }
-    throw new Error('waitFor timed out')
-}
+export { guid, waitFor }
 
 /** @type {FCreatePublisher} */
 export function createPublisher(producer, rqby = 'integration-test') {
@@ -54,17 +38,19 @@ export function collectEvents(kafka, topics) {
 /**
  * @param {Evt[]} events
  * @param {string} etype
- * @param {Record<string, string|number|boolean>} query
+ * @param {Record<string, string|number|boolean>} [query]
  * @param {string|number} [ms]
  * @param {string|number} [delay]
- * @return {Evt}
+ * @return {Promise<Evt>}
  */// eslint-disable-next-line max-params
 export function wherePayload(events, etype, query, ms, delay) {
-    return wait(
+    return waitFor(
         fq => events.find(e => e.event_type === etype && fq(e.payload)),
         ms,
         delay,
-        A.pre(query),
+        query
+            ? A.pre(query)
+            : echo.ok,
     )
 }
 

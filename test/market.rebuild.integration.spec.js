@@ -6,7 +6,6 @@ import * as Kfk      from '@theseus/kafka'
 
 import {
     guid,
-    waitFor,
     collectEvents,
     createPublisher,
     wherePayload,
@@ -24,10 +23,6 @@ import {
 import { rebuild } from '../scripts/rebuild-market-ships.js'
 
 const PRFX = 'itg_mkt_rebuild'
-
-function hasEvent(evt, key, id) {
-    return e => e.event_type === evt && e.payload[ key ] === id
-}
 
 /*
     reproduces docs/tech.debt.md's "missing ship" bug on purpose: a
@@ -80,12 +75,12 @@ test('rebuild-market-ships recovers a ship wiped independently of the kafka offs
     const created = await wherePayload(events, EVT.player.created, { handle }, '10s')
     const { pid } = created.payload
 
-    const freebie = await waitFor(() => events.find(hasEvent(EVT.ship.created, 'pid', pid)), '10s')
+    const freebie = await wherePayload(events, EVT.ship.created, { pid }, '10s')
     const { sid } = freebie.payload
 
     // exercise all 3 mirror handlers, not just creation
     await publish(CMD.ship.travel.requested, { sid, pid, from: 'sol.outpost', to: 'barnards.port' })
-    await waitFor(() => events.find(hasEvent(EVT.ship.arrived, 'sid', sid)), '15s')
+    await wherePayload(events, EVT.ship.arrived, { sid }, '15s')
     stop()
 
     const before = await shipRow(sid)
@@ -104,7 +99,7 @@ test('rebuild-market-ships recovers a ship wiped independently of the kafka offs
         quantity      : 1,
         price_unit_max: 999,
     })
-    const rejected = await waitFor(() => rejects.find(hasEvent(EVT.trade.rejected, 'pid', pid)), '10s')
+    const rejected = await wherePayload(rejects, EVT.trade.rejected, { pid }, '10s')
     stopRejects()
     assert.equal(rejected.payload.reason, 'ship unknown', 'the bug reproduces: a real trade now fails')
 
@@ -121,8 +116,6 @@ test('rebuild-market-ships recovers a ship wiped independently of the kafka offs
         quantity      : 1,
         price_unit_max: 999,
     })
-    await waitFor(() => trades.find(e => /*
-        */ e.event_type === EVT.trade.executed
-        && e.payload.pid === pid), '10s')
+    await wherePayload(trades, EVT.trade.executed, { pid }, '10s')
     stopTrades()
 })

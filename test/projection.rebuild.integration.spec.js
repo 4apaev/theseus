@@ -9,6 +9,7 @@ import {
     waitFor,
     collectEvents,
     createPublisher,
+    wherePayload,
 } from '#testing/index.js'
 
 import startPlayer     from '@theseus/player-service'
@@ -24,10 +25,6 @@ import {
 import { rebuild } from '../scripts/rebuild.js'
 
 const PRFX = 'itg_rebuild'
-
-function hasEvent(evt, key, id) {
-    return e => e.event_type === evt && e.payload[ key ] === id
-}
 
 // ── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -97,10 +94,10 @@ test('truncate + replay through event_log reproduces the exact same read models'
     ])
 
     await publish(CMD.player.register.requested, { handle, password: 'secret' })
-    const created = await waitFor(() => events.find(hasEvent(EVT.player.created, 'handle', handle)), '10s')
+    const created = await wherePayload(events, EVT.player.created, { handle }, '10s')
     const { pid } = created.payload
 
-    const freebie = await waitFor(() => events.find(hasEvent(EVT.ship.created, 'pid', pid)), '10s')
+    const freebie = await wherePayload(events, EVT.ship.created, { pid }, '10s')
     const { sid } = freebie.payload
 
     await publish(CMD.market.buy.requested, {
@@ -111,13 +108,10 @@ test('truncate + replay through event_log reproduces the exact same read models'
         price_unit_max: 30,
     })
 
-    await waitFor(() => events.find(e => /*
-        */ e.event_type === EVT.trade.executed
-        && e.payload.pid === pid
-        && e.payload.side === 'buy'), '15s')
+    await wherePayload(events, EVT.trade.executed, { pid, side: 'buy' }, '15s')
 
     await publish(CMD.ship.travel.requested, { sid, pid, from: 'sol.outpost', to: 'barnards.port' })
-    await waitFor(() => events.find(hasEvent(EVT.ship.arrived, 'sid', sid)), '15s')
+    await wherePayload(events, EVT.ship.arrived, { sid }, '15s')
 
     await publish(CMD.market.sell.requested, {
         pid, sid,
@@ -126,10 +120,7 @@ test('truncate + replay through event_log reproduces the exact same read models'
         quantity      : 10,
         price_unit_min: 50,
     })
-    await waitFor(() => events.find(e => /*
-        */ e.event_type === EVT.trade.executed
-        && e.payload.pid === pid
-        && e.payload.side === 'sell'), '15s')
+    await wherePayload(events, EVT.trade.executed, { pid, side: 'sell' }, '15s')
 
     stop()
 

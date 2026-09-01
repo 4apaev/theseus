@@ -36,7 +36,7 @@ export function formatTime(x: string | number): number
 export function fmtDuration(ms: number): string
 export function nil<T>(x: T): T
 export function now(ms?: number): () => number
-export function wait<F extends (...a: any[]) => Promise<any>>(
+export function waitFor<F extends (...a: any[]) => Promise<any>>(
     fx: F,
     ms?: string | number,
     delay?: string | number,

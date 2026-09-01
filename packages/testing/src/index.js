@@ -44,6 +44,8 @@ const dict = {
     testing   : '🧪  TESTING   🧪 ',
     util      : '🪏  UTIL      🧪 ',
 
+    '/scripts/smoke.js': '🚬  SMOKE 😶‍🌫️ ',
+
     'game.integration'               : '🚦 🚀 ∫∫ GAME    ',
     'gateway.integration'            : '🚦 ⛩️ ∫∫ GATEWAY ',
     'ship.integration'               : '🚦 🛸 ∫∫ SHIP    ',
@@ -55,12 +57,13 @@ const dict = {
 }
 
 const name = process.argv[ 1 ]
-    .replace(/.+\/test\/([^/]+)\.spec\.js$/i, '$1')
+    .replace(process.cwd(), '')
+    .replace(/\/test\/([^/]+)\.spec\.js$/i, '$1')
     .toLowerCase()
 
 const title = dict[ name ] ?? `🤔 🤷‍♀️ 🤔 🤷‍♀️ ${ name } 🧪🧪🧪 `
 
 console.log(
-    '\n──%s\n',
+    '\n── %s\n',
     title.padEnd(64, '─'),
 )
