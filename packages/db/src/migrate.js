@@ -3,6 +3,7 @@ import Fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { withClient } from './query.js'
 
+const TEST = process.env.NODE_ENV === 'test'
 const DEFAULT_DIR = fileURLToPath(new URL('../migrations', import.meta.url))
 
 export default function migrate(pool, dir = DEFAULT_DIR) {
@@ -46,9 +47,11 @@ async function applyMigration(client, path, name) {
         await client.query(sql)
         await client.query('INSERT INTO schema_migrations (name) VALUES ($1)', [ name ])
         await client.query('COMMIT')
+        TEST || console.log('[migration:ok]', path.replace(process.cwd(), ''))
     }
     catch (e) {
         await client.query('ROLLBACK')
+        console.error('[migration:fail]', path.replace(process.cwd(), ''))
         throw e
     }
 }
