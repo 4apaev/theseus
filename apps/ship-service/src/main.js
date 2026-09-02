@@ -9,8 +9,8 @@ export class Ship extends Service {
     static schema     = 'ship'
     static service    = 'ship-service'
     static migrations = new URL('../migrations', import.meta.url)
-    static topics     = [ commandTopics.ship, eventTopics.player ]
-    static owns       = [ 'ships' ]
+    static topics     = [ commandTopics.ship, eventTopics.player, eventTopics.cargo ]
+    static owns       = [ 'ships', 'fitted_modules', 'module_operations' ]
     static role       =   'ships, travel, locations, and cargo holds'
 
     handlers() {
