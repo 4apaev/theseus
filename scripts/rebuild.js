@@ -8,7 +8,7 @@ import { createHandlers } from '@theseus/projection-service'
     projection-service first (documented, not enforced): its live
     consumer writing through the same handlers would race this replay.
 */
-const TABLES = 'trade_history, cargo, ships, market_prices, wallets, players'
+const TABLES = 'trade_history, cargo, fitted_modules, ships, market_prices, wallets, players'
 
 export async function rebuild() {
     const pool = DB.create({ schema: 'projection' })

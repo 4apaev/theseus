@@ -1,3 +1,4 @@
+import { DB } from '@theseus/db'
 import { isMain } from '@theseus/config'
 import { eventTopics as Evt } from '@theseus/contracts'
 import Service from '@theseus/service'
@@ -19,7 +20,7 @@ export class Projection extends Service {
     static role   =   'event log and disposable read models'
 
     handlers() {
-        return createHandlers(this.pool)
+        return createHandlers(this.pool, DB.transact)
     }
 }
 

@@ -63,8 +63,10 @@ async function snapshot(pid, sid) {
         players : await rows`SELECT pid, handle        FROM players WHERE pid = ${ pid }`,
         wallets : await rows`SELECT pid, balance       FROM wallets WHERE pid = ${ pid }`,
         cargo   : await rows`SELECT sid, gid, quantity FROM cargo   WHERE sid = ${ sid }`,
+        fitted  : await rows`SELECT sid, slot, gid FROM fitted_modules WHERE sid = ${ sid } ORDER BY slot`,
         ships   : await rows`
-            SELECT sid, pid, stid, name, status, capacity, velocity, "from", "to", departs, arrives, arrived, years_abs, years_rel
+            SELECT sid, pid, stid, name, status, capacity, velocity, hull, rig, power, power_pool,
+                   "from", "to", departs, arrives, arrived, years_abs, years_rel
               FROM ships
              WHERE sid = ${ sid }`,
 
@@ -107,7 +109,6 @@ test('truncate + replay through event_log reproduces the exact same read models'
         quantity      : 10,
         price_unit_max: 30,
     })
-
     await wherePayload(events, EVT.trade.executed, { pid, side: 'buy' }, '15s')
 
     await publish(CMD.ship.travel.requested, { sid, pid, from: 'sol.outpost', to: 'barnards.port' })
@@ -122,22 +123,30 @@ test('truncate + replay through event_log reproduces the exact same read models'
     })
     await wherePayload(events, EVT.trade.executed, { pid, side: 'sell' }, '15s')
 
+    // a real rig change too - not just the ships row, fitted_modules as well
+    await publish(CMD.ship.module.remove.requested, { pid, sid, slot: 'cargo1' })
+    await wherePayload(events, EVT.ship.rig.changed, { sid }, '15s')
+
     stop()
 
-    /* ──
+    /*
         wait for both trades and both price moves.
         this event needs one more kafka hop than the wait above it.
         give it the same timeout, not the default 5s.
         the default caused a real flake. give explicit timeouts to all waits.
-    ── */
+    */
     await waitFor(async () => {
-        const trades = await sql`select count(*) as n from trade_history where pid = ${ pid }`
-        const prices = await sql`select count(*) as n from market_prices where stid in ('sol.outpost', 'barnards.port') and gid = 'ore'`
-        return +trades.rows[ 0 ].n === 2 && +prices.rows[ 0 ].n === 2
+        const trades = await sql`SELECT count(*) as n FROM trade_history WHERE pid = ${ pid }`
+        const prices = await sql`SELECT count(*) as n FROM market_prices WHERE stid IN ('sol.outpost', 'barnards.port') AND gid = 'ore'`
+        const ship   = await sql`SELECT rig FROM ships WHERE sid = ${ sid }`
+        return +trades.rows[ 0 ].n === 2
+            && +prices.rows[ 0 ].n === 2
+            && ship.rows[ 0 ]?.rig === 2
     }, '15s')
 
     const before = await snapshot(pid, sid)
     assert.ok(before.trades.length === 2, 'buy + sell both landed pre-rebuild')
+    assert.deepEqual(before.fitted.map(f => f.slot), [ 'cruise1', 'power1' ], 'cargo1 removed pre-rebuild')
 
     await rebuild()
 
