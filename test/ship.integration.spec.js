@@ -31,8 +31,8 @@ async function seedShip(stid = 'sol.outpost') {
     const sid = guid(PRFX)
     const pid = guid(PRFX)
     await sql`
-        insert into ships (sid, pid, stid, name, capacity, velocity)
-        values (${ sid }, ${ pid }, ${ stid }, ${ 'far treasure' }, ${ 20 }, ${ 0.6 })`
+        insert into ships (sid, pid, stid, name, capacity, velocity, hull, rig)
+        values (${ sid }, ${ pid }, ${ stid }, ${ 'far treasure' }, ${ 20 }, ${ 0.6 }, ${ 'starter' }, ${ 1 })`
     return { sid, pid }
 }
 
