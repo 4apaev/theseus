@@ -236,50 +236,26 @@ export function createRoutes({
         rs.json(200, row)
     })
 
-    gw.get('/ships', async (rq, rs) => {
-        rs.json(200, await queries.ships(rq.claims.pid))
-    })
-
-    gw.get('/cargo/:sid', async (rq, rs) => {
-        rs.json(200, await queries.cargo(rq.params.sid, rq.claims.pid))
-    })
-
-    gw.get('/market/:stid', async (rq, rs) => {
-        rs.json(200, await queries.market(rq.params.stid))
-    })
-
-    gw.get('/trades', async (rq, rs) => {
-        rs.json(200, await queries.trades(rq.claims.pid))
-    })
+    gw.get('/ships'             , async (rq, rs) => rs.json(200, await queries.ships(rq.claims.pid)))
+    gw.get('/cargo/:sid'        , async (rq, rs) => rs.json(200, await queries.cargo(rq.params.sid, rq.claims.pid)))
+    gw.get('/ships/:sid/modules', async (rq, rs) => rs.json(200, await queries.modules(rq.params.sid, rq.claims.pid)))
+    gw.get('/market/:stid'      , async (rq, rs) => rs.json(200, await queries.market(rq.params.stid)))
+    gw.get('/trades'            , async (rq, rs) => rs.json(200, await queries.trades(rq.claims.pid)))
 
     // ── public tier - any authenticated player ───────────────
+
     // one query serves both routes, so they cannot disagree
-
-    gw.get('/traffic', async (rq, rs) => {
-        rs.json(200, await queries.traffic())
-    })
-
-    gw.get('/station/:stid/ships', async (rq, rs) => {
-        rs.json(200, await queries.traffic(rq.params.stid))
-    })
+    gw.get('/traffic'            , async (rq, rs) => rs.json(200, await queries.traffic()))
+    gw.get('/station/:stid/ships', async (rq, rs) => rs.json(200, await queries.traffic(rq.params.stid)))
 
     // ── admin ────────────────────────────────────────────────
 
-    gw.get('/admin/players', requireRole('admin'), async (rq, rs) => {
-        rs.json(200, await queries.allPlayers())
-    })
+    const admin = requireRole('admin')
 
-    gw.get('/admin/events', requireRole('admin'), async (rq, rs) => {
-        rs.json(200, await queries.eventLog())
-    })
-
-    gw.get('/admin/inventory/:stid', requireRole('admin'), async (rq, rs) => {
-        rs.json(200, await queries.inventory(rq.params.stid))
-    })
-
-    gw.post('/admin/rebuild', requireRole('admin'), async (rq, rs) => {
-        rs.json(200, { replayed: await rebuild() })
-    })
+    gw.get('/admin/players'        , admin, async (rq, rs) => rs.json(200, await queries.allPlayers()))
+    gw.get('/admin/events'         , admin, async (rq, rs) => rs.json(200, await queries.eventLog()))
+    gw.get('/admin/inventory/:stid', admin, async (rq, rs) => rs.json(200, await queries.inventory(rq.params.stid)))
+    gw.post('/admin/rebuild'       , admin, async (rq, rs) => rs.json(200, { replayed: await rebuild() }))
 
     gw.use((rq, rs) => rs.json(404, { error: 'not found' }))
 
