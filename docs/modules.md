@@ -834,7 +834,7 @@ project complete rig snapshots and cargo exchanges. update rebuild
 before exposing any new read route; otherwise the new feature disappears
 after an admin rebuild.
 
-### 6. gateway and client
+### 6. → gateway and client
 
 add owner-only reads, preview and command routes, then the fitting panel
 and websocket rehydration. preserve the public feed allowlist.

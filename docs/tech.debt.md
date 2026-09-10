@@ -5,6 +5,22 @@ tech debt
 debt
 ----------------
 
+### player service
+
+better checking mechanism `isAdmin(handle)`
+
+
+### gateway routes
+
+
+use correct method for routes, like `put`, `del` etc.
+rn routes utilize only `get` or `post` methods.
+
+
+### service queries
+
+- unified `reject`. almost any func in service/src/handlers defines own `reject`
+
 ### db
 
 - indexes
@@ -26,6 +42,15 @@ debt
     uptime check is a dev tool, not a production health check,
     when this step lands, will be replaced with systemd/container-native
     health check
+
+- #### observability
+
+  add monitoring tools.
+
+  logs query, grafana, prometheus (or modern equivalent).
+
+  need some reaserch: today defacto standart?, alternatives?, configs & costs?
+
 
 - #### load tests
     see how theseus behaves under load
