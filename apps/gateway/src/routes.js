@@ -4,7 +4,16 @@ import { fileURLToPath } from 'node:url'
 
 import { Garage              } from 'garage'
 import { O, Is, Fail, guid   } from '@theseus/util'
-import { universeData        } from '@theseus/domain'
+
+import {
+    hulls,
+    goods,
+    cargoLoad,
+    previewRig,
+    previewExchange,
+    universeData,
+} from '@theseus/domain'
+
 import { createCommandRecord } from '@theseus/kafka'
 import {
     commandTree as CMD,
@@ -151,7 +160,7 @@ export function createRoutes({
 
     // ── json  ────────────────────────────────────────────────
 
-    gw.post(json)
+    gw.use('POST', 'DELETE', json)
 
     gw.post('/register', async (rq, rs) => {
         const { handle, password } = rq.body
@@ -196,6 +205,7 @@ export function createRoutes({
         rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
     })
 
+    // TODO: use PUT method
     gw.post('/rename', async (rq, rs) => {
         const { sid, name } = rq.body
         const cmd = command(CMD.ship.rename.requested, { pid: rq.claims.pid, sid, name })
@@ -228,6 +238,78 @@ export function createRoutes({
         // accepted(rs, cmd)
     })
 
+    // ── modules ──────────────────────────────────────────────
+
+    /*
+        preview publishes no command - it loads the projection's own
+        hull/fitted/cargo and runs the same resolver ship-service does.
+        it can be stale.
+        the real command remains the authoritative check.
+    */
+    gw.post('/modules/preview', async (rq, rs) => {
+        const { pid } = rq.claims
+        const { gid, sid, slot } = rq.body
+        const ship = (await queries.ships(rq.claims.pid)).find(s => s.sid === sid)
+        ship || Fail.raise(404, 'ship not found')
+
+        const fitted = O.from((await queries.modules(sid, pid)).map(r => [ r.slot, r.gid ]))
+
+        const { proposed, stats, errors } = previewRig(
+            hulls[ ship.hull ],
+            fitted,
+            { type: gid ? 'install' : 'remove', slot, gid },
+            { docked: ship.status === 'docked' },
+        )
+
+        const cargo = await queries.cargo(sid, pid)
+        const load  = previewExchange(cargoLoad(cargo, goods), goods, {
+            incoming: gid || void 0,
+            outgoing: fitted[ slot ],
+        })
+        load <= stats.capacity || errors.push('over capacity')
+
+        rs.json(200, {
+            proposed  : O.entries(proposed).map(([ slot, gid ]) => ({ slot, gid })),
+            capacity  : stats.capacity,
+            velocity  : stats.velocity,
+            power     : stats.power.used,
+            power_pool: stats.power.available,
+            load,
+            errors,
+        })
+    })
+
+    gw.post('/modules/install', async (rq, rs) => {
+        const cmd = command(CMD.ship.module.install.requested, {
+            pid : rq.claims.pid,
+            sid : rq.body.sid,
+            slot: rq.body.slot,
+            gid : rq.body.gid,
+        })
+
+        await producer.publish(createCommandRecord(cmd))
+
+        rs.json(202, {
+            cmd: cmd.cmd,
+            correlation_id: cmd.correlation_id,
+        })
+    })
+
+    gw.del('/modules/remove', async (rq, rs) => {
+        const cmd = command(CMD.ship.module.remove.requested, {
+            pid : rq.claims.pid,
+            sid : rq.body.sid,
+            slot: rq.body.slot,
+        })
+
+        await producer.publish(createCommandRecord(cmd))
+
+        rs.json(202, {
+            cmd: cmd.cmd,
+            correlation_id: cmd.correlation_id,
+        })
+    })
+
     // ── queries ──────────────────────────────────────────────
 
     gw.get('/me', async (rq, rs) => {
@@ -258,6 +340,8 @@ export function createRoutes({
     gw.post('/admin/rebuild'       , admin, async (rq, rs) => rs.json(200, { replayed: await rebuild() }))
 
     gw.use((rq, rs) => rs.json(404, { error: 'not found' }))
+
+    console.log('gateway middleware size', gw.mware.length)
 
     return gw
 }

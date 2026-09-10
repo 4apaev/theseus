@@ -19,7 +19,9 @@ step `8` in [docs/phase.1.md](../../docs/phase.1.md)
 - `@theseus/db`        - read-only pool into projection read models
 - `@theseus/domain`    - `universeData` - stations/routes/goods/starter/constants,
   fully composed there (incl. env-tunable `TIME_SCALE`/`INTEREST_RATE`/`STARTER_CREDITS`)
-  and served as-is for `GET /universe`
+  and served as-is for `GET /universe`. `hulls`/`previewRig`/`cargoLoad`/
+  `previewExchange` back `POST /modules/preview` - the same resolver
+  ship-service itself runs, not a 2nd implementation
 - `garage/mw/ws`       - the rfc 6455 protocol (handshake, frames, keepalive);
   `feed.js` is the game-specific layer on top
 - `@theseus/config`
@@ -55,8 +57,12 @@ reply waiter and the websocket fanout.
 | `POST /rename`     |  ✓    | `ship.rename.requested` → 202. the name rule lives in the contract, so a bad name is 400 |
 | `POST /buy`        |  ✓    | `market.buy.requested` → 202                                        |
 | `POST /sell`       |  ✓    | `market.sell.requested` → 202                                       |
+| `POST /modules/preview` | ✓ | no command - runs `previewRig`/`previewExchange` against the projection's own hull/fitted/cargo. advisory, can be stale |
+| `POST /modules/install` | ✓ | `ship.module.install.requested` → 202. install into an occupied slot replaces it |
+| `POST /modules/remove`  | ✓ | `ship.module.remove.requested` → 202                                |
 | `GET /me`          |  ✓    | player + wallet (404 until projection catches up)                   |
-| `GET /ships`       |  ✓    | player's ships with status / eta                                    |
+| `GET /ships`       |  ✓    | player's ships with status / eta / hull / rig / power                |
+| `GET /ships/:sid/modules` | ✓ | fitted slots (joins ships - own ships only)                    |
 | `GET /cargo/:sid`  |  ✓    | ship cargo (joins ships - own ships only)                           |
 | `GET /market/:stid`|  ✓    | prices at station                                                   |
 | `GET /trades`      |  ✓    | trade history, latest 100                                           |
@@ -84,7 +90,9 @@ reply waiter and the websocket fanout.
 - events with `payload.pid` go to that player's sockets in full
 - `ship.created` / `ship.departed` / `ship.arrived` / `ship.renamed` also go to every other
   socket, in a public shape - `sid` plus movement, no `pid`, no `years_rel`,
-  no `correlation_id`. `ship.travel.rejected` stays private
+  no `correlation_id`. `ship.travel.rejected` stays private. so does
+  `ship.rig.changed` and both module rejection events - a rig, its power
+  and its module cargo are never public, not even in redacted form
 - `market.price.changed` broadcasts, client text frames are ignored
 - admin sockets (`claims.role === 'admin'`) skip the pid filter - full firehose
 - the public shape is an allowlist (`PUBLIC` in `feed.js`). a new private

@@ -20,10 +20,20 @@ export interface ShipRow {
     velocity  : string
     capacity  : number
 
+    hull      : string
+    rig       : number
+    power     : number
+    power_pool: number
+
     departs   : Date | null
     arrives   : Date | null
     arrived   : Date | null
     updated   : Date | null
+}
+
+export interface FittedModuleRow {
+    slot: string
+    gid : string
 }
 
 export interface CargoRow {
@@ -84,6 +94,7 @@ export interface InventoryRow {
 export interface Queries {
     me(pid: string): Promise<PlayerOverview | undefined>
     ships(pid: string): Promise<ShipRow[]>
+    modules(sid: string, pid: string): Promise<FittedModuleRow[]>
     trades(pid: string): Promise<TradeRow[]>
     market(stid: string): Promise<MarketPriceRow[]>
     cargo(sid: string, pid: string): Promise<CargoRow[]>

@@ -94,7 +94,11 @@ function projectionPool() { /*
         'players+wallets': ([      pid ]) => ({ rows: pid === 'p1' ? [{ pid, handle: 'alice', created: 'now', balance: 1000 }] : []}),
         'players+ships'  : ([     stid ]) => ({ rows: stid ? [ TRAFFIC[ 0 ] ] : TRAFFIC }),
         'cargo+ships'    : ([ sid, pid ]) => ({ rows: [{ gid: 'ore', pid , sid, quantity: 5  }]}),
-        ships            : ([      pid ]) => ({ rows: [{ sid: 's1' , pid , status: 'docked' }]}),
+        ships            : ([      pid ]) => ({ rows: [{
+            sid: 's1', pid, status: 'docked',
+            hull: 'starter', capacity: 20, velocity: 0.6, power: 2, power_pool: 8,
+        }]}),
+        'fitted_modules+ships': ([ sid ]) => ({ rows: sid === 's1' ? [{ slot: 'power1', gid: 'reactor.mk1' }] : []}),
         market_prices    : ([     stid ]) => ({ rows: [{ gid: 'ore', stid, price_buy: 30, price_sell: 25 }]}),
         trade_history    : () => ({ rows: []}),
     })
@@ -220,6 +224,64 @@ test('POST/rename replies 400 on a name the contract refuses', async () => {
     assert.match(rs.body.error, /name/)
 })
 
+test('POST/modules/install publishes the install command, pid from the token', async () => {
+    const rs = await Sync.post('/modules/install', { sid: 's1', slot: 'power1', gid: 'reactor.mk2', pid: 'evil' }).set(bear)
+    assert.equal(rs.status, 202)
+
+    const cmd = kafka.messages(commandTopics.ship)
+        .map(m => decodeTopicMessage({ value: m.value }).value)
+        .find(c => c.cmd === rs.body.cmd)
+
+    assert.equal(cmd.command_type, CMD.ship.module.install.requested)
+    assert.equal(cmd.payload.pid, 'p1', 'the body pid is ignored')
+    assert.equal(cmd.payload.gid, 'reactor.mk2')
+})
+
+test('POST/modules/remove publishes the remove command', async () => {
+    const rs = await Sync.del('/modules/remove', { sid: 's1', slot: 'power1' }).set(bear)
+    assert.equal(rs.status, 202)
+
+    const cmd = kafka.messages(commandTopics.ship)
+        .map(m => decodeTopicMessage({ value: m.value }).value)
+        .find(c => c.cmd === rs.body.cmd)
+
+    assert.equal(cmd.command_type, CMD.ship.module.remove.requested)
+    assert.equal(cmd.payload.slot, 'power1')
+})
+
+// preview publishes no command - it runs the real resolver against the
+// projection's own hull/fitted/cargo, same as ship-service's own check
+test('POST/modules/preview replies 404 for a ship the caller does not own', async () => {
+    const rs = await Sync.post('/modules/preview', { sid: 'not-mine', slot: 'power1', gid: 'reactor.mk2' }).set(bear).then(echo, echo)
+    assert.equal(rs.status, 404)
+})
+
+test('POST/modules/preview install: proposed rig and stats, no command published', async () => {
+    const before = kafka.messages(commandTopics.ship).length
+
+    const rs = await Sync.post('/modules/preview', { sid: 's1', slot: 'power1', gid: 'reactor.mk2' }).set(bear)
+
+    assert.equal(rs.status, 200)
+    assert.deepEqual(rs.body.errors, [])
+    assert.deepEqual(rs.body.proposed, [{ slot: 'power1', gid: 'reactor.mk2' }])
+    assert.equal(rs.body.power, 2, 'reactor.mk2 itself draws 2')
+    assert.equal(rs.body.power_pool, 12, 'reactor.mk2 grants +9 over the hull base of 3')
+    assert.equal(kafka.messages(commandTopics.ship).length, before, 'preview publishes nothing')
+})
+
+test('POST/modules/preview reports a resolver error - wrong slot family', async () => {
+    const rs = await Sync.post('/modules/preview', { sid: 's1', slot: 'power1', gid: 'cargo.mk1' }).set(bear)
+    assert.equal(rs.status, 200)
+    assert.ok(rs.body.errors.some(e => e.includes('does not fit')), rs.body.errors)
+})
+
+test('POST/modules/preview remove: proposed rig loses the slot', async () => {
+    const rs = await Sync.post('/modules/preview', { sid: 's1', slot: 'power1' }).set(bear)
+    assert.equal(rs.status, 200)
+    assert.deepEqual(rs.body.proposed, [])
+    assert.deepEqual(rs.body.errors, [])
+})
+
 test('POST/travel without token replies 401 and publishes nothing', async () => {
     const before = kafka.messages(commandTopics.ship).length
     const rs = await Sync.post('/travel', { sid: 's1', from: 'a', to: 'b' }).then(echo, echo)
@@ -332,9 +394,16 @@ test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async
     const { body: [ trades ] } = await Sync.get('/trades').set(bear)
 
     assert.equal(ships.sid, 's1')
+    assert.equal(ships.hull, 'starter')
     assert.equal(cargo.gid, 'ore')
     assert.equal(market.price_buy, 30)
     assert.equal(trades, void 0)
+})
+
+test('GET/ships/:sid/modules returns the fitted slots, owner-scoped', async () => {
+    const rs = await Sync.get('/ships/s1/modules').set(bear)
+    assert.equal(rs.status, 200)
+    assert.deepEqual(rs.body, [{ slot: 'power1', gid: 'reactor.mk1' }])
 })
 
 // a good sold down to 0 stays a cargo row, not a deleted one - the

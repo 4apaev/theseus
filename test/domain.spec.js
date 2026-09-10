@@ -20,6 +20,7 @@ import {
     previewRig,
     deriveStats,
     cargoLoad,
+    previewExchange,
 } from '@theseus/domain'
 
 // ── universe graph ────────────────────────────────────────────────────────────
@@ -434,4 +435,16 @@ test('cargoLoad weighs quantity by each goods volume', () => {
 
 test('cargoLoad defaults an unlisted goods volume to 1', () => {
     assert.equal(cargoLoad([{ gid: 'mystery', quantity: 5 }], {}), 5)
+})
+
+test('previewExchange adds the outgoing volume and removes the incoming one', () => {
+    const catalog = { 'reactor.mk1': { volume: 4 }, 'reactor.mk2': { volume: 4 }}
+    // a same-size swap leaves the load unchanged
+    assert.equal(previewExchange(20, catalog, { incoming: 'reactor.mk1', outgoing: 'reactor.mk2' }), 20)
+})
+
+test('previewExchange handles install-only and remove-only, either side absent', () => {
+    const catalog = { 'cargo.mk1': { volume: 8 }}
+    assert.equal(previewExchange(20, catalog, { incoming: 'cargo.mk1' }), 12, 'install only: load shrinks')
+    assert.equal(previewExchange(12, catalog, { outgoing: 'cargo.mk1' }), 20, 'remove only: load grows')
 })

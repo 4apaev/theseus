@@ -131,3 +131,9 @@ export declare function cargoLoad(
     cargo: CargoLine[],
     goodsCatalog: Record<string, { volume: number }>
 ): number
+
+export declare function previewExchange(
+    load: number,
+    goodsCatalog: Record<string, { volume: number }>,
+    exchange: { incoming?: string, outgoing?: string }
+): number
