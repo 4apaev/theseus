@@ -1,5 +1,5 @@
-import { cr, fmtYears         } from './dom.js'
-import { api, refreshMarket   } from './api.js'
+import { cr, fmtYears, fmtVel } from './dom.js'
+import { refreshRig, refreshMarket } from './api.js'
 import { mine, who, track     } from './traffic.js'
 import { state, station, good } from './state.js'
 import { feedLine, mark       } from './feed.js'
@@ -32,6 +32,22 @@ function shipRenamedLine(p) {
         : { kind: 'dim', text: `a ship is now called "${ p.name }"` }
 }
 
+/*
+    incoming and outgoing say which of the 3 operations ran.
+    install carries incoming alone, remove carries outgoing alone,
+    and a replace carries both.
+*/
+function rigChangedLine(p) {
+    const what = p.incoming
+        ? (p.outgoing
+            ? `${ good(p.outgoing) } → ${ good(p.incoming) }`
+            : `${ good(p.incoming) } fitted`)
+        : `${ good(p.outgoing) } removed`
+
+    return { kind: 'ok', text: `${ p.slot }: ${ what } · cap ${
+        p.capacity } · v ${ fmtVel(p.velocity) }c · pwr ${ p.power }/${ p.power_pool }` }
+}
+
 function flavor(e) {
     const p = e.payload
     switch (e.event_type) {
@@ -44,6 +60,12 @@ function flavor(e) {
         case 'cargo.loaded.v1'            : return { kind: 'ok' , text: `+${ p.quantity } ${ good(p.gid) } loaded` }
         case 'cargo.unloaded.v1'          : return { kind: 'ok' , text: `-${ p.quantity } ${ good(p.gid) } unloaded` }
         case 'cargo.operation.rejected.v1': return { kind: 'err', text: p.reason }
+
+        case 'ship.rig.changed.v1'              : return rigChangedLine(p)
+        case 'ship.module.operation.rejected.v1': return { kind: 'err', text: `rig rejected: ${ p.reasons.join(' · ') }` }
+        case 'cargo.module.exchanged.v1'        : return { kind: 'dim', text: `hold ${ p.load }/${ p.capacity_next }` }
+        case 'cargo.module.exchange.rejected.v1': return { kind: 'err', text: `exchange rejected: ${ p.reasons.join(' · ') }` }
+
         case 'market.trade.executed.v1'   : return { kind: 'ok' , text: `${ p.side } ${ p.quantity } × ${ good(p.gid) } @ ${ cr(p.price_unit) } = ${ cr(p.price_total) }` }
         case 'market.trade.rejected.v1'   : return { kind: 'err', text: `${ p.side } rejected: ${ p.reason }` }
         case 'wallet.debited.v1'          : return { kind: 'ok' , text: `-${ cr(p.amount) } → ${ cr(p.balance) }` }
@@ -78,8 +100,7 @@ async function shipCreated(p) {
         return
     }
 
-    const [ ship ] = await api('/ships')
-    state.ship = ship
+    await refreshRig()
     await refreshMarket()
 }
 
@@ -123,6 +144,32 @@ function shipRenamed(p) {
     state.ship.name = p.name
 }
 
+/*  ship.rig.changed is a full rig snapshot, so the client patches from
+    it. a reload would race projection-service, which consumes the same
+    event: /ships can answer from the old row while /ships/:sid/modules
+    already answers from the new one. hydrate() on reconnect stays the
+    recovery path. */
+function shipRigChanged(p) {
+    if (!mine(p)) return
+
+    Object.assign(state.ship, {
+        hull      : p.hull,
+        rig       : p.rig,
+        capacity  : p.capacity,
+        velocity  : p.velocity,
+        power     : p.power,
+        power_pool: p.power_pool,
+    })
+    state.fitted = p.fitted
+}
+
+// the packages move with the rig - incoming leaves the hold, outgoing joins it
+function cargoModuleExchanged(p) {
+    if (!mine(p)) return
+    p.incoming && mutateCargo(p.incoming, -1)
+    p.outgoing && mutateCargo(p.outgoing,  1)
+}
+
 function cargoLoaded(p)         { mutateCargo(p.gid,  p.quantity) }
 function cargoUnloaded(p)       { mutateCargo(p.gid, -p.quantity) }
 function marketTradeExecuted(p) { state.trades.unshift({ ...p, created: (new Date).toISOString() }) }
@@ -141,6 +188,8 @@ const mutate = {
     'ship.departed.v1'         : shipDeparted,
     'ship.arrived.v1'          : shipArrived,
     'ship.renamed.v1'          : shipRenamed,
+    'ship.rig.changed.v1'      : shipRigChanged,
+    'cargo.module.exchanged.v1': cargoModuleExchanged,
     'cargo.loaded.v1'          : cargoLoaded,
     'cargo.unloaded.v1'        : cargoUnloaded,
     'market.trade.executed.v1' : marketTradeExecuted,

@@ -13,6 +13,7 @@ export const state = {
     cargo   : [],
     market  : [],
     trades  : [],
+    fitted  : [],       // [{ slot, gid }] - GET /ships/:sid/modules
 
     traffic : new Map,   // sid → another player's ship, from GET /traffic
     pending : new Map,   // correlation_id → { label, el, timer }
@@ -29,6 +30,7 @@ export function resetPlayer() {
     state.cargo   = []
     state.market  = []
     state.trades  = []
+    state.fitted  = []
     state.traffic = new Map
     for (const { timer } of state.pending.values()) clearTimeout(timer)
     state.pending = new Map
@@ -42,4 +44,18 @@ export function station(stid) {
 
 export function good(gid) {
     return state.universe?.goods[ gid ]?.name ?? gid
+}
+
+// the module design behind a good id - family, mount, power, rates
+export function design(gid) {
+    return state.universe?.modules[ gid ]
+}
+
+// the hull of our own ship, with its slots
+export function hull() {
+    return state.universe?.hulls[ state.ship?.hull ]
+}
+
+export function fittedAt(slot) {
+    return state.fitted.find(f => f.slot === slot)?.gid
 }

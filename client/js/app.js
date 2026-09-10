@@ -6,7 +6,17 @@ import { feedLine } from './feed.js'
 import { showAuth, logout } from './api.js'
 import { register, login, enterGame } from './session.js'
 import { confirmTravel, confirmTrade } from './commands.js'
-import { tickEta, openTravelDialog, openTradeDialog, updateTradeTotal, openNameDialog, confirmName } from './render.js'
+import {
+    tickEta,
+    openTravelDialog,
+    openTradeDialog,
+    updateTradeTotal,
+    openNameDialog,
+    confirmName,
+    openFitDialog,
+    pickFit,
+    confirmFit,
+} from './render.js'
 
 Sync.base = location.origin
 Sync.head.set('content-type', 'application/json'); state.token &&
@@ -28,8 +38,20 @@ $('#game').addEventListener('click', e => {
     const btn = e.target.closest('.tradeBtn')
     btn && openTradeDialog(btn.dataset.side, btn.dataset.gid)
 
+    const fit = e.target.closest('.fitBtn')
+    fit && openFitDialog(fit.dataset.slot)
+
     e.target.closest('#renameBtn') && openNameDialog()
 })
+
+// the dialog rebuilds its own rows, so the listener sits on the dialog
+$.id('fitDialog').addEventListener('click', e => {
+    const pick = e.target.closest('.pickBtn')
+    pick && pickFit(pick.dataset.pick)
+})
+
+$.id('fitConfirmBtn').addEventListener('click', confirmFit)
+$.id('fitCancelBtn').addEventListener('click', () => $('#fitDialog').close())
 
 $('#nameConfirmBtn').addEventListener('click', confirmName)
 $('#nameCancelBtn').addEventListener('click', () => $('#nameDialog').close())
