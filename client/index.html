@@ -56,6 +56,11 @@
                 <div id=marketBody></div>
             </section>
 
+            <section id=rigPanel>
+                <h2>RIG</h2>
+                <div id=rigBody></div>
+            </section>
+
             <section id=cargoPanel>
                 <h2>CARGO</h2>
                 <div id=cargoBody></div>
@@ -98,6 +103,17 @@
             <div class=tradeActions>
                 <button id=tradeCancelBtn  type=button>CANCEL</button>
                 <button id=tradeConfirmBtn type=button>CONFIRM</button>
+            </div>
+        </dialog>
+
+        <dialog id=fitDialog class=tradeDialog>
+            <p id=fitTitle class=money></p>
+            <div id=fitBody></div>
+            <p id=fitPreview class=dim></p>
+            <p id=fitMsg class=authMsg></p>
+            <div class=tradeActions>
+                <button id=fitCancelBtn  type=button>CANCEL</button>
+                <button id=fitConfirmBtn type=button disabled>CONFIRM</button>
             </div>
         </dialog>
 

@@ -3,7 +3,7 @@ import Sync from 'garage/sync'
 import { $ } from './dom.js'
 import { state, KEY } from './state.js'
 import { feedLine } from './feed.js'
-import { api, refreshMarket } from './api.js'
+import { api, refreshRig, refreshMarket } from './api.js'
 import { refreshTraffic } from './traffic.js'
 import { renderAll, setConn } from './render.js'
 import { dispatch } from './events.js'
@@ -78,10 +78,7 @@ export async function hydrate() {
     $('#who').textContent = state.me?.handle ?? ''
     state.universe ??= await api('/universe')
 
-    const [ ship ] = await api('/ships')
-    state.ship  = ship
-
-    state.cargo = ship ? await api(`/cargo/${ ship.sid }`) : []
+    await refreshRig()
     await refreshMarket()
     await refreshTraffic()   // reconnect calls hydrate, so traffic re-syncs too
     state.trades = await api('/trades')

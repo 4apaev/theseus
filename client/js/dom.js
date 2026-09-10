@@ -61,6 +61,12 @@ export function fmtYears(n) {
     return Number(n).toFixed(1)
 }
 
+/*  a drive grade moves velocity by a few percent. 2 decimals hide the
+    whole upgrade, so velocity gets 3. */
+export function fmtVel(n) {
+    return Number(n).toFixed(3)
+}
+
 /*  a route inside one system is far shorter than a light year.
     "0.0000052ly" tells the player nothing, so show AU there. */
 export function fmtDist(ly) {

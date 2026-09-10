@@ -1,17 +1,20 @@
 /* eslint-disable camelcase */
 import { $ } from './dom.js'
-import { state, station, good } from './state.js'
+import { state, station, good, fittedAt } from './state.js'
 import { feedLine, mark } from './feed.js'
 import { api } from './api.js'
 
 // a lost command must not leave a `…` feed line forever - time it out.
 const PENDING_TIMEOUT = 15000
 
-async function send(path, body, ...a) {
+const send    = (path, body, ...a) => request('post', path, body, a)
+const sendDel = (path, body, ...a) => request('del' , path, body, a)
+
+async function request(method, path, body, a) {
     const label = a.join(' → ')
     const el = feedLine('cmd', `→ ${ label } …`)
     try {
-        const { correlation_id } = await api(path, body)
+        const { correlation_id } = await api(path, body, method)
         const timer = setTimeout(timedOut, PENDING_TIMEOUT, correlation_id)
         state.pending.set(correlation_id, { label, el, timer })
     }
@@ -61,6 +64,18 @@ export function nameError(name) {
 export function rename(name) {
     state.ship
     && send('/rename', { name, sid: state.ship.sid }, 'rename', name)
+}
+
+/*  install into an occupied slot replaces what is there. there is no
+    3rd command - ship-service reads the slot and works out the swap. */
+export function installModule(slot, gid) {
+    state.ship
+    && send('/modules/install', { slot, gid, sid: state.ship.sid }, 'fit', good(gid), slot)
+}
+
+export function removeModule(slot) {
+    state.ship
+    && sendDel('/modules/remove', { slot, sid: state.ship.sid }, 'remove', good(fittedAt(slot)), slot)
 }
 
 const RATE = { buy: 1.1, sell: 0.9 }

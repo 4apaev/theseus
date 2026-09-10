@@ -4,10 +4,10 @@ import { Fail } from 'garage/util'
 import { $ } from './dom.js'
 import { state, KEY, resetPlayer } from './state.js'
 
-export async function api(path, body) {
-    const rq = body == null
-        ? Sync.get(path)
-        : Sync.post(path, body)
+/*  the method follows the body: no body reads, a body writes. a route
+    that needs another verb - del for a removal - names it. */
+export async function api(path, body, method = body == null ? 'get' : 'post') {
+    const rq = Sync[ method ](path, body)
 
     // state.token
     //     && rq.set('authorization', 'Bearer ' + state.token)
@@ -39,6 +39,16 @@ export function logout(msg) {
     resetPlayer()
 
     showAuth(msg)
+}
+
+/*  ship, cargo and rig in one read. a rig change touches all 3, and
+    the events carry enough to patch, but a reload keeps the client out
+    of the business of replaying a distributed saga. */
+export async function refreshRig() {
+    const [ ship ] = await api('/ships')
+    state.ship   = ship
+    state.cargo  = ship ? await api(`/cargo/${ ship.sid }`) : []
+    state.fitted = ship ? await api(`/ships/${ ship.sid }/modules`) : []
 }
 
 export async function refreshMarket() {
