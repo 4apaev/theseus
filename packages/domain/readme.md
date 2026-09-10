@@ -83,6 +83,10 @@
       `deriveStats` / `previewRig` above are it, already bound
     - `cargoLoad(cargo, goodsCatalog)` - `Σ(quantity × volume)`, so a
       reactor and a crate of grain are not the same 1 cargo unit
+    - `previewExchange(load, goodsCatalog, { incoming, outgoing })` -
+      the resulting load after one module exchange, either side
+      optional. shared by market-service's real saga and the gateway's
+      advisory preview - see `docs/modules.md`
 
 ------------------------------------------------
 

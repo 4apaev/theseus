@@ -399,6 +399,25 @@ export function cargoLoad(cargo, goods) {
         * (goods[ c.gid ]?.volume ?? 1), 0)
 }
 
+/**
+ * the resulting load after one module exchange
+ * incoming: removed from cargo.
+ * outgoing: added to cargo.
+ * either may be absent. shared by market-service's
+ * real exchange saga and the gateway's advisory preview,
+ * so the 2 never drift onto different arithmetic.
+ *
+ * @param {number} load - the current load, e.g. cargoLoad(cargo, goods)
+ * @param {Record<string, { volume: number }>} goods
+ * @param {{ incoming?: string, outgoing?: string }} exchange
+ * @return {number}
+ */
+export function previewExchange(load, goods, { incoming, outgoing }) {
+    return load
+        + (outgoing ? goods[ outgoing ].volume : 0)
+        - (incoming ? goods[ incoming ].volume : 0)
+}
+
 // ── types ────────────────────────────────────────────────────
 
 /**

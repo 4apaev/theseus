@@ -19,10 +19,23 @@ export function createQueries(pool) {
             const { rows } = await sql`
                 SELECT sid, name, status, stid, "from", "to",
                        departs, arrives, arrived,
-                       capacity, velocity, years_abs, years_rel, updated
+                       capacity, velocity, hull, rig, power, power_pool,
+                       years_abs, years_rel, updated
                   FROM ships
                  WHERE pid = ${ pid }
                  ORDER BY name`
+            return rows
+        },
+
+        // fitted slots, owner-scoped through the same join cargo() uses
+        async modules(sid, pid) {
+            const { rows } = await sql`
+                SELECT fm.slot, fm.gid
+                  FROM fitted_modules fm
+                  JOIN ships s USING (sid)
+                 WHERE fm.sid = ${ sid }
+                   AND s.pid = ${ pid }
+                 ORDER BY fm.slot`
             return rows
         },
 

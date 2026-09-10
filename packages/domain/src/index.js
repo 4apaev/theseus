@@ -39,4 +39,5 @@ export {
     previewRig,
     deriveStats,
     cargoLoad,
+    previewExchange,
 } from './modules.js'

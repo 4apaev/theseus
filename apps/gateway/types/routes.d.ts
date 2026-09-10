@@ -32,8 +32,13 @@ export interface RoutesInput {
  * - `GET /garage/:file(.*)` - browser-safe subset of the `garage` package's
  *   source (util/sync/mime/constants/use), for the client's import map (public)
  * - `POST /register` `/login` - correlated reply over events.player
- * - `POST /travel` `/buy` `/sell` - command → 202 `{ cmd, correlation_id }`, pid from token claims
- * - `GET /me` `/ships` `/cargo/:sid` `/market/:stid` `/trades` - projection reads
+ * - `POST /travel` `/buy` `/sell` `/modules/install` `/modules/remove` -
+ *   command → 202 `{ cmd, correlation_id }`, pid from token claims
+ * - `POST /modules/preview` - no command published; loads the
+ *   projection's own hull/fitted/cargo and runs the same resolver
+ *   ship-service does. advisory - the real command is the final judge
+ * - `GET /me` `/ships` `/ships/:sid/modules` `/cargo/:sid` `/market/:stid`
+ *   `/trades` - projection reads
  * - `GET /traffic` `/station/:stid/ships` - public ship traffic, one shared
  *   query, handle instead of pid
  * - `GET /admin/players` `/admin/events` `/admin/inventory/:stid`

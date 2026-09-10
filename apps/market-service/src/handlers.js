@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { Outbox } from '@theseus/db'
 import { guid } from '@theseus/util'
-import { goods } from '@theseus/domain'
+import { goods, previewExchange } from '@theseus/domain'
 import {
     createEmitter,
     createCommander,
@@ -312,11 +312,8 @@ export function createHandlers(pool, transact) {
                 if (!held || held.quantity < 1) return reject([ `${ incoming } not in cargo` ])
             }
 
-            const delta = (outgoing ? goods[ outgoing ].volume : 0)
-                        - (incoming ? goods[ incoming ].volume : 0)
-
-            const load = await cargoTotal(client, sid)
-            if (load + delta > capacity_next) return reject([ 'over capacity' ])
+            const load = previewExchange(await cargoTotal(client, sid), goods, { incoming, outgoing })
+            if (load > capacity_next) return reject([ 'over capacity' ])
 
             incoming && await bumpCargo(client, sid, incoming, -1)
             outgoing && await bumpCargo(client, sid, outgoing, 1)
@@ -327,11 +324,7 @@ export function createHandlers(pool, transact) {
                     correlation_id,
                     aggregate_id  : sid,
                     aggregate_type: 'cargo',
-                    payload       : {
-                        pid, sid, operation, incoming, outgoing,
-                        load: load + delta,
-                        capacity_next,
-                    },
+                    payload       : { pid, sid, operation, incoming, outgoing, load, capacity_next },
                 }),
             ])
         })
