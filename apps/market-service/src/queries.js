@@ -39,17 +39,7 @@ export async function bumpStock(client, stid, gid, delta) {
 
 // ── SHIPS ────────────────────────────────────────────────────
 
-export async function getShip(client, sid) {
-    const { rows: [ row ] } = await client.query(`
-        SELECT *
-          FROM ships
-         WHERE sid = $1
-        `, [ sid ])
-    return row
-}
-
-// locked, for the module exchange saga - it must not interleave with
-// a concurrent exchange on the same ship
+// this lock excludes a buy, a sell, and a module exchange from each other.
 export async function lockShip(client, sid) {
     const { rows: [ row ] } = await client.query(`
         SELECT *

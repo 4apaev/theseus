@@ -16,7 +16,7 @@ import {
 import { quote } from './seed.js'
 import {
     lockStock, bumpStock,
-    getShip, lockShip, updateShipCapacity,
+    lockShip, updateShipCapacity,
     cargoTotal, lockCargo, bumpCargo,
     settleTrade, pendingTrade,
 } from './queries.js'
@@ -159,7 +159,7 @@ export function createHandlers(pool, transact) {
             const inv = await lockStock(client, payload.stid, payload.gid)
             if (!inv) return reject('unknown market')
 
-            const ship = await getShip(client, payload.sid)
+            const ship = await lockShip(client, payload.sid)
             if (!ship) return reject('ship unknown')
 
             if (ship.status  !== 'docked'
@@ -220,7 +220,7 @@ export function createHandlers(pool, transact) {
 
             if (!inv) return reject('unknown market')
 
-            const ship = await getShip(
+            const ship = await lockShip(
                 client,
                 sid,
             )
@@ -355,6 +355,8 @@ export function createHandlers(pool, transact) {
                 )
             }
             else /* hand the cargo back */ {
+                // lock order matches marketSellRequested's: ship, then cargo.
+                await lockShip(client, trade.sid)
                 await client.query(`
                     UPDATE cargo
                        SET quantity = quantity + $3, updated = now()
@@ -393,7 +395,9 @@ async function settle(pool, transact, side, { eid: causation_id, correlation_id,
 
         let stocked
         if (buying) {
+            // lock order matches marketBuyRequested's: stock, then ship.
             stocked = await lockStock(client, trade.stid, trade.gid)
+            await lockShip(client, trade.sid)
             await client.query(`
                 INSERT INTO cargo (sid, gid, quantity, updated)
                      VALUES ($1, $2, $3, now())

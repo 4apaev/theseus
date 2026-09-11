@@ -142,8 +142,8 @@ function stockableRows(stations = universe.nodes.values().toArray()) {
 }
 
 // ── buy - rejections ──────────────────────────────────────────────────────────
-// each queue matches marketBuyRequested's real order: lockStock, getShip,
-// cargoTotal - only as many entries as the rejected path actually reaches.
+// each queue matches marketBuyRequested's real order: lockStock, lockShip,
+// cargoTotal. a queue holds only as many entries as the path reaches.
 
 for (const [ reason, overrides, cmd ] of [
     [ 'unknown market'      , []],
@@ -190,7 +190,7 @@ test('buy reserves stock, records the trade, requests the debit', async () => {
 })
 
 // ── sell ──────────────────────────────────────────────────────────────────────
-// marketSellRequested's real order: lockStock, getShip, the cargo check.
+// marketSellRequested's real order: lockStock, lockShip, the cargo check.
 
 test('sell rejects: insufficient cargo', async () => {
     const { client, fx } = handlers([
@@ -341,8 +341,9 @@ test('module exchange replace: outgoing and incoming move atomically', async () 
 })
 
 // ── continuation ──────────────────────────────────────────────────────────────
-// settle()'s real order: pendingTrade, then lockStock (buy) or bumpStock
-// (sell) - the rest of the queries never inspect their own response.
+// settle()'s real order: pendingTrade, then lockStock and lockShip (buy)
+// or bumpStock alone (sell). the rest of the queries never inspect
+// their own response.
 
 const pendingBuy = (over = {}) => () => ({ rows: [{
     tid        : 'trade_1',
@@ -361,7 +362,7 @@ const pendingBuy = (over = {}) => () => ({ rows: [{
 const debited = { eid: 'evt-1', correlation_id: 'corr-test', payload: { pid: 'p1', rfid: 'trade_1', amount: 250.33, balance: 749.67 }}
 
 test('wallet.debited settles the buy: cargo loaded, trade executed, quote republished', async () => {
-    const { client, fx } = handlers([ pendingBuy(), stocked(150) ])
+    const { client, fx } = handlers([ pendingBuy(), stocked(150), dockedShip() ])
     await fx[ 'wallet.debited.v1' ](debited)
 
     assert.ok(client.log.some(Rx.insert.cargo), 'cargo loaded')
@@ -405,9 +406,10 @@ test('wallet.credited ignores a pending buy (side mismatch)', async () => {
 })
 
 // ── compensation ──────────────────────────────────────────────────────────────
-// walletTransactionRejected's 2nd query (bumpStock or the cargo UPDATE) and
-// everything after it never reads its own response - one queue entry is
-// enough even though more queries follow.
+// walletTransactionRejected's real order: pendingTrade, then bumpStock
+// (buy) or lockShip and the cargo UPDATE (sell). no query after
+// pendingTrade reads its own response, so one queue entry covers every
+// call.
 
 test('wallet rejection on a buy releases the reserved stock', async () => {
     const { client, fx } = handlers([ pendingBuy() ])
