@@ -5,6 +5,11 @@ tech debt
 debt
 ----------------
 
+### JSDoc (highest priority)
+
+update types & add jsdoc to everything
+
+
 ### player service
 
 better checking mechanism `isAdmin(handle)`
@@ -12,10 +17,15 @@ better checking mechanism `isAdmin(handle)`
 
 ### gateway routes
 
-
 use correct method for routes, like `put`, `del` etc.
 rn routes utilize only `get` or `post` methods.
 
+
+### market queries
+
+extract sql
+from `apps/market-service/src/handlers.js`
+to   `apps/market-service/src/queries.js`
 
 ### service queries
 
@@ -43,12 +53,16 @@ rn routes utilize only `get` or `post` methods.
     when this step lands, will be replaced with systemd/container-native
     health check
 
+- #### logger
+
+  introduce logger.
+  can be part of `packages/service`
+
+
 - #### observability
 
   add monitoring tools.
-
   logs query, grafana, prometheus (or modern equivalent).
-
   need some reaserch: today defacto standart?, alternatives?, configs & costs?
 
 
