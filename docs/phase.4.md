@@ -2,6 +2,22 @@ phase 4
 ================
 
 
+
+redesign
+----------------
+
+complete redesign.
+2d isometric pixel art kawaii.
+
+
+admin board ui
+----------------
+
+- add/config system nodes
+- add/config goods nodes
+- debug options - tweak TIME_SCALE, STARTER_CREDITS, INTEREST_RATE
+
+
 client rewrite
 ----------------
 
