@@ -127,6 +127,10 @@ input::placeholder {
     color: var(--dimtext)
 }
 
+.err {
+    color: var(--err)
+}
+
 .money {
     color: var(--amber);
     font-size: 1.4em;

@@ -16,7 +16,7 @@ import {
 import { quote } from './seed.js'
 import {
     lockStock, bumpStock,
-    getShip, lockShip,
+    getShip, lockShip, updateShipCapacity,
     cargoTotal, lockCargo, bumpCargo,
     settleTrade, pendingTrade,
 } from './queries.js'
@@ -290,7 +290,9 @@ export function createHandlers(pool, transact) {
         ship-service already validated the rig.
         this saga only moves the packages, weighted by volume
         against the ship's proposed capacity.
-        no station stock or trade involved
+        no station stock or trade involved.
+        it also saves the new capacity on the ship row.
+        a later buy or sell check then reads the current limit, not an old one.
     */
 
     async function cargoModuleExchangeRequested({ cmd: causation_id, correlation_id, payload }) {
@@ -317,6 +319,8 @@ export function createHandlers(pool, transact) {
 
             incoming && await bumpCargo(client, sid, incoming, -1)
             outgoing && await bumpCargo(client, sid, outgoing, 1)
+
+            await updateShipCapacity(client, sid, capacity_next)
 
             await Outbox.write(client, [
                 emit(EVT.cargo.module.exchanged, {

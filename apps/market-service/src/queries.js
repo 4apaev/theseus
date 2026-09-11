@@ -60,6 +60,17 @@ export async function lockShip(client, sid) {
     return row
 }
 
+// ship-service computes a new effective capacity after a refit.
+// this function writes that capacity onto the locked ship row.
+// a later buy or sell check then reads the current value.
+export function updateShipCapacity(client, sid, capacity) {
+    return client.query(`
+        UPDATE ships
+           SET capacity = $2
+         WHERE sid = $1
+    `, [ sid, capacity ])
+}
+
 // ── CARGO ────────────────────────────────────────────────────
 
 // volume-weighted, Σ(quantity × good.volume) - a packaged module is not

@@ -17,8 +17,20 @@ paths=(
 
 for i in "${!names[@]}"; do
     name=${names[$i]}
+    pidfile=".logs/${name}.pid"
+
+    # a live pid here shows that this service already runs.
+    # starting a second copy duplicates its poll loops. for example,
+    # a second copy of drift.js moves stock at twice the normal rate.
+    # a second copy also overwrites this pidfile. as a result, npm
+    # stop then loses track of the first copy.
+    if [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+        echo "$name already running (pid $(cat "$pidfile")) - skipping"
+        continue
+    fi
+
     node --env-file=./.env "${paths[$i]}" > ".logs/${name}.log" 2>&1 &
-    echo $! > ".logs/${name}.pid"
+    echo $! > "$pidfile"
 done
 
 echo "waiting for services to boot..."

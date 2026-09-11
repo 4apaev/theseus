@@ -43,6 +43,7 @@ Rx.update.station = Rx`UPDATE +station_inventory`
 Rx.update.trades  = Rx`UPDATE +trades`
 Rx.update.markets = Rx`UPDATE +markets`
 Rx.update.cargo   = Rx`UPDATE +cargo`
+Rx.update.ships   = Rx`UPDATE +ships`
 
 const buyCmd = (over = {}) => makeCmd({
     gid           : 'ore',
@@ -294,6 +295,18 @@ test('module exchange install: incoming leaves cargo, ship.rig fields ride the e
     assert.equal(e.payload.load, 0)
     assert.equal(e.payload.incoming, 'reactor.mk1')
     assert.equal(e.payload.outgoing, undefined)
+})
+
+test('module exchange persists the new capacity onto the ship mirror', async () => {
+    const { client, fx } = handlers([
+        dockedShip({ capacity: 20 }),
+        () => ({ rows: [{ quantity: 1 }]}),
+        () => ({ rows: [{ gid: 'reactor.mk1', quantity: 1 }]}),
+    ])
+    await fx[ 'cargo.module.exchange.requested.v1' ](exchangeCmd({ capacity_next: 30 }))
+
+    const bump = client.log.find(Rx.update.ships)
+    assert.deepEqual(bump.params, [ 's1', 30 ])
 })
 
 test('module exchange remove: outgoing joins cargo, no incoming lookup issued', async () => {
