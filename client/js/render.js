@@ -1,6 +1,6 @@
 import { api } from './api.js'
 import { $, esc, cr, fmtYears, fmtVel } from './dom.js'
-import { state, station, good, design, hull, fittedAt } from './state.js'
+import { state, station, good, design, hull, fittedAt, volume, cargoLoad } from './state.js'
 import { dockedAt } from './traffic.js'
 import { rename, nameError, installModule, removeModule } from './commands.js'
 import { renderTravel, tickShipMarkers } from './map.js'
@@ -54,7 +54,7 @@ export function renderShip() {
         return body.innerHTML = `
             <p>${ shipName(ship) } · docked at ${ esc(station(ship.stid)) }</p>
             <p class="dim">cap ${ ship.capacity } · v ${ ship.velocity }c ·
-               hold ${ state.cargo.reduce((n, c) => n + c.quantity, 0) }/${ ship.capacity }</p>`
+               hold ${ cargoLoad() }/${ ship.capacity }</p>`
     }
 
     body.innerHTML = `<p>${
@@ -124,9 +124,9 @@ export function renderMarket() {
         return body.innerHTML = '<p class="dim">— in transit · market offline —</p>'
 
     body.innerHTML = state.market.length
-        ? `<table><tr><th>GOOD</th><th>BUY</th><th>SELL</th></tr>${
+        ? `<table><tr><th>GOOD</th><th>VOL</th><th>BUY</th><th>SELL</th></tr>${
             state.market.map(m => `<tr><td>${
-                esc(good(m.gid)) }</td><td>${
+                esc(good(m.gid)) }</td><td class="dim">${ volume(m.gid) }</td><td>${
                 tradeBtn('buy',  m.gid, m.price_buy)  }</td><td>${
                 tradeBtn('sell', m.gid, m.price_sell)
             }</td></tr>`).join('')
@@ -158,6 +158,22 @@ export function updateTradeTotal() {
     const row = state.market.find(m => m.gid === gid)
     const qty = Math.max(1, +$.id('tradeQty').value || 1)
     $.id('tradeTotal').textContent = row ? cr(row[ 'price_' + side ] * qty) : ''
+    renderTradeHold(side, gid, qty)
+}
+
+// a buy adds volume to the hold. this function shows that math
+// before the player confirms. as a result, a reject for over
+// capacity is never a surprise.
+function renderTradeHold(side, gid, qty) {
+    const el = $.id('tradeHold')
+    if (side !== 'buy') return el.textContent = ''
+
+    const cap   = state.ship?.capacity ?? 0
+    const added = qty * volume(gid)
+    const next  = cargoLoad() + added
+
+    el.textContent = `+${ added } vol · hold ${ next }/${ cap }`
+    el.className   = next > cap ? 'err' : 'dim'
 }
 
 // ── rig ─────────────────────────────────────────────────────────────────────
@@ -291,10 +307,11 @@ export function renderCargo() {
     const docked = state.ship?.status === 'docked'
 
     body.innerHTML = state.cargo.length
-        ? `<table><tr><th>GOOD</th><th>QTY</th><th>SELL</th></tr>${
+        ? `<table><tr><th>GOOD</th><th>QTY</th><th>VOL</th><th>SELL</th></tr>${
             state.cargo.map(c => {
                 const row = docked && state.market.find(m => m.gid === c.gid)
-                return `<tr><td>${ esc(good(c.gid)) }</td><td>${ c.quantity }</td><td>${
+                return `<tr><td>${ esc(good(c.gid)) }</td><td>${ c.quantity }</td><td class="dim">${
+                    c.quantity * volume(c.gid) }</td><td>${
                     row ? tradeBtn('sell', c.gid, row.price_sell) : ''
                 }${ cargoFitBtn(c.gid) }</td></tr>`
             }).join('')

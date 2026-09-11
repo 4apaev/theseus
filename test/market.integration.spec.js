@@ -86,6 +86,14 @@ function walletCommandFor(pid) {
         .find(cmd => cmd.payload.pid === pid)
 }
 
+// a second buy for the same pid needs its own, later debit command.
+// the plain walletCommandFor function always returns the first match.
+function nextWalletCommandFor(pid, exceptRfid) {
+    return kafka.messages('commands.wallet')
+        .map(msg => Kfk.decodeJson(msg.value))
+        .find(cmd => cmd.payload.pid === pid && cmd.payload.rfid !== exceptRfid)
+}
+
 function hasEvent(evt, key, id) {
     return e => e.event_type === evt && e.payload[ key ] === id
 }
@@ -331,6 +339,52 @@ test('module exchange - install then remove round-trips the package, station sto
 
     assert.equal(removed.payload.load, 4, 'reactor.mk1 volume, back in cargo')
     assert.equal(await cargoQty(sid, 'reactor.mk1'), 1)
+})
+
+// a module exchange can raise the ship capacity. the next buy must
+// use this new capacity, not the old one. the buy saga reads the
+// capacity from the ship mirror row.
+test('module exchange - a raised capacity clears the way for the next buy', async () => {
+    const sid  = guid(PRFX)
+    const pid  = guid(PRFX)
+    const stid = 'sol.ganymede' // this station stocks cargo.mk2
+
+    await shipCreated(sid, pid, stid) // capacity 20
+
+    const { events: cargoEvents, stop: stopCargo } = collectEvents(kafka, [ 'events.cargo' ])
+
+    await publish(CMD.market.buy.requested, {
+        pid, sid, stid,
+        gid: 'cargo.mk2',
+        quantity: 1,
+        price_unit_max: 10000,
+    })
+
+    const moduleDebit = await waitFor(walletCommandFor, '5s', 50, pid)
+    await walletDebited(pid, moduleDebit.payload.rfid, moduleDebit.payload.amount)
+    await wherePayload(cargoEvents, EVT.cargo.loaded, { sid }, '5s')
+
+    await publish(CMD.cargo.module.exchange.requested, {
+        pid, sid,
+        operation: 'replace',
+        outgoing: 'cargo.mk1',
+        incoming: 'cargo.mk2',
+        capacity_next: 30,
+    })
+    await wherePayload(cargoEvents, EVT.cargo.module.exchanged, { sid, operation: 'replace' }, '5s')
+    stopCargo()
+
+    // this buy requests 21 units of grain, at a volume of 1 each.
+    // the total exceeds the old capacity, but fits the new capacity.
+    await publish(CMD.market.buy.requested, {
+        pid, sid, stid,
+        gid: 'grain',
+        quantity: 21,
+        price_unit_max: 1000,
+    })
+
+    const grainDebit = await waitFor(nextWalletCommandFor, '5s', 50, pid, moduleDebit.payload.rfid)
+    assert.match(grainDebit.payload.rfid, /^trade_/)
 })
 
 test('module exchange - rejects a ship that does not exist', async () => {

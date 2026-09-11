@@ -51,6 +51,19 @@ export function design(gid) {
     return state.universe?.modules[ gid ]
 }
 
+// this function returns the cargo volume of one unit of a good
+export function volume(gid) {
+    return state.universe?.goods[ gid ]?.volume ?? 1
+}
+
+// this function computes the total load of the hold, quantity
+// times volume for each good. market-service computes the same
+// value in its own cargoLoad function. as a result, the shown
+// number matches the number that the buy saga checks.
+export function cargoLoad() {
+    return state.cargo.reduce((n, c) => n + c.quantity * volume(c.gid), 0)
+}
+
 // the hull of our own ship, with its slots
 export function hull() {
     return state.universe?.hulls[ state.ship?.hull ]
