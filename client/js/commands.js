@@ -2,7 +2,7 @@
 import { $ } from './dom.js'
 import { state, station, good, fittedAt } from './state.js'
 import { feedLine, mark } from './feed.js'
-import { api } from './api.js'
+import { Api } from './api.js'
 
 // a lost command must not leave a `…` feed line forever - time it out.
 const PENDING_TIMEOUT = 15000
@@ -14,7 +14,7 @@ async function request(method, path, body, a) {
     const label = a.join(' → ')
     const el = feedLine('cmd', `→ ${ label } …`)
     try {
-        const { correlation_id } = await api(path, body, method)
+        const { correlation_id } = (await Api[ method ](path, body)).body
         const timer = setTimeout(timedOut, PENDING_TIMEOUT, correlation_id)
         state.pending.set(correlation_id, { label, el, timer })
     }

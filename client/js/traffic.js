@@ -1,4 +1,4 @@
-import { api } from './api.js'
+import { Api } from './api.js'
 import { state } from './state.js'
 
 /*  other players' ships.
@@ -16,7 +16,7 @@ export function who(sid) {
 }
 
 export async function refreshTraffic() {
-    const rows = await api('/traffic')
+    const { body: rows } = await Api.get('/traffic')
     state.traffic = new Map(rows
         .filter(t => t.sid !== state.ship?.sid)
         .map(t => [ t.sid, t ]))
