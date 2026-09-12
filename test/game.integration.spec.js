@@ -139,3 +139,84 @@ test('a trader can profit from ore arbitrage across the triangle', async () => {
     ])
         assert.ok(events.some(e => e.event_type === type), `${ type } observed`)
 })
+
+/*
+    the ship modules loop, end to end, 3 real services talking through kafka:
+
+    register → the starter rig
+    fund the shopping trip             (a reactor.mk2 + cruise.mk2 costs more
+                                        than the starter wallet - ore arbitrage
+                                        on the way pays for it)
+    fly to the yards                   (the only station stocking cruise.mk2)
+    buy the module, fit it             (cruise.mk2 needs reactor.mk2 first)
+    feel the difference                (velocity actually changes)
+    remove it, the package comes back
+    sell it back
+*/
+test('a captain buys a faster drive, fits it, feels the difference, then sells it back', async () => {
+    const handle = guid(PRFX)
+    const { events, stop } = collectEvents(kafka, [
+        'events.player',
+        'events.wallet',
+        'events.ship',
+        'events.market',
+        'events.cargo',
+    ])
+
+    // ── register - the starter rig ──
+    await publish(CMD.player.register.requested, { handle, password: 'secret' })
+
+    const created = await wherePayload(events, EVT.player.created, { handle }, '10s')
+    const { pid } = created.payload
+
+    const freebie = await wherePayload(events, EVT.ship.created, { pid }, '10s')
+    const { sid } = freebie.payload
+    const startVelocity = freebie.payload.velocity
+
+    assert.equal(startVelocity, 0.6)
+
+    // ── fund the trip - ore is cheap where mined, dear where scarce ──
+    await publish(CMD.market.buy.requested, { pid, sid, gid: 'ore', stid: 'sol.outpost', quantity: 20, price_unit_max: 100 })
+    await wherePayload(events, EVT.cargo.loaded, { sid, gid: 'ore' }, '15s')
+
+    await publish(CMD.ship.travel.requested, { sid, pid, from: 'sol.outpost', to: 'sol.venus' })
+    await wherePayload(events, EVT.ship.arrived, { sid, stid: 'sol.venus' }, '15s')
+
+    await publish(CMD.market.sell.requested, { pid, sid, gid: 'ore', stid: 'sol.venus', quantity: 20, price_unit_min: 1 })
+    await wherePayload(events, EVT.wallet.credited, { pid }, '15s')
+
+    // ── fly to the yards ──
+    await publish(CMD.ship.travel.requested, { sid, pid, from: 'sol.venus', to: 'sol.ganymede' })
+    await wherePayload(events, EVT.ship.arrived, { sid, stid: 'sol.ganymede' }, '15s')
+
+    // ── cruise.mk2 requires the power capability at rank 2 - reactor.mk2
+    // provides it, reactor.mk1 does not. buy and fit that first. ──
+    await publish(CMD.market.buy.requested, { pid, sid, gid: 'reactor.mk2', stid: 'sol.ganymede', quantity: 1, price_unit_max: 10000 })
+    await wherePayload(events, EVT.cargo.loaded, { sid, gid: 'reactor.mk2' }, '15s')
+
+    await publish(CMD.ship.module.install.requested, {               pid, sid, slot: 'power1', gid: 'reactor.mk2' })
+    const reactorFit = await wherePayload(events, EVT.ship.rig.changed, { sid, slot: 'power1' }, '15s')
+    assert.equal(reactorFit.payload.outgoing, 'reactor.mk1', 'the starter reactor left the slot')
+
+    // ── buy the faster drive, fit it ──
+    await publish(CMD.market.buy.requested, { pid, sid, gid: 'cruise.mk2', stid: 'sol.ganymede', quantity: 1, price_unit_max: 10000 })
+    await wherePayload(events, EVT.cargo.loaded, { sid, gid: 'cruise.mk2' }, '15s')
+
+    await publish(CMD.ship.module.install.requested, { sid, pid, slot: 'cruise1', gid: 'cruise.mk2' })
+    const cruiseFit = await wherePayload(events, EVT.ship.rig.changed, { sid, slot: 'cruise1', incoming: 'cruise.mk2' }, '15s')
+
+    // ── feel the difference - the same route now takes less time ──
+    assert.ok(cruiseFit.payload.velocity > startVelocity, `faster now: ${ cruiseFit.payload.velocity }c`)
+
+    // ── remove it - the package comes back to cargo, the old speed returns ──
+    await publish(CMD.ship.module.remove.requested, { sid, pid, slot: 'cruise1' })
+    const removed = await wherePayload(events, EVT.ship.rig.changed, { sid, slot: 'cruise1', outgoing: 'cruise.mk2' }, '15s')
+    assert.equal(removed.payload.velocity, startVelocity, 'back to the old drive\'s speed')
+
+    // ── sell the drive back at the yards ──
+    await publish(CMD.market.sell.requested, { pid, sid, gid: 'cruise.mk2', stid: 'sol.ganymede', quantity: 1, price_unit_min: 1 })
+    const sold = await wherePayload(events, EVT.trade.executed, { pid, side: 'sell', gid: 'cruise.mk2' }, '15s')
+    stop()
+
+    assert.ok(+sold.payload.price_total > 0, 'the drive resells for something')
+})
