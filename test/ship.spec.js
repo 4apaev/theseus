@@ -425,6 +425,20 @@ test('cargoModuleExchangeRejected marks the operation rejected and forwards the 
     assert.deepEqual(e.payload.reasons, [ 'over capacity' ])
 })
 
+test('cargoModuleExchangeRejected ignores an already-terminal operation', async () => {
+    const client   = fakeClient([ pendingOperation({ status: 'done' }) ])
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'cargo.module.exchange.rejected.v1' ]({
+        eid: 'evt-2',
+        correlation_id: 'c',
+        payload: { operation: 'refit_1', pid: 'p1', sid: 's1', reasons: [ 'over capacity' ]},
+    })
+
+    assert.equal(client.log.length, 1, 'no double-apply')
+    assert.equal(outboxEvents(client).length, 0)
+})
+
 // ── arrivals - poll & dock due ships ────────────────────────────────────────
 // arriveDue's claim response is the only one anything reads - every query
 // that follows (the outbox insert, and advanceManifest's own update +

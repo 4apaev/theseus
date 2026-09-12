@@ -202,3 +202,84 @@ test('travel - wrong origin emits travel.rejected, ship stays docked', async () 
     assert.equal(ship.status, 'docked')
     assert.equal(ship.stid, 'barnards.port')
 })
+
+// ── module fitting - the cargo exchange continuation ────────────────────────
+// ship-service only proposes the rig; market-service's reply on events.cargo
+// is what actually applies it. no market-service runs in this file, so the
+// reply is published directly here, the same shape market-service itself sends.
+
+test('module fit - a confirmed exchange applies the rig and emits ship.rig.changed', async () => {
+    const { sid, pid } = await seedShip()
+    const { events: cmds, stop: stopCmds } = collectEvents(kafka, [ 'commands.cargo' ])
+    const { events, stop } = collectEvents(kafka, [ 'events.ship' ])
+
+    await publish(CMD.ship.module.install.requested, { sid, pid, slot: 'power1', gid: 'reactor.mk1' })
+
+    const exchange = await waitFor(
+        () => cmds.find(c => c.command_type === CMD.cargo.module.exchange.requested && c.payload.sid === sid),
+        '5s', 50)
+    stopCmds()
+
+    await producer.publishEvent(createEventEnvelope({
+        eid              : Crypto.randomUUID(),
+        event_type       : EVT.cargo.module.exchanged,
+        aggregate_id     : sid,
+        aggregate_type   : 'cargo',
+        aggregate_version: 1,
+        producer         : 'integration-test',
+        payload          : {
+            pid, sid,
+            operation    : exchange.payload.operation,
+            incoming     : exchange.payload.incoming,
+            outgoing     : exchange.payload.outgoing,
+            load         : 0,
+            capacity_next: exchange.payload.capacity_next,
+        },
+    }))
+
+    const changed = await wherePayload(events, EVT.ship.rig.changed, { sid })
+    stop()
+
+    assert.equal(changed.payload.rig, 2)
+    assert.deepEqual(changed.payload.fitted, [{ slot: 'power1', gid: 'reactor.mk1' }])
+
+    const fitted = await sql`select gid from fitted_modules where sid = ${ sid } and slot = ${ 'power1' }`
+    assert.equal(fitted.gid, 'reactor.mk1')
+
+    const opr = await sql`select status from module_operations where oid = ${ exchange.payload.operation }`
+    assert.equal(opr.status, 'done')
+})
+
+test('module fit - a rejected exchange leaves the rig untouched', async () => {
+    const { sid, pid } = await seedShip()
+    const { events: cmds, stop: stopCmds } = collectEvents(kafka, [ 'commands.cargo' ])
+    const { events, stop } = collectEvents(kafka, [ 'events.ship' ])
+
+    await publish(CMD.ship.module.install.requested, { sid, pid, slot: 'power1', gid: 'reactor.mk1' })
+
+    const exchange = await waitFor(
+        () => cmds.find(c => c.command_type === CMD.cargo.module.exchange.requested && c.payload.sid === sid),
+        '5s', 50)
+    stopCmds()
+
+    await producer.publishEvent(createEventEnvelope({
+        eid              : Crypto.randomUUID(),
+        event_type       : EVT.cargo.module.exchange.rejected,
+        aggregate_id     : sid,
+        aggregate_type   : 'cargo',
+        aggregate_version: 1,
+        producer         : 'integration-test',
+        payload          : { operation: exchange.payload.operation, pid, sid, reasons: [ 'over capacity' ]},
+    }))
+
+    const rejected = await wherePayload(events, EVT.ship.module.operation.rejected, { sid })
+    stop()
+
+    assert.deepEqual(rejected.payload.reasons, [ 'over capacity' ])
+
+    const fitted = await sql`select gid from fitted_modules where sid = ${ sid } and slot = ${ 'power1' }`
+    assert.equal(fitted, undefined, 'no module ever landed')
+
+    const opr = await sql`select status from module_operations where oid = ${ exchange.payload.operation }`
+    assert.equal(opr.status, 'rejected')
+})
