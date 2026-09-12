@@ -1,5 +1,3 @@
-import Sync from 'garage/sync'
-
 import { $ } from './dom.js'
 import { state } from './state.js'
 import { feedLine } from './feed.js'
@@ -17,10 +15,6 @@ import {
     pickFit,
     confirmFit,
 } from './render.js'
-
-Sync.base = location.origin
-Sync.head.set('content-type', 'application/json'); state.token &&
-Sync.head.set('authorization', 'Bearer ' + state.token)
 
 // ── wiring + boot ─────────────────────────────────────────────────────────
 
