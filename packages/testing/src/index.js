@@ -43,6 +43,7 @@ const dict = {
     skeleton  : '🚀  SKELETON  🧪 ',
     testing   : '🧪  TESTING   🧪 ',
     util      : '🪏  UTIL      🧪 ',
+    projection: '📺  PROJECTION 🧪',
 
     '/scripts/smoke.js': '🚬  SMOKE 😶‍🌫️ ',
 
@@ -53,7 +54,6 @@ const dict = {
     'market.integration'             : '🚦 🎰 ∫∫ MARKET  ',
     'market.rebuild.integration'     : '🚦 🎰 ∫∫ REBUILD MARKET     ',
     'projection.rebuild.integration' : '🚦 📺 ∫∫ REBUILD PROJECTION ',
-
 }
 
 const name = process.argv[ 1 ]
