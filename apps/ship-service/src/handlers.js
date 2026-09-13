@@ -121,7 +121,9 @@ export function createHandlers(pool, transact) {
 
             const ship = await getShip(client, p.sid)
 
-            if (!ship)                    return reject(client, { reason: 'ship not found'                     , causation_id, correlation_id, p })
+            // a foreign sid reads as "not found" too - it must not tell a
+            // caller a ship exists under someone else's account
+            if (!ship || ship.pid !== p.pid) return reject(client, { reason: 'ship not found', causation_id, correlation_id, p })
             if (ship.status !== 'docked') return reject(client, { reason: 'ship not docked'                    , causation_id, correlation_id, p })
             if (ship.stid !== p.from)     return reject(client, { reason: 'ship not at origin'                 , causation_id, correlation_id, p })
             if (p.from === p.to)          return reject(client, { reason: 'origin and destination are the same', causation_id, correlation_id, p })
@@ -203,7 +205,8 @@ export function createHandlers(pool, transact) {
             })
 
             const ship = await lockShip(client, p.sid)
-            if (!ship)                                    return reject([ 'ship not found' ])
+            // a foreign sid reads as "not found" - see shipTravelRequested
+            if (!ship || ship.pid !== p.pid)              return reject([ 'ship not found' ])
             if (await hasPendingOperation(client, p.sid)) return reject([ 'refit pending' ])
 
             const fitted   = await getFittedModules(client, p.sid)

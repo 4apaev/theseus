@@ -99,6 +99,7 @@ test('a route between stars leaves the speed to the ship', () => {
 
 for (const [ reason, over, cmd ] of [
     [ 'ship not found'                     , [ () => ({ rows: []}) ]],
+    [ 'ship not found'                     , [ dockedShip({ pid: 'stranger' }) ]], // another player's ship
     [ 'ship not docked'                    , [ dockedShip({ status: 'transit' }) ]],
     [ 'ship not at origin'                 , [ dockedShip({ stid: 'barnards.port' }) ]],
     [ 'origin and destination are the same', [ dockedShip() ], makeCmd({ ...trip.payload, to: 'sol.outpost' }) ],
@@ -270,6 +271,7 @@ const removeCmd  = (over = {}) => makeCmd({ pid: 'p1', sid: 's1', slot: 'cargo1'
 
 for (const [ reason, overrides, cmd, type ] of [
     [ 'ship not found', [ () => ({ rows: []}) ]],
+    [ 'ship not found', [ dockedShip({ pid: 'stranger' }) ]], // another player's ship
     [ 'refit pending'  , [ dockedShip(), () => ({ rows: [{ oid: 'refit_x' }]}) ]],
     [ 'reactor.mk2 does not fit the cargo slot', [ dockedShip(), noPendingRefit, fittedRows() ], installCmd({ slot: 'cargo1' }) ],
     [ 'nothing fitted at slot cargo1', [ dockedShip(), noPendingRefit, fittedRows([]) ], removeCmd(), 'remove' ],

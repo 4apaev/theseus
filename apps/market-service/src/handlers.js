@@ -160,7 +160,9 @@ export function createHandlers(pool, transact) {
             if (!inv) return reject('unknown market')
 
             const ship = await lockShip(client, payload.sid)
-            if (!ship) return reject('ship unknown')
+            // a foreign sid reads as "unknown" - it must not confirm
+            // someone else's ship exists
+            if (!ship || ship.pid !== payload.pid) return reject('ship unknown')
 
             if (ship.status  !== 'docked'
                 || ship.stid !== payload.stid) return reject('ship not docked here')
@@ -225,7 +227,8 @@ export function createHandlers(pool, transact) {
                 sid,
             )
 
-            if (!ship) return reject('ship unknown')
+            // a foreign sid reads as "unknown" - see marketBuyRequested
+            if (!ship || ship.pid !== pid) return reject('ship unknown')
 
             if (ship.status  !== 'docked'
                 || ship.stid !== stid) return reject('ship not docked here')
