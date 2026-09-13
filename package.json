@@ -1,6 +1,6 @@
 {
     "name"       : "theseus",
-    "version"    : "0.2.0",
+    "version"    : "0.2.1",
     "description": "interstellar trade game",
     "repository" : "github:4apaev/theseus",
     "type"       : "module",
