@@ -3,6 +3,7 @@ import type { FittedSlot } from './schema.js'
 export declare const eventTopics: Readonly<{
     all: 'events.all'
     cargo: 'events.cargo'
+    comms: 'events.comms'
     market: 'events.market'
     player: 'events.player'
     ship: 'events.ship'
@@ -51,6 +52,14 @@ export declare const tree: Readonly<{
     trade: {
         executed: 'market.trade.executed.v1',
         rejected: 'market.trade.rejected.v1',
+    },
+
+    message: {
+        sent: 'comms.sent.v1',
+        delivered: 'comms.delivered.v1',
+        send: {
+            rejected: 'comms.send.rejected.v1'
+        },
     },
 }>
 
@@ -203,6 +212,26 @@ export interface EventPayloads {
         price_sell: number
         stid: string
     }
+    'comms.sent.v1': {
+        mid: string
+        from: string
+        to?: string
+        stid?: string
+        body: string
+        sent: string
+        deliver: string
+    }
+    'comms.delivered.v1': {
+        mid: string
+        from: string
+        to: string
+        body: string
+        delivered: string
+    }
+    'comms.send.rejected.v1': {
+        pid: string
+        reason: string
+    }
 }
 
 export interface CargoPayload {
@@ -275,6 +304,9 @@ export declare const eventTypes: Readonly<{
     market_trade_executed_v1: 'market.trade.executed.v1'
     market_trade_rejected_v1: 'market.trade.rejected.v1'
     market_price_changed_v1: 'market.price.changed.v1'
+    comms_sent_v1: 'comms.sent.v1'
+    comms_delivered_v1: 'comms.delivered.v1'
+    comms_send_rejected_v1: 'comms.send.rejected.v1'
 }>
 
 export function eventDefinition<T extends EventType>(eventType: T): Readonly<EventDefinition<T>>

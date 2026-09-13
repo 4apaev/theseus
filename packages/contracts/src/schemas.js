@@ -500,3 +500,58 @@ export const marketPriceChanged = new Schema({
         price_sell: field.positiveNumber,
     },
 })
+
+// ── comms ───────────────────────────────────────────────────────────────────
+// `to` absent means station chat. comms-service derives the
+// station from the sender's own current position. it never
+// trusts the caller's own claim.
+
+export const messageSendRequested = new Cmd({
+    topic  : 'comms',
+    type   : 'send.requested',
+    key    : 'pid',
+    payload: {
+        pid : field.nonEmptyString,
+        to  : field.optionalNonEmptyString,
+        body: field.nonEmptyString,
+    },
+})
+
+export const messageSent = new Schema({
+    topic  : 'comms',
+    type   : 'sent',
+    key    : 'mid',
+    payload: {
+        mid    : field.nonEmptyString,
+        from   : field.nonEmptyString,
+        to     : field.optionalNonEmptyString,
+        stid   : field.optionalNonEmptyString,
+        body   : field.nonEmptyString,
+        sent   : field.isoTime,
+        deliver: field.isoTime,
+    },
+})
+
+// the ansible case only. station chat has no delay to observe.
+export const messageDelivered = new Schema({
+    topic  : 'comms',
+    type   : 'delivered',
+    key    : 'mid',
+    payload: {
+        mid      : field.nonEmptyString,
+        from     : field.nonEmptyString,
+        to       : field.nonEmptyString,
+        body     : field.nonEmptyString,
+        delivered: field.isoTime,
+    },
+})
+
+export const messageSendRejected = new Schema({
+    topic  : 'comms',
+    type   : 'send.rejected',
+    key    : 'pid',
+    payload: {
+        pid   : field.nonEmptyString,
+        reason: field.nonEmptyString,
+    },
+})

@@ -1,5 +1,6 @@
 export declare const commandTopics: Readonly<{
     cargo: 'commands.cargo'
+    comms: 'commands.comms'
     market: 'commands.market'
     player: 'commands.player'
     ship: 'commands.ship'
@@ -32,6 +33,9 @@ export declare const tree: Readonly<{
         buy: { requested: 'market.buy.requested.v1' },
         sell: { requested: 'market.sell.requested.v1' }
     },
+
+    comms: {
+        send: { requested: 'comms.send.requested.v1' }},
 }>
 
 export type CommandTopic = typeof commandTopics[ keyof typeof commandTopics ]
@@ -95,6 +99,11 @@ export interface CommandPayloads {
         sid: string
         stid: string
     }
+    'comms.send.requested.v1': {
+        pid: string
+        to?: string
+        body: string
+    }
 }
 
 export interface CargoCommandPayload {
@@ -153,6 +162,7 @@ export declare const commandTypes: Readonly<{
     cargo_module_exchange_requested_v1: 'cargo.module.exchange.requested.v1'
     market_buy_requested_v1: 'market.buy.requested.v1'
     market_sell_requested_v1: 'market.sell.requested.v1'
+    comms_send_requested_v1: 'comms.send.requested.v1'
 }>
 
 export function commandDefinition<T extends CommandType>(commandType: T): Readonly<CommandDefinition<T>>
