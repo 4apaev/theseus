@@ -148,6 +148,7 @@ function stockableRows(stations = universe.nodes.values().toArray()) {
 for (const [ reason, overrides, cmd ] of [
     [ 'unknown market'      , []],
     [ 'ship unknown'        , [ stocked(), empty ]],
+    [ 'ship unknown'        , [ stocked(), dockedShip({ pid: 'stranger' }) ]], // another player's ship
     [ 'ship not docked here', [ stocked(), dockedShip({ status: 'transit' }) ]],
     [ 'ship not docked here', [ stocked(), dockedShip({ stid: 'barnards.port' }) ]],
     [ 'insufficient stock'  , [ stocked(5), dockedShip() ]],
@@ -191,6 +192,17 @@ test('buy reserves stock, records the trade, requests the debit', async () => {
 
 // ── sell ──────────────────────────────────────────────────────────────────────
 // marketSellRequested's real order: lockStock, lockShip, the cargo check.
+
+test('sell rejects: ship belongs to another player', async () => {
+    const { client, fx } = handlers([
+        stocked(40),
+        dockedShip({ stid: 'barnards.port', pid: 'stranger' }),
+    ])
+    await fx[ 'market.sell.requested.v1' ](sellCmd())
+
+    const [ e ] = outboxEvents(client)
+    assert.equal(e.payload.reason, 'ship unknown')
+})
 
 test('sell rejects: insufficient cargo', async () => {
     const { client, fx } = handlers([
