@@ -31,11 +31,11 @@ dependency of 3.4's ansible hardware and 3.5's maneuver drive; the later
 content and visualization steps remain independent.
 
 | step | what                                          | status |
-|------|----------------------------------------------|--------|
+|------|-----------------------------------------------|--------|
 | 3.1  | ships name generator                          | done ✔ |
 | 3.2  | tech debt sweep                               | done ✔ |
-| 3.3  | ship modules - rigs and upgrades               | in progress |
-| 3.4  | player messenger - the ansible                |        |
+| 3.3  | ship modules - rigs and upgrades              | done ✔ |
+| 3.4  | player messenger - the ansible                | in progress |
 | 3.5  | ΔV mechanics - in-system travel               |        |
 | 3.6  | universe growth - more stations, path() perf  |        |
 | 3.7  | travel manifest visualization                 |        |
@@ -157,7 +157,7 @@ classes, manufacturing, damage and research trees remain later work.
 the same foundation.
 
 
-### step 3.4 - player messenger, the ansible
+### → step 3.4 - player messenger, the ansible
 
 `game.md`'s "player 2 player communications" idea: "some kind of
 ansible device that enables faster than light speed coms. but still

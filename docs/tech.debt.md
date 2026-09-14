@@ -33,9 +33,112 @@ to   `apps/market-service/src/queries.js`
 
 ### db
 
+create global queries regestry in `@theseus/db`.
+add compile phase for caching, and to avoid duplicates.
+
+unify all query styles for consistensy.
+
+
 - indexes
 - annotated diagrams of tables + comments on every field
 - annotated diagrams of system wide layout
+
+### query builder
+
+[knex](https://knexjs.org/guide/query-builder.html#knex)
+
+construct and cache queries
+pre compile & use cached queries in run time
+add prestart phase when queries compiled
+
+```js
+
+  class Q {
+    constructor(...a) {
+      this.argv = a
+      // proxy to handle chain calls
+      return new Proxy(this, {
+        has(trg, k, px) { return px },
+        get(trg, k, px) { return px },
+        set(trg, k, px) { return px },
+      })
+    }
+
+    key()    ; omit()
+    select() ; insert() ; update() ; create()
+    into()   ; from()   ; join()   ; using()
+    case()   ; when()   ; then()   ; where()
+    limit()  ; values() ; order()  ; conflict()
+    on()     ; and()    ; as()     ; by()
+    do()     ; or()     ; for()    ; set()
+
+    ...
+
+    static types = {
+      bol: Symbol('boolean'), num: Symbol('num'), obj : Symbol('jsonb'),
+      txt: Symbol('text')   , int: Symbol('int'), date: Symbol('timestamp'),
+
+      pk  : Symbol('primary key'), uniq : Symbol('unique')  ,
+      ref : Symbol('references') , nnl : Symbol('not null'),
+
+      get now() { return new Date },
+      def(x) { return `default ${ x }` },
+    }
+
+    static create(...a) { return Reflect.construct(this, [ 'create', ...a ]) }
+    static select(...a) { return Reflect.construct(this, [ 'select', ...a ]) }
+    static insert(...a) { return Reflect.construct(this, [ 'insert', ...a ]) }
+    static update(...a) { return Reflect.construct(this, [ 'update', ...a ]) }
+    ...
+  }
+
+  function Q() {
+    return new QBuild
+  }
+
+  const T = QBuild.types
+
+  Q.create('ships', {
+    sid     : [ T.txt, T.pk ],
+    pid     : [ T.txt, T.nn, T.uniq ],
+    stid    : T.txt,
+    status  : [ T.txt, T.nn, T.def('docked') ],
+    ansible : [ T.bool, T.nn, T.def(false)    ]
+  })
+
+  Q.table('ships')
+    .key('sid').txt.pk
+    .key('pid').txt.nnl.unq
+    .key('stid').txt
+    .key('status').txt.nnl.def('docked')
+    .key('ansible').bol.nnl.def(false)
+
+
+  Q.table.ships
+    .sid.txt.pk
+    .pid.txt.nnl.unq
+    .stid.txt
+    .status.txt.nnl.def.docked
+    .ansible.bol.nnl.def.false
+
+  Q.select('fm.slot', 'fm.gid')
+    .from('fitted_modules', 'fm')
+    .join('ships' 's')
+    .using('sid')
+    .where('fm.sid', sid)
+    .and('s.pid', pid)
+    .order('fm.slot')
+
+
+  Q.select
+    .from('ships')
+    .omit('ansible')
+    .order
+      .desc('departed)
+    .where('sid', 'xxxx')
+    .and({ pid: 'yyyy' })
+```
+
 
 
 ### infra
