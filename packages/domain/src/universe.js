@@ -102,6 +102,29 @@ export class Universe {
     }
 
     /**
+     * the shortest physical route between 2 stations, in light
+     * years. an ansible signal is not a ship. it takes no
+     * speed-limit discount near a star. this method weighs each
+     * edge by its own `ly` value alone, not by `path()`'s
+     * travel-time weight.
+     *
+     * @param {string} from
+     * @param {string} to
+     * @return {number} light years
+     */
+    distanceTo(from, to) {
+        this.has(from) || Fail.raise(`unknown station: ${ from }`)
+        this.has(to)   || Fail.raise(`unknown station: ${ to }`)
+
+        if (from === to) return 0
+
+        const dist = this.#shortestDistance(from)
+        return dist.has(to)
+            ? dist.get(to)
+            : Fail.raise(`unknown route: ${ from } → ${ to }`)
+    }
+
+    /**
      * dijkstra. the weight of one edge is travel time, not light years.
      *
      * a short in-system hop still costs a slow ship a lot of time.
@@ -179,6 +202,33 @@ export class Universe {
             }
         }
         return prev
+    }
+
+    /**
+     * the distance-only twin of `#shortestTime`. it uses the same
+     * dijkstra shape, but weighs each edge by `edge.ly` alone. it
+     * takes no velocity.
+     *
+     * @param {string} from
+     * @return {Map<string, number>} stid -> total light years from `from`
+     */
+    #shortestDistance(from) {
+        const dist  = new Map([[ from, 0 ]])
+        const queue = new Set([ from ])
+
+        while (queue.size) {
+            const at = closest(queue, dist)
+            queue.delete(at)
+
+            for (const [ next, edge ] of this.neighbors(at)) {
+                const cost = dist.get(at) + edge.ly
+                if (cost < (dist.get(next) ?? Infinity)) {
+                    dist.set(next, cost)
+                    queue.add(next)
+                }
+            }
+        }
+        return dist
     }
 
     /**
@@ -349,6 +399,8 @@ export const goods = nil({
 
     'cargo.mk1'  : { name: 'cargo module mk1', price_base: 100,  elasticity: 1.0, kind: 'module', volume: 8 },
     'cargo.mk2'  : { name: 'cargo module mk2', price_base: 500,  elasticity: 1.0, kind: 'module', volume: 8 },
+
+    'ansible.mk1': { name: 'ansible transceiver', price_base: 80, elasticity: 1.0, kind: 'module', volume: 2 },
 })
 
 // ── starter ship ─────────────────────────────────────────────
@@ -364,6 +416,7 @@ export const starterShip = nil({
 
 export const currency = '₢'                                  // @ts-ignore
 export const TIME_SCALE = readEnv('TIME_SCALE', 20)          // @ts-ignore
+export const ANSIBLE_SPEED = readEnv('ANSIBLE_SPEED', 100)   // @ts-ignore - a multiple of light speed
 export const INTEREST_RATE = readEnv('INTEREST_RATE', 0.05)  // @ts-ignore
 export const STARTER_CREDITS = readEnv('STARTER_CREDITS', 1000)
 export const universeData = nil({
@@ -374,6 +427,7 @@ export const universeData = nil({
     starter: starterShip,
     constants: {
         time_scale     : TIME_SCALE,
+        ansible_speed  : ANSIBLE_SPEED,
         interest_rate  : INTEREST_RATE,
         starter_credits: STARTER_CREDITS,
         currency,

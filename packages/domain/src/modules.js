@@ -278,6 +278,11 @@ export const modules = O.freeze(O.setPrototypeOf({
 
     'cargo.mk1': new Design({ family: 'cargo', mount: 'light', power: 0 }),
     'cargo.mk2': new Design({ family: 'cargo', mount: 'light', power: 1, effects: [{ stat: 'capacity', kind: 'flat', value: 10 }]}),
+
+    // a transceiver is small, general-purpose gear. it fits the
+    // doc's own 'utility' family. the field context lets a player
+    // fit it docked or in transit.
+    'ansible.mk1': new Design({ family: 'utility', mount: 'light', power: 1, context: 'field' }),
 }, null))
 
 /** @type {Record<'starter', Hull>} */
@@ -290,9 +295,10 @@ export const hulls = O.freeze(O.setPrototypeOf({
         velocity_max : 0.85,
         rates        : new A,
         slots        : A.of(
-            { id: 'power1',  family: 'power',  size: 'light' },
-            { id: 'cruise1', family: 'cruise', size: 'light' },
-            { id: 'cargo1',  family: 'cargo',  size: 'light' }),
+            { id: 'power1',   family: 'power',   size: 'light' },
+            { id: 'cruise1',  family: 'cruise',  size: 'light' },
+            { id: 'cargo1',   family: 'cargo',   size: 'light' },
+            { id: 'utility1', family: 'utility', size: 'light' }),
     }),
 }, null))
 
@@ -305,9 +311,10 @@ export const hulls = O.freeze(O.setPrototypeOf({
  * @type {Readonly<Record<string, string>>}
  */
 export const starterRig = O.freeze({
-    power1 : 'reactor.mk1',
-    cruise1: 'cruise.mk1',
-    cargo1 : 'cargo.mk1',
+    power1  : 'reactor.mk1',
+    cruise1 : 'cruise.mk1',
+    cargo1  : 'cargo.mk1',
+    utility1: 'ansible.mk1',
 })
 
 /*
