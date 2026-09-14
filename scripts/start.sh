@@ -6,11 +6,12 @@
 set -e
 mkdir -p .logs
 
-names=(player ship market projection gateway)
+names=(player ship market comms projection gateway)
 paths=(
     apps/player-service/src/main.js
     apps/ship-service/src/main.js
     apps/market-service/src/main.js
+    apps/comms-service/src/main.js
     apps/projection-service/src/main.js
     apps/gateway/src/main.js
 )
