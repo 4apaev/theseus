@@ -56,6 +56,7 @@ export declare class Universe {
     neighbors(stid: string): Map<string, Edge>
     route(from: string, to: string): Edge
     distance(from: string, to: string): number
+    distanceTo(from: string, to: string): number
     speedLimit(from: string, to: string): number
     /**
      *  dijkstra, weighted by travel time - `ly / min(velocity, c)`,
