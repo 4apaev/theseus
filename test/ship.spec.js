@@ -203,6 +203,7 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
         [ 'power1', 'reactor.mk1' ],
         [ 'cruise1', 'cruise.mk1' ],
         [ 'cargo1', 'cargo.mk1' ],
+        [ 'utility1', 'ansible.mk1' ],
     ])
 
     const [ e ] = outboxEvents(client)
@@ -222,8 +223,9 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
         { slot: 'power1', gid: 'reactor.mk1' },
         { slot: 'cruise1', gid: 'cruise.mk1' },
         { slot: 'cargo1', gid: 'cargo.mk1' },
+        { slot: 'utility1', gid: 'ansible.mk1' },
     ])
-    assert.equal(e.payload.power, 2)
+    assert.equal(e.payload.power, 3)
     assert.equal(e.payload.power_pool, 8)
 })
 

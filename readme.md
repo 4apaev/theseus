@@ -26,8 +26,8 @@
 │ projection │ 📺 │ │ util       │ 🪏 │ │ scripts    │ 🎬 │
 │ player     │ 🕹️ │ │ kafka      │ 📮 │ ├────────────┼─➖─┤
 │ ship       │ 🚢 │ │ domain     │ 🧮 │ │ .logs      │ 📋 │
-└────────────┴─➖─┘ │ config     │ 🎛️ │ │ .github    │ 🐙 │
-               ➖   │ service    │ 🎖️ │ │ .vscode    │ 🆚 │
+│ comms      │ 📻 │ │ config     │ 🎛️ │ │ .github    │ 🐙 │
+└────────────┴─➖─┘ │ service    │ 🎖️ │ │ .vscode    │ 🆚 │
                ➖   │ testing    │ 🧪 │ │ .claude    │ 👾 │
                ➖   │ contracts  │ 📜 │ └────────────┴─➖─┘
                ➖   └────────────┴─➖─┘                ➖

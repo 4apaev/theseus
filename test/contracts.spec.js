@@ -354,6 +354,63 @@ test('cargo.module.exchanged and cargo.module.exchange.rejected are valid events
     assert.equal(rejected.event_type, eventTypes.cargo_module_exchange_rejected_v1)
 })
 
+test('message.send.requested is valid for a dm and for station chat', () => {
+    const dm = createCommandEnvelope({
+        cmd         : 'cmd_1',
+        command_type: commandTypes.comms_send_requested_v1,
+        requested_by: 'player_1',
+        payload     : { pid: 'player_1', to: 'player_2', body: 'hello' },
+    })
+    assert.equal(dm.command_type, commandTypes.comms_send_requested_v1)
+
+    // station chat names no recipient. comms-service derives the
+    // station itself, from the sender's own current position.
+    const chat = createCommandEnvelope({
+        cmd         : 'cmd_2',
+        command_type: commandTypes.comms_send_requested_v1,
+        requested_by: 'player_1',
+        payload     : { pid: 'player_1', body: 'hello, station' },
+    })
+    assert.equal(chat.payload.to, void 0)
+})
+
+test('message.sent, message.delivered and message.send.rejected are valid events', () => {
+    const now = (new Date).toISOString()
+
+    const sent = createEventEnvelope({
+        aggregate_id     : 'player_1',
+        aggregate_type   : 'comms',
+        aggregate_version: 1,
+        eid              : 'eid_1',
+        event_type       : eventTypes.comms_sent_v1,
+        producer         : 'comms-service',
+        payload          : { mid: 'msg_1', from: 'player_1', to: 'player_2', body: 'hello', sent: now, deliver: now },
+    })
+    assert.equal(sent.event_type, eventTypes.comms_sent_v1)
+
+    const delivered = createEventEnvelope({
+        aggregate_id     : 'player_1',
+        aggregate_type   : 'comms',
+        aggregate_version: 1,
+        eid              : 'eid_2',
+        event_type       : eventTypes.comms_delivered_v1,
+        producer         : 'comms-service',
+        payload          : { mid: 'msg_1', from: 'player_1', to: 'player_2', body: 'hello', delivered: now },
+    })
+    assert.equal(delivered.event_type, eventTypes.comms_delivered_v1)
+
+    const rejected = createEventEnvelope({
+        aggregate_id     : 'player_1',
+        aggregate_type   : 'comms',
+        aggregate_version: 1,
+        eid              : 'eid_3',
+        event_type       : eventTypes.comms_send_rejected_v1,
+        producer         : 'comms-service',
+        payload          : { pid: 'player_1', reason: 'unknown recipient' },
+    })
+    assert.equal(rejected.event_type, eventTypes.comms_send_rejected_v1)
+})
+
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 function playerCreatedInput(eid) {

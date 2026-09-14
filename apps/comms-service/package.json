@@ -1,0 +1,21 @@
+{
+    "name"   : "@theseus/comms-service",
+    "version": "0.2.1",
+    "type"   : "module",
+    "types"  : "./types/main.d.ts",
+    "exports": {
+        ".": {
+            "types"  : "./types/main.d.ts",
+            "default": "./src/main.js"
+        }
+    },
+    "dependencies": {
+        "@theseus/config"   : "*",
+        "@theseus/contracts": "*",
+        "@theseus/db"       : "*",
+        "@theseus/domain"   : "*",
+        "@theseus/service"  : "*",
+        "@theseus/kafka"    : "*",
+        "@theseus/util"     : "*"
+    }
+}

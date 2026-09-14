@@ -8,10 +8,9 @@ import {
     Universe,
     goods,
     starterShip,
+    ANSIBLE_SPEED,
     price,
     spread,
-    gameSeconds,
-    capitalCost,
     randomShipName,
     hulls,
     modules,
@@ -157,6 +156,34 @@ test('a ship faster than the cap takes the longer route - it is faster in time',
     assert.deepEqual(weighted().path('a', 'c', 0.5), [ 'a', 'c' ])
 })
 
+test('distanceTo picks the shortest physical route, unlike path()\'s speed-weighted search', () => {
+    // the fast ship above takes the direct 4 ly edge. the 0.1c cap
+    // on each b-leg costs it more time than the shorter distance
+    // saves. distanceTo has no ship and no speed cap, so it finds
+    // the true shortest distance instead: 2, by way of b.
+    assert.equal(weighted().distanceTo('a', 'c'), 2)
+})
+
+test('distanceTo is 0 for a station and itself', () => {
+    assert.equal(universe.distanceTo('sol.outpost', 'sol.outpost'), 0)
+})
+
+test('distanceTo agrees with distance() on a direct route', () => {
+    assert.equal(
+        universe.distanceTo('sol.outpost', 'alpha.exchange'),
+        universe.distance('sol.outpost', 'alpha.exchange'),
+    )
+})
+
+test('distanceTo rejects unknown stations or an unreachable pair', () => {
+    assert.throws(() => universe.distanceTo('sol.outpost', 'lost.harbor'), /unknown station/)
+    assert.throws(() => universe.distanceTo('lost.harbor', 'sol.outpost'), /unknown station/)
+
+    const u = weighted()
+    u.node('d', { system: 'w', name: 'D' }) // no link to a, b or c
+    assert.throws(() => u.distanceTo('a', 'd'), /unknown route/)
+})
+
 // ── goods ─────────────────────────────────────────────────────────────────────
 
 // module goods are seeded to stations in phase 3's market-service work
@@ -261,6 +288,21 @@ test('every module design joins a real good by gid', () => {
         assert.ok(goods[ gid ], `${ gid } has no matching good`)
 })
 
+test('the starter hull carries a utility slot, fitted with an ansible', () => {
+    const slot = hulls.starter.slots.find(s => s.family === 'utility')
+    assert.ok(slot, 'no utility slot on the starter hull')
+    assert.equal(starterRig[ slot.id ], 'ansible.mk1')
+})
+
+test('an ansible fits its slot docked or in transit, not port-only', () => {
+    assert.equal(modules[ 'ansible.mk1' ].family, 'utility')
+    assert.equal(modules[ 'ansible.mk1' ].context, 'field')
+})
+
+test('ANSIBLE_SPEED is a real speed, far past any ship', () => {
+    assert.ok(ANSIBLE_SPEED > 1, 'must be faster than light, ships never are')
+})
+
 test('starter rig resolves to todays capacity and velocity, before any upgrade', () => {
     const stats = deriveStats(hulls.starter, starterRig)
     assert.equal(stats.capacity, 20)
@@ -270,7 +312,7 @@ test('starter rig resolves to todays capacity and velocity, before any upgrade',
 test('power tracks reactor supply against every fitted modules draw', () => {
     const { power } = deriveStats(hulls.starter, starterRig)
     assert.equal(power.available, 8) // hull 3 + reactor.mk1 +5
-    assert.equal(power.used, 2)      // reactor 1 + cruise 1 + cargo 0
+    assert.equal(power.used, 3)      // reactor 1 + cruise 1 + cargo 0 + ansible 1
 })
 
 test('installing into an occupied slot replaces it, not a second slot', () => {
@@ -281,7 +323,7 @@ test('installing into an occupied slot replaces it, not a second slot', () => {
     )
     assert.deepEqual(errors, [])
     assert.equal(proposed.power1, 'reactor.mk2')
-    assert.equal(Object.keys(proposed).length, 3, 'still one module per slot')
+    assert.equal(Object.keys(proposed).length, 4, 'still one module per slot')
 })
 
 test('a faster drive is gated on the reactors rate, not on owning the old drive', () => {

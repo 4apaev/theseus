@@ -146,7 +146,7 @@ test('truncate + replay through event_log reproduces the exact same read models'
 
     const before = await snapshot(pid, sid)
     assert.ok(before.trades.length === 2, 'buy + sell both landed pre-rebuild')
-    assert.deepEqual(before.fitted.map(f => f.slot), [ 'cruise1', 'power1' ], 'cargo1 removed pre-rebuild')
+    assert.deepEqual(before.fitted.map(f => f.slot), [ 'cruise1', 'power1', 'utility1' ], 'cargo1 removed pre-rebuild')
 
     await rebuild()
 

@@ -19,6 +19,7 @@
         "#pkg/*"        : "./packages/*",
 
         "#gateway/*"    : "./apps/gateway/src/*",
+        "#comms/*"      : "./apps/comms-service/src/*",
         "#market/*"     : "./apps/market-service/src/*",
         "#projection/*" : "./apps/projection-service/src/*",
         "#player/*"     : "./apps/player-service/src/*",
