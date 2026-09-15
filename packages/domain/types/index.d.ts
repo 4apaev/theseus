@@ -13,6 +13,7 @@ export {
     universeData,
     currency,
     TIME_SCALE,
+    ANSIBLE_SPEED,
     INTEREST_RATE,
     STARTER_CREDITS,
     type Good,

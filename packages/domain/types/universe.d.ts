@@ -80,6 +80,7 @@ export interface Good {
 }
 
 export declare const TIME_SCALE: number
+export declare const ANSIBLE_SPEED: number
 export declare const INTEREST_RATE: number
 export declare const STARTER_CREDITS: number
 

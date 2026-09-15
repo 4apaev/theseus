@@ -61,7 +61,7 @@ export interface TradeRow {
     created    : Date
 }
 
-// a dm has a to and no stid. station chat has a stid and no to.
+// a message has a to and no stid. chat has a stid and no to.
 export interface MessageRow {
     mid      : string
     from     : string
@@ -111,7 +111,10 @@ export interface Queries {
     market(stid: string): Promise<MarketPriceRow[]>
     cargo(sid: string, pid: string): Promise<CargoRow[]>
 
-    /** sent by pid, received by pid, or station chat at pid's current dock */
+    /** the pid owning sid - resolves a message's public target to comms-service's own key */
+    shipOwner(sid: string): Promise<string | undefined>
+
+    /** sent by pid, received by pid, or chat at pid's current dock */
     messages(pid: string): Promise<MessageRow[]>
 
     /** every ship when stid is omitted, the ships docked at stid otherwise */

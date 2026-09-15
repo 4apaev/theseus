@@ -150,8 +150,8 @@ function trackDock(docked, e) {
 
 /**
  * @description
- *   a dm's audience is its 2 participants.
- *   station chat's audience is every pid this feed has docked at
+ *   a message's audience is its 2 participants.
+ *   chat's audience is every pid this feed has docked at
  *   that station right now.
  *
  * @param {Map<string, string>} docked

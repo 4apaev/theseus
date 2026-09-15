@@ -354,16 +354,16 @@ test('cargo.module.exchanged and cargo.module.exchange.rejected are valid events
     assert.equal(rejected.event_type, eventTypes.cargo_module_exchange_rejected_v1)
 })
 
-test('message.send.requested is valid for a dm and for station chat', () => {
-    const dm = createCommandEnvelope({
+test('message.send.requested is valid for a message and for chat', () => {
+    const msg = createCommandEnvelope({
         cmd         : 'cmd_1',
         command_type: commandTypes.comms_send_requested_v1,
         requested_by: 'player_1',
         payload     : { pid: 'player_1', to: 'player_2', body: 'hello' },
     })
-    assert.equal(dm.command_type, commandTypes.comms_send_requested_v1)
+    assert.equal(msg.command_type, commandTypes.comms_send_requested_v1)
 
-    // station chat names no recipient. comms-service derives the
+    // chat names no recipient. comms-service derives the
     // station itself, from the sender's own current position.
     const chat = createCommandEnvelope({
         cmd         : 'cmd_2',

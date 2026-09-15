@@ -6,12 +6,14 @@ export interface Mod {
 }
 
 // the ships mirror. an event's payload carries only some of these
-// fields - pid, stid, and fitted are present only where the source
-// event has them.
+// fields - pid, stid, from, to, and fitted are present only where
+// the source event has them.
 export interface Ship {
     sid: string
     pid?: string
     stid?: string | null
+    from?: string | null
+    to?: string | null
     fitted?: Mod[]
 }
 
@@ -37,10 +39,14 @@ export interface DueMssg {
     delivered: Date
 }
 
+// stid is set for a docked ship. from/to are set for a transiting
+// one - never both at once.
 export interface QRShip {
     sid: string
     pid: string
     stid: string | null
+    from: string | null
+    to: string | null
     status: string
     has_ansible: boolean
 }

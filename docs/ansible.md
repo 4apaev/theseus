@@ -149,8 +149,8 @@ ship-service and market-service each own exactly one thing.
 |------------|---------------------------------------------------|
 | `mid`      | message id                                         |
 | `from`     | sender pid                                         |
-| `to`       | recipient pid - null for station chat              |
-| `stid`     | station id - station chat only, null for a DM      |
+| `to`       | recipient pid - null for chat                      |
+| `stid`     | station id - chat only, null for a message         |
 | `body`     | the text                                           |
 | `sent`     | the send instant                                   |
 | `deliver`  | the computed delivery instant                      |
@@ -177,7 +177,8 @@ ids here instead of station ids.
    anywhere.
 3. ansible message: look up both ships' hulls and fitted modules.
    reject if either lacks a fitted comms transceiver. compute distance
-   and `deliver` from both ships' current stations.
+   from each ship's station, or, mid-flight, the nearer end of its
+   current leg. neither ship needs to be docked.
 4. insert the row. emit `message.sent`.
 
 
@@ -192,7 +193,11 @@ the gateway
 **a write**:
 
 - `POST /messages` - publishes `message.send.requested`, `from` taken
-  only from the token, exactly like every other authenticated command
+  only from the token, exactly like every other authenticated command.
+  a message's target is a sid, the same public id traffic and port
+  already show - the gateway resolves it to a pid before it fires the
+  command.
+  traffic and port stay pid-free.
 
 **the feed**
 
@@ -218,9 +223,10 @@ a messages panel, already sketched and never built, in `client.md`'s
 old layout mockup. it needs:
 
 - a station-chat log, scoped to the current station, live while docked
-- a direct-message thread per other player, with a queued/delivered
-  mark matching the same pending-command pattern `commands.js`
-  already uses for trades and travel
+- a direct-message thread per other player's ship, addressed by its
+  sid - traffic and port already show it. a queued/delivered mark
+  matches the same pending-command pattern `commands.js` already uses
+  for trades and travel
 
 
 privacy

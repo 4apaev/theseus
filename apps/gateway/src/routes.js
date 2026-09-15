@@ -250,9 +250,24 @@ export function createRoutes({
     gw.post('/rename'         , postCmd(CMD.ship.rename        , 202, 'sid name'))
     gw.post('/buy'            , postCmd(CMD.market.buy         , 202, 'gid sid stid quantity price_unit_max'))
     gw.post('/sell'           , postCmd(CMD.market.sell        , 202, 'gid sid stid quantity price_unit_min'))
-    gw.post('/messages'       , postCmd(CMD.comms.send         , 202, 'to body'))
     gw.post('/modules/install', postCmd(CMD.ship.module.install, 202, 'sid slot gid'))
     gw.del('/modules/remove'  , postCmd(CMD.ship.module.remove , 202, 'sid slot'))
+
+    /*
+        to is the recipient's sid, the same public id traffic and
+        port already show. comms-service needs a pid - resolve it
+        before the command fires. an unknown sid answers 404, the
+        same as a ship route on a foreign or missing sid.
+    */
+    gw.post('/messages', async (rq, rs) => {
+        const { to, body } = rq.body
+        const pid = to ? await queries.shipOwner(to) : void 0
+        to && !pid && Fail.raise(404, 'ship not found')
+
+        const cmd = command(CMD.comms.send.requested, { pid: rq.claims.pid, to: pid, body })
+        await producer.publish(createCommandRecord(cmd))
+        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
+    })
 
     // ── modules ──────────────────────────────────────────────
 

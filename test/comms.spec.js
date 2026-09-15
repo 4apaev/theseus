@@ -21,6 +21,17 @@ const dockedShip = (over = {}) => () => ({ rows: [{
     ...over,
 }]})
 
+const transitShip = (over = {}) => () => ({ rows: [{
+    sid        : 's1',
+    pid        : 'p1',
+    stid       : null,
+    from       : 'sol.outpost',
+    to         : 'alpha.exchange',
+    status     : 'transit',
+    has_ansible: true,
+    ...over,
+}]})
+
 const empty = () => ({ rows: []})
 
 const sendCmd = (over = {}) => makeCmd({ pid: 'p1', body: 'hello', ...over })
@@ -89,7 +100,7 @@ test('station chat sends instantly, delivered at send time', async () => {
 })
 
 // ── ansible ──────────────────────────────────────────────────────────────────
-// messageSendRequested's real order for a dm: shipByPid for the
+// messageSendRequested's real order for a message: shipByPid for the
 // sender, then shipByPid for the recipient, then insertMessage,
 // then the outbox write.
 
@@ -131,26 +142,31 @@ test('ansible rejects: recipient has no transceiver fitted', async () => {
     assert.equal(e.payload.reason, 'recipient has no ansible fitted')
 })
 
-test('ansible rejects: sender in transit', async () => {
+// a transiting ship has no stid - it sits between its from and its
+// to. the signal starts from whichever end is nearer the other ship.
+
+test('ansible sends while the sender is in transit, from its nearer end', async () => {
     const { client, fx } = handlers([
-        dockedShip({ stid: null }),
-        dockedShip({ pid: 'p2' }),
+        transitShip(),                                // sol.outpost → alpha.exchange
+        dockedShip({ pid: 'p2', stid: 'sol.outpost' }), // matches the sender's `from`
     ])
     await fx[ 'comms.send.requested.v1' ](sendCmd({ to: 'p2' }))
 
     const [ e ] = outboxEvents(client)
-    assert.equal(e.payload.reason, 'cannot send while in transit')
+    assert.equal(e.event_type, 'comms.sent.v1')
+    assert.equal(e.payload.deliver, e.payload.sent, 'the matching end is 0 distance away')
 })
 
-test('ansible rejects: recipient in transit', async () => {
+test('ansible sends while the recipient is in transit, to its nearer end', async () => {
     const { client, fx } = handlers([
-        dockedShip(),
-        dockedShip({ pid: 'p2', stid: null }),
+        dockedShip({ stid: 'alpha.exchange' }),
+        transitShip({ pid: 'p2' }),                    // sol.outpost → alpha.exchange, matches the sender
     ])
     await fx[ 'comms.send.requested.v1' ](sendCmd({ to: 'p2' }))
 
     const [ e ] = outboxEvents(client)
-    assert.equal(e.payload.reason, 'recipient is in transit')
+    assert.equal(e.event_type, 'comms.sent.v1')
+    assert.equal(e.payload.deliver, e.payload.sent, 'the matching end is 0 distance away')
 })
 
 test('ansible message at the same station delivers with 0 delay', async () => {

@@ -197,10 +197,10 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
         },
 
         /*
-            station chat has no delay.
+            chat has no delay.
             message.sent alone carries no delivered time.
-            so a stid message lands as delivered here.
-            a dm stays null until message.delivered.
+            so a station chat row (stid) lands as delivered here.
+            a message stays null until message.delivered.
         */
         messageSent({ payload: p }) {
             return sql`

@@ -31,9 +31,9 @@ export async function insertShip(pool, sh) {
 export async function shipDeparted(pool, sh) {
     await pool.query(`
         UPDATE ships
-           SET status = 'transit', stid = NULL
+           SET status = 'transit', stid = NULL, "from" = $2, "to" = $3
          WHERE sid = $1
-    `, [ sh.sid ])
+    `, [ sh.sid, sh.from, sh.to ])
 }
 
 /**
@@ -43,7 +43,7 @@ export async function shipDeparted(pool, sh) {
 export async function shipArrived(pool, sh) {
     await pool.query(`
         UPDATE ships
-           SET status = 'docked', stid = $2
+           SET status = 'docked', stid = $2, "from" = NULL, "to" = NULL
          WHERE sid = $1
     `, [ sh.sid, sh.stid ])
 }

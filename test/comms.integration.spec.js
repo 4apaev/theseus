@@ -132,6 +132,23 @@ test('an ansible message across stations delivers only after its computed delay'
     assert.ok(row.delivered, 'persisted as delivered')
 })
 
+test('an ansible message sends while the sender is in transit, from its nearer end', async () => {
+    const sid1 = guid(PRFX), pid1 = guid(PRFX)
+    const sid2 = guid(PRFX), pid2 = guid(PRFX)
+
+    await shipCreated(sid1 , pid1, 'sol.outpost', WITH_ANSIBLE)
+    await shipDeparted(sid1, pid1) // sol.outpost -> sol.mars
+    await shipCreated(sid2 , pid2, 'sol.mars', WITH_ANSIBLE)
+
+    const { events, stop } = collectEvents(kafka, [ 'events.comms' ])
+    await publish(CMD.comms.send.requested, { pid: pid1, to: pid2, body: 'hi from the lane' })
+
+    const sent = await wherePayload(events, EVT.message.sent, { from: pid1, to: pid2 })
+    stop()
+
+    assert.equal(sent.payload.deliver, sent.payload.sent, 'the transit lane ends exactly at the recipient')
+})
+
 test('the ansible needs a transceiver on both ends', async () => {
     const sid1 = guid(PRFX), pid1 = guid(PRFX)
     const sid2 = guid(PRFX), pid2 = guid(PRFX)

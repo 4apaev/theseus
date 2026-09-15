@@ -72,6 +72,21 @@ export function createQueries(pool) {
         },
 
         /*
+            a message's `to` is a pid, but the client
+            only ever sees a sid - traffic and port
+            never publish a pid, by design.
+            the route resolves one from the other,
+            before it fires the command.
+        */
+        async shipOwner(sid) {
+            const { rows: [ row ] } = await sql`
+                SELECT pid
+                  FROM ships
+                 WHERE sid = ${ sid }`
+            return row?.pid
+        },
+
+        /*
             sent by the caller, received by the caller,
             or station chat at the caller's current dock.
             a subquery on ships finds that dock.

@@ -86,10 +86,14 @@ function projectionPool() { /*
         'players+wallets': ([      pid ]) => ({ rows: pid === 'p1' ? [{ pid, handle: 'alice', created: 'now', balance: 1000 }] : []}),
         'players+ships'  : ([     stid ]) => ({ rows: stid ? [ TRAFFIC[ 0 ] ] : TRAFFIC }),
         'cargo+ships'    : ([ sid, pid ]) => ({ rows: [{ gid: 'ore', pid , sid, quantity: 5  }]}),
-        ships            : ([      pid ]) => ({ rows: [{
-            sid: 's1', pid, status: 'docked',
-            hull: 'starter', capacity: 20, velocity: 0.6, power: 2, power_pool: 8,
-        }]}),
+        // ships(pid) for our own p1. shipOwner resolves s2 to p2, and
+        // anything else to nothing - both reach the bare ships table.
+        ships: ([ x ]) => x === 'p1'
+            ? { rows: [{
+                sid: 's1', pid: x, status: 'docked',
+                hull: 'starter', capacity: 20, velocity: 0.6, power: 2, power_pool: 8,
+            }]}
+            : { rows: x === 's2' ? [{ pid: 'p2' }] : []},
         'fitted_modules+ships': ([ sid ]) => ({ rows: sid === 's1' ? [{ slot: 'power1', gid: 'reactor.mk1' }] : []}),
         market_prices    : ([     stid ]) => ({ rows: [{ gid: 'ore', stid, price_buy: 30, price_sell: 25 }]}),
         trade_history    : () => ({ rows: []}),
@@ -186,8 +190,8 @@ test('POST/travel publishes the command with pid from the token, not the body', 
     assert.equal(cmd.payload.pid, 'p1')
 })
 
-test('POST/messages publishes the command with pid from the token, not the body', async () => {
-    const rs = await Sync.post('/messages', { to: 'p2', body: 'hi', pid: 'evil' }).set(bear)
+test('POST/messages resolves the recipient sid to a pid, pid from the token', async () => {
+    const rs = await Sync.post('/messages', { to: 's2', body: 'hi', pid: 'evil' }).set(bear)
     assert.equal(rs.status, 202)
 
     const record = kafka.messages(commandTopics.comms).at(-1)
@@ -196,8 +200,23 @@ test('POST/messages publishes the command with pid from the token, not the body'
     assert.equal(cmd.cmd, rs.body.cmd)
     assert.equal(cmd.command_type, CMD.comms.send.requested)
     assert.equal(cmd.payload.pid, 'p1')
-    assert.equal(cmd.payload.to, 'p2')
+    assert.equal(cmd.payload.to, 'p2', 'sid s2 resolves to its pid')
     assert.equal(cmd.payload.body, 'hi')
+})
+
+test('POST/messages replies 404 for a recipient sid nobody owns', async () => {
+    const rs = await Sync.post('/messages', { to: 'nope', body: 'hi' }).set(bear).then(echo, echo)
+    assert.equal(rs.status, 404)
+})
+
+test('POST/messages with no to publishes a station-chat command', async () => {
+    const rs = await Sync.post('/messages', { body: 'hi all' }).set(bear)
+    assert.equal(rs.status, 202)
+
+    const record = kafka.messages(commandTopics.comms).at(-1)
+    const cmd = Codec.decode(record.value)
+    assert.equal(cmd.payload.to, void 0)
+    assert.equal(cmd.payload.body, 'hi all')
 })
 
 test('POST/buy/sell publish market commands', async () => {
@@ -718,7 +737,7 @@ test('ws keeps a travel rejection private', async () => {
 
 // ── messages: the ansible ───────────────────────────────────────────────────
 
-test('ws sends a dm to its 2 participants only, never a redacted copy', async () => {
+test('ws sends a message to its 2 participants only, never a redacted copy', async () => {
     const { own, other } = await twoSockets()                     // p1, p2
     const bystander = await listenOn(jwt.sign({ pid: 'p3', handle: 'eve' }))
 

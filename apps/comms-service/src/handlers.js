@@ -2,13 +2,7 @@
 import { Outbox        } from '@theseus/db'
 import { guid          } from '@theseus/util'
 import { createEmitter } from '@theseus/kafka'
-
-import { EVT, CMD } from '@theseus/contracts'
-import {
-    universe,
-    TIME_SCALE,
-    ANSIBLE_SPEED,
-} from '@theseus/domain'
+import { EVT, CMD      } from '@theseus/contracts'
 
 import {
     shipByPid,
@@ -18,6 +12,8 @@ import {
     insertShip,
     insertMessage,
 } from './queries.js'
+
+import { ansibleDelay } from './ansible.js'
 
 const emit = createEmitter('comms-service')
 
@@ -99,16 +95,8 @@ export function createHandlers(pool, transact) {
         if (!sender.has_ansible)    return reject('no ansible fitted')
         if (!recipient.has_ansible) return reject('recipient has no ansible fitted')
 
-        /*
-            are they?
-            whats the point of having ship fitted ansible then?
-        */
-        // both ships must dock first.
-        if (!sender.stid)    return reject('cannot send while in transit')
-        if (!recipient.stid) return reject('recipient is in transit')
-
         const mid = guid('msg')
-        const ms  = ansibleDelay(sender.stid, recipient.stid)
+        const ms  = ansibleDelay(sender, recipient)
         const now = Date.now()
 
         const payload = {
@@ -141,9 +129,4 @@ function rejectSend(client, { causation_id, correlation_id, pid, reason }) {
             payload       : { pid, reason },
         }),
     ])
-}
-
-function ansibleDelay(src, dist) {
-    const ly  = src === dist ? 0 : universe.distanceTo(src, dist)
-    return ly / ANSIBLE_SPEED * TIME_SCALE * 1000
 }
