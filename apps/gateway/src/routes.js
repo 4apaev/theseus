@@ -1,10 +1,8 @@
 /* eslint-disable camelcase */
 import Pt from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-import { Garage              } from 'garage'
-import { O, Is, Fail, guid   } from '@theseus/util'
-
+import Garage from 'garage'
+import { O, Is, Fail, guid, pick } from '@theseus/util'
 import {
     hulls,
     goods,
@@ -16,8 +14,7 @@ import {
 
 import { createCommandRecord } from '@theseus/kafka'
 import {
-    commandTree as CMD,
-    eventTree as EVT,
+    CMD, EVT,
     createCommandEnvelope,
 } from '@theseus/contracts'
 
@@ -136,6 +133,50 @@ export function createRoutes({
         return reply
     }
 
+    /**
+     * fires a command. with reply types, it waits for one and returns
+     * it too. with none, it does not wait.
+     *
+     * @param  { string    } ct  - the command type
+     * @param  { object    } pay - the command payload
+     * @param  { ...string } et  - reply event types to wait for
+     * @return { Promise<[ object, object | undefined ]> }
+     */
+    async function fire(ct, pay, ...et) {
+        const cmd = command(ct, pay)
+        const rs = et.length
+            ? await publishAndWait(cmd, et)
+            : await producer.publish(createCommandRecord(cmd))
+
+        return [ cmd, rs ]
+    }
+
+    /**
+     * builds a route handler for one command. the pid always comes
+     * from the token. keys names the body fields to copy, space
+     * separated. it never waits for a reply.
+     *
+     * @param  { { requested: string } } cmmd - the command's tree entry
+     * @param  { number } [code] - the http status to reply with
+     * @param  { string } [keys] - body fields to copy
+     * @return { MWare }
+     */
+    function postCmd(cmmd, code, keys) {
+        return async (rq, rs) => {
+            const payload = {
+                pid: rq.claims.pid,
+                ...(keys
+                    ? pick(rq.body, ...keys.match(/\w+/g))
+                    : rq.body),
+            }
+            const cmd = command(cmmd.requested, payload)
+            await producer.publish(createCommandRecord(cmd))
+
+            rs.json(code ?? 202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
+        }
+    }
+
+    // TODO: add service prefix for routes. see docs/tech.debt.md#gateway
     // ── routes ───────────────────────────────────────────────
 
     // ── public: client + universe ───────────────────────────
@@ -163,34 +204,40 @@ export function createRoutes({
     gw.use('POST', 'DELETE', json)
 
     gw.post('/register', async (rq, rs) => {
-        const { handle, password } = rq.body
-        const cmd = command(CMD.player.register.requested, { handle, password })
-
-        const e = await publishAndWait(cmd, [
+        const [ cmd, e ] = await fire(
+            CMD.player.register.requested, {
+                handle: rq.body.handle,
+                password: rq.body.password,
+            },
             EVT.player.created,
             EVT.player.registration.rejected,
-        ])
+        )
 
-        if (!e) return rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id }) // accepted(rs, cmd)
-        e.event_type === EVT.player.created
-            ? rs.json(201, e.payload)
-            : Fail.raise(409, e.payload.reason)
+        if (!e) return rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
+
+        e.event_type === EVT.player.created || Fail.raise(409, e.payload.reason)
+
+        return rs.json(201, e.payload)
     })
 
     gw.post('/login', async (rq, rs) => {
-        const { handle, password } = rq.body
-        const cmd = command(CMD.player.login.requested, { handle, password })
 
-        const e = await publishAndWait(cmd, [
-            EVT.player.login.succeeded,
-            EVT.player.login.rejected,
-        ])
+        const { login } = EVT.player
 
-        e                                           || Fail.raise(504, 'login timed out')
-        e.event_type === EVT.player.login.succeeded || Fail.raise(401, e.payload.reason)
+        const [ , e ] = await fire(
+            CMD.player.login.requested,
+            rq.body,
+            login.succeeded,
+            login.rejected,
+        )
 
-        const { pid, handle: h, role } = e.payload
-        rs.json(200, { token: jwt.sign({ pid, handle: h, role }), pid, handle: h, role })
+        e                                || Fail.raise(504, 'login timed out')
+        e.event_type === login.succeeded || Fail.raise(401, e.payload.reason)
+
+        const { pid, handle, role } = e.payload
+        const token = jwt.sign({ pid, role, handle })
+
+        rs.json(200, { pid, role, handle, token })
     })
 
     // ── auth  ────────────────────────────────────────────────
@@ -198,45 +245,14 @@ export function createRoutes({
     gw.use(auth)
 
     // pid always comes from the token, never from the body
-    gw.post('/travel', async (rq, rs) => {
-        const { sid, from, to } = rq.body
-        const cmd = command(CMD.ship.travel.requested, { pid: rq.claims.pid, sid, from, to })
-        await producer.publish(createCommandRecord(cmd))
-        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
-    })
 
-    // TODO: use PUT method
-    gw.post('/rename', async (rq, rs) => {
-        const { sid, name } = rq.body
-        const cmd = command(CMD.ship.rename.requested, { pid: rq.claims.pid, sid, name })
-        await producer.publish(createCommandRecord(cmd))
-        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
-    })
-
-    gw.post('/buy', async (rq, rs) => {
-        const { gid, sid, stid, quantity, price_unit_max } = rq.body
-        const cmd = command(CMD.market.buy.requested, {
-            pid: rq.claims.pid, gid, sid, stid, quantity, price_unit_max,
-        })
-        await producer.publish(createCommandRecord(cmd))
-        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
-        // accepted(rs, cmd)
-    })
-
-    gw.post('/sell', async (rq, rs) => {
-        const { gid, sid, stid, quantity, price_unit_min } = rq.body
-        const cmd = command(CMD.market.sell.requested, {
-            pid: rq.claims.pid,
-            gid,
-            sid,
-            stid,
-            quantity,
-            price_unit_min,
-        })
-        await producer.publish(createCommandRecord(cmd))
-        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
-        // accepted(rs, cmd)
-    })
+    gw.post('/travel'         , postCmd(CMD.ship.travel        , 202, 'sid from to'))
+    gw.post('/rename'         , postCmd(CMD.ship.rename        , 202, 'sid name'))
+    gw.post('/buy'            , postCmd(CMD.market.buy         , 202, 'gid sid stid quantity price_unit_max'))
+    gw.post('/sell'           , postCmd(CMD.market.sell        , 202, 'gid sid stid quantity price_unit_min'))
+    gw.post('/messages'       , postCmd(CMD.comms.send         , 202, 'to body'))
+    gw.post('/modules/install', postCmd(CMD.ship.module.install, 202, 'sid slot gid'))
+    gw.del('/modules/remove'  , postCmd(CMD.ship.module.remove , 202, 'sid slot'))
 
     // ── modules ──────────────────────────────────────────────
 
@@ -279,37 +295,6 @@ export function createRoutes({
         })
     })
 
-    gw.post('/modules/install', async (rq, rs) => {
-        const cmd = command(CMD.ship.module.install.requested, {
-            pid : rq.claims.pid,
-            sid : rq.body.sid,
-            slot: rq.body.slot,
-            gid : rq.body.gid,
-        })
-
-        await producer.publish(createCommandRecord(cmd))
-
-        rs.json(202, {
-            cmd: cmd.cmd,
-            correlation_id: cmd.correlation_id,
-        })
-    })
-
-    gw.del('/modules/remove', async (rq, rs) => {
-        const cmd = command(CMD.ship.module.remove.requested, {
-            pid : rq.claims.pid,
-            sid : rq.body.sid,
-            slot: rq.body.slot,
-        })
-
-        await producer.publish(createCommandRecord(cmd))
-
-        rs.json(202, {
-            cmd: cmd.cmd,
-            correlation_id: cmd.correlation_id,
-        })
-    })
-
     // ── queries ──────────────────────────────────────────────
 
     gw.get('/me', async (rq, rs) => {
@@ -323,6 +308,7 @@ export function createRoutes({
     gw.get('/ships/:sid/modules', async (rq, rs) => rs.json(200, await queries.modules(rq.params.sid, rq.claims.pid)))
     gw.get('/market/:stid'      , async (rq, rs) => rs.json(200, await queries.market(rq.params.stid)))
     gw.get('/trades'            , async (rq, rs) => rs.json(200, await queries.trades(rq.claims.pid)))
+    gw.get('/messages'          , async (rq, rs) => rs.json(200, await queries.messages(rq.claims.pid)))
 
     // ── public tier - any authenticated player ───────────────
 

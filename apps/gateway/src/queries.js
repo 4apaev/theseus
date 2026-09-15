@@ -71,6 +71,25 @@ export function createQueries(pool) {
             return rows
         },
 
+        /*
+            sent by the caller, received by the caller,
+            or station chat at the caller's current dock.
+            a subquery on ships finds that dock.
+            a player with no docked ship sees no station chat.
+            such a player still sees direct messages.
+        */
+        async messages(pid) {
+            const { rows } = await sql`
+                SELECT *
+                  FROM messages
+                 WHERE "from" = ${ pid }
+                    OR "to" = ${ pid }
+                    OR stid = (SELECT stid FROM ships WHERE pid = ${ pid } AND status = 'docked')
+                 ORDER BY sent DESC
+                 LIMIT 100`
+            return rows
+        },
+
         /*  public ship traffic. one query, two routes.
             no stid gives the whole fleet. a stid gives one station.
             the result has no pid. a player sees another player by handle.

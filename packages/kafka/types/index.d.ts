@@ -23,6 +23,7 @@ export {
     createEmitter,
     createEventRecords,
     createTopicRecord,
+    createCmdRec,
     decodeTopicMessage,
 } from './records.js'
 

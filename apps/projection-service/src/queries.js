@@ -195,5 +195,34 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
                             price_sell = $4,
                             updated    = now()`
         },
+
+        /*
+            station chat has no delay.
+            message.sent alone carries no delivered time.
+            so a stid message lands as delivered here.
+            a dm stays null until message.delivered.
+        */
+        messageSent({ payload: p }) {
+            return sql`
+                INSERT INTO messages (mid, "from", "to", stid, body, sent, deliver, delivered)
+                VALUES (
+                    ${ p.mid     },
+                    ${ p.from    },
+                    ${ p.to      },
+                    ${ p.stid    },
+                    ${ p.body    },
+                    ${ p.sent    },
+                    ${ p.deliver },
+                    ${ p.to ? null : p.sent })
+                ON CONFLICT (mid)
+                    DO NOTHING`
+        },
+
+        messageDelivered({ payload: { mid, delivered }}) {
+            return sql`
+                UPDATE messages
+                   SET delivered = ${ delivered }
+                 WHERE mid = ${ mid }`
+        },
     }
 }

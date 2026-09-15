@@ -61,6 +61,18 @@ export interface TradeRow {
     created    : Date
 }
 
+// a dm has a to and no stid. station chat has a stid and no to.
+export interface MessageRow {
+    mid      : string
+    from     : string
+    to       : string | null
+    stid     : string | null
+    body     : string
+    sent     : Date
+    deliver  : Date
+    delivered: Date | null
+}
+
 // public ship traffic - no pid, no capacity, no velocity.
 // stid is null while the ship is in transit.
 export interface TrafficRow {
@@ -98,6 +110,9 @@ export interface Queries {
     trades(pid: string): Promise<TradeRow[]>
     market(stid: string): Promise<MarketPriceRow[]>
     cargo(sid: string, pid: string): Promise<CargoRow[]>
+
+    /** sent by pid, received by pid, or station chat at pid's current dock */
+    messages(pid: string): Promise<MessageRow[]>
 
     /** every ship when stid is omitted, the ships docked at stid otherwise */
     traffic(stid?: string): Promise<TrafficRow[]>
