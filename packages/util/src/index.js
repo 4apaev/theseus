@@ -217,6 +217,16 @@ export function findWhere(it, query, ctx) {
     return it.find(A.pre(query), ctx)
 }
 
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * @type {import('../types/index.js').FPick}
+ */
+export function pick(o, ...a) {
+    const re = O.o
+    return each(o, (k, v) => a.includes(k) && (re[ k ] = v), re)
+}
+
 /**
  * @template T
  * @param {unknown} [x]
