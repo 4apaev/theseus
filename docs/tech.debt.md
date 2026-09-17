@@ -2,6 +2,15 @@ tech debt
 ================
 
 
+what about a game save?
+every player action is saved by default.
+rebuild state is present.
+
+let's say player want to save game before some
+dangerous maneuver then load game from safe checkpoint.
+how does one implement such a thing?
+
+
 debt
 ----------------
 
@@ -10,36 +19,124 @@ debt
 update types & add jsdoc to everything
 
 
+### service createHandlers otgrow
+
+it's time to make a class of it.
+can be extension of pkg/service
+can use couple of helper methods like Outbox.write,
+to reduce scaffolds & for general readability.
+
+
 ### player service
 
 better checking mechanism `isAdmin(handle)`
 
+### protobuf (priority)
 
-### gateway routes
+research protobuf transport
+
+
+### gateway
+
+#### correct methods
 
 use correct method for routes, like `put`, `del` etc.
 rn routes utilize only `get` or `post` methods.
 
 
-### market queries
+#### api version prefix
 
-extract sql
-from `apps/market-service/src/handlers.js`
-to   `apps/market-service/src/queries.js`
+0. `/api`
+1. `/api/v1`
+2. `/api/v2`
+...
 
-### service queries
 
-- unified `reject`. almost any func in service/src/handlers defines own `reject`
+#### service prefix
+
+design clear convention / heirarchy.
+
+should it be:
+  `/operation/service/details`
+  or
+  `/service/operation/details`
+
+--------------------------------
+**player**
+
+- me             → `/player/me`
+
+--------------------------------
+**universe**
+
+- universe       → `/universe`
+- station        → `/universe/station`
+
+--------------------------------
+**ships**
+
+- ships          → `/ship/`
+- travel         → `/ship/travel`
+- rename         → `/ship/rename`
+- traffic        → `/ship/traffic`
+- cargo          → `/ship/cargo`
+- modules        → `/ship/modules` || `/ship/:sid/modules`
+
+--------------------------------
+**market**
+
+- buy            → `/market/buy`
+- sell           → `/market/sell`
+- trades         → `/market/trades`
+                 → `/market/:stid/trades`
+
+--------------------------------
+**coms**
+- ? messages ?   → `/comms/messages`
+- ? messages ?   → `/ship/modules/ansible/messages`
+- ? messages ?   → `/universe/station/ansible/messages`
+
 
 ### db
 
-create global queries regestry in `@theseus/db`.
+#### migrations are keyed by file name, with no checksum
+
+`packages/db/src/migrate.js` records an applied migration by file name
+alone. it never hashes the file. so an edit to a migration that already
+ran is a silent no-op on every database that ran it.
+
+this already broke the dev database once. commit `a0634c7` added
+`"from"` and `"to"` to `apps/comms-service/migrations/001_ships.sql`, a
+file `a0aeadf` had already applied. the test databases were fine - every
+test run drops and recreates them, so they always read the new file. the
+dev database kept the old 5-column table, and comms-service crash-looped
+on every `ship.departed` event.
+
+the repair was a new migration, `003_ships_transit.sql`. the real fix is
+a checksum column on `schema_migrations`, and a loud failure when an
+applied file changes.
+
+
+#### db backups
+
+probably after deploy phase is ready
+
+
+#### query registry
+
+create global query registry in `@theseus/db`.
 add compile phase for caching, and to avoid duplicates.
+unify all query styles for consistency.
 
-unify all query styles for consistensy.
+#### extract `sql` to `queries.js`
+unified `reject`. almost any func in service/src/handlers defines own `reject`
+
+affected services:
+- market
 
 
-- indexes
+#### diagrams
+
 - annotated diagrams of tables + comments on every field
 - annotated diagrams of system wide layout
 
@@ -143,30 +240,37 @@ add prestart phase when queries compiled
 
 ### infra
 
-- #### db
-    to avoid conflicts when branch switching,
-    create dedicated db per branch (on demand, not auto).
-    in case when branch alters/changes db structure,
-    create a branch specific dbs.
-    see `ship-upgrades` vs `ship-modules` branch conflicts
-
-- #### deploy
-    dockerize the game. need a real plan for this.
-    uptime check is a dev tool, not a production health check,
-    when this step lands, will be replaced with systemd/container-native
-    health check
-
-- #### logger
-
-  introduce logger.
-  can be part of `packages/service`
+<details>
+<summary>vscode sql highlight</summary>
+</details>
 
 
-- #### observability
+#### db
 
-  add monitoring tools.
-  logs query, grafana, prometheus (or modern equivalent).
-  need some reaserch: today defacto standart?, alternatives?, configs & costs?
+to avoid conflicts when branch switching,
+create dedicated db per branch (on demand, not auto).
+in case when branch alters/changes db structure,
+create a branch specific dbs.
+see `ship-upgrades` vs `ship-modules` branch conflicts
+
+#### deploy
+
+dockerize the game. need a real plan for this.
+uptime check is a dev tool, not a production health check,
+when this step lands, will be replaced with systemd/container-native
+health check
+
+#### logger
+
+introduce logger.
+can be part of `packages/service`
+
+
+#### observability
+
+add monitoring tools.
+logs query, grafana, prometheus (or equivalent).
+need some research: today de facto standard?, alternatives?, configs & costs?
 
 
 - #### load tests
