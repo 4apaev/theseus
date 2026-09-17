@@ -9,6 +9,40 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+tech debt: migrations keyed by name, no checksum - fixed ✔
+------------------------------------------------
+
+closed `docs/tech.debt.md`'s "migrations are keyed by file name, with no
+checksum". `packages/db/src/migrate.js` recorded an applied migration by
+file name alone. an edit to a file that already ran was a silent no-op on
+every database that ran it.
+
+this already broke the dev database once. commit `a0634c7` added `"from"`
+and `"to"` to `apps/comms-service/migrations/001_ships.sql`, a file
+`a0aeadf` had already applied. the test databases stayed correct, because
+every test run drops and recreates them. the dev database kept the old
+5-column table, and comms-service crash-looped on every `ship.departed`
+event.
+
+**fix**: `schema_migrations` gets a `checksum` column. migrate now reads
+every `.sql` file, hashes it with sha256, and compares the hash to the
+stored one. a file that changed after it ran raises `Fail`, so the service
+stops at boot instead of running on a schema that does not match its
+migrations.
+
+**upgrade path**: `bootstrap()` adds the column with `ALTER TABLE ... ADD
+COLUMN IF NOT EXISTS`. a row written before the column has `checksum
+NULL`. migrate takes the file on disk as that row's baseline and backfills
+it. so an existing database needs no manual repair, and no reset.
+
+**proved against real postgres**, not only mocks: a throwaway schema with
+a legacy 2-column `schema_migrations` and one applied row. after migrate,
+both rows hold a checksum. the second run is clean. a tampered checksum
+rejects with `migration 002_outbox.sql changed after it was applied`.
+4 new cases in `test/db.spec.js` cover the same 4 states. `npm test`
+(361/361) and `npm run test int` (41/41) pass.
+
+------------------------------------------------
 tech debt: bug - missing ship after restart - fixed ✔
 ------------------------------------------------
 

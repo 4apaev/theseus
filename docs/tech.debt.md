@@ -99,24 +99,6 @@ should it be:
 
 ### db
 
-#### migrations are keyed by file name, with no checksum
-
-`packages/db/src/migrate.js` records an applied migration by file name
-alone. it never hashes the file. so an edit to a migration that already
-ran is a silent no-op on every database that ran it.
-
-this already broke the dev database once. commit `a0634c7` added
-`"from"` and `"to"` to `apps/comms-service/migrations/001_ships.sql`, a
-file `a0aeadf` had already applied. the test databases were fine - every
-test run drops and recreates them, so they always read the new file. the
-dev database kept the old 5-column table, and comms-service crash-looped
-on every `ship.departed` event.
-
-the repair was a new migration, `003_ships_transit.sql`. the real fix is
-a checksum column on `schema_migrations`, and a loud failure when an
-applied file changes.
-
-
 #### db backups
 
 probably after deploy phase is ready
