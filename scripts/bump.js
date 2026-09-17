@@ -6,6 +6,7 @@ import { Fail }   from '@theseus/util'
 import { isMain } from '@theseus/config'
 
 // bump root + every workspace to the same version, one commit, one tag
+//  major | minor | patch | premajor | preminor | prepatch | prerelease | from-git
 export default function bump(kind = 'patch') {
     const files = [
         'package.json',

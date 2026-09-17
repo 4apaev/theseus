@@ -42,4 +42,9 @@
             "package.json":  ".env*, .git*, .editor*, *rc, *.json, .*.yml, *.config.js",
         },
     },
+    "extensions": {
+        "recommendations": [
+            "local.sql-in-strings"
+        ]
+    },
 }
