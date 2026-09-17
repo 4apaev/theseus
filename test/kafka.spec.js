@@ -158,6 +158,7 @@ function shipCreatedEvent(eid) {
             hull      : 'starter',
             capacity  : 20,
             velocity  : 0.6,
+            acceleration: 0.002,
             rig       : 1,
             power     : 1,
             power_pool: 8,

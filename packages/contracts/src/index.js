@@ -1,5 +1,6 @@
 export {
     tree as commandTree,
+    tree as CMD,
     commandTopics,
     commandDefinition,
     commandDefinitions,
@@ -16,6 +17,7 @@ export {
 
 export {
     tree as eventTree,
+    tree as EVT,
     eventTopics,
     eventDefinition,
     eventDefinitions,

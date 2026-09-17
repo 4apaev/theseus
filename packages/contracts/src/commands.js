@@ -20,6 +20,7 @@ import {
     cargoModuleExchangeRequested,
     marketBuyRequested,
     marketSellRequested,
+    messageSendRequested,
 } from './schemas.js'
 
 const definitions = [
@@ -36,10 +37,12 @@ const definitions = [
     cargoModuleExchangeRequested,
     marketBuyRequested,
     marketSellRequested,
+    messageSendRequested,
 ]
 
 export const commandTopics = Object.freeze({
     cargo : 'commands.cargo',
+    comms : 'commands.comms',
     market: 'commands.market',
     player: 'commands.player',
     ship  : 'commands.ship',
@@ -67,6 +70,8 @@ export const tree = freezer({
     market: {
         buy : { requested: marketBuyRequested.slug },
         sell: { requested: marketSellRequested.slug }},
+    comms: {
+        send: { requested: messageSendRequested.slug }},
 })
 
 export const [

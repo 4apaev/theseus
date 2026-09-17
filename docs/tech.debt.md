@@ -2,6 +2,15 @@ tech debt
 ================
 
 
+what about a game save?
+every player action is saved by default.
+rebuild state is present.
+
+let's say player want to save game before some
+dangerous maneuver then load game from safe checkpoint.
+how does one implement such a thing?
+
+
 debt
 ----------------
 
@@ -10,60 +19,258 @@ debt
 update types & add jsdoc to everything
 
 
+### service createHandlers otgrow
+
+it's time to make a class of it.
+can be extension of pkg/service
+can use couple of helper methods like Outbox.write,
+to reduce scaffolds & for general readability.
+
+
 ### player service
 
 better checking mechanism `isAdmin(handle)`
 
+### protobuf (priority)
 
-### gateway routes
+research protobuf transport
+
+
+### gateway
+
+#### correct methods
 
 use correct method for routes, like `put`, `del` etc.
 rn routes utilize only `get` or `post` methods.
 
 
-### market queries
+#### api version prefix
 
-extract sql
-from `apps/market-service/src/handlers.js`
-to   `apps/market-service/src/queries.js`
+0. `/api`
+1. `/api/v1`
+2. `/api/v2`
+...
 
-### service queries
 
-- unified `reject`. almost any func in service/src/handlers defines own `reject`
+#### service prefix
+
+design clear convention / heirarchy.
+
+should it be:
+  `/operation/service/details`
+  or
+  `/service/operation/details`
+
+--------------------------------
+**player**
+
+- me             → `/player/me`
+
+--------------------------------
+**universe**
+
+- universe       → `/universe`
+- station        → `/universe/station`
+
+--------------------------------
+**ships**
+
+- ships          → `/ship/`
+- travel         → `/ship/travel`
+- rename         → `/ship/rename`
+- traffic        → `/ship/traffic`
+- cargo          → `/ship/cargo`
+- modules        → `/ship/modules` || `/ship/:sid/modules`
+
+--------------------------------
+**market**
+
+- buy            → `/market/buy`
+- sell           → `/market/sell`
+- trades         → `/market/trades`
+                 → `/market/:stid/trades`
+
+--------------------------------
+**coms**
+- ? messages ?   → `/comms/messages`
+- ? messages ?   → `/ship/modules/ansible/messages`
+- ? messages ?   → `/universe/station/ansible/messages`
+
 
 ### db
 
-- indexes
+#### migrations are keyed by file name, with no checksum
+
+`packages/db/src/migrate.js` records an applied migration by file name
+alone. it never hashes the file. so an edit to a migration that already
+ran is a silent no-op on every database that ran it.
+
+this already broke the dev database once. commit `a0634c7` added
+`"from"` and `"to"` to `apps/comms-service/migrations/001_ships.sql`, a
+file `a0aeadf` had already applied. the test databases were fine - every
+test run drops and recreates them, so they always read the new file. the
+dev database kept the old 5-column table, and comms-service crash-looped
+on every `ship.departed` event.
+
+the repair was a new migration, `003_ships_transit.sql`. the real fix is
+a checksum column on `schema_migrations`, and a loud failure when an
+applied file changes.
+
+
+#### db backups
+
+probably after deploy phase is ready
+
+
+#### query registry
+
+create global query registry in `@theseus/db`.
+add compile phase for caching, and to avoid duplicates.
+unify all query styles for consistency.
+
+#### extract `sql` to `queries.js`
+unified `reject`. almost any func in service/src/handlers defines own `reject`
+
+affected services:
+- market
+
+
+#### diagrams
+
 - annotated diagrams of tables + comments on every field
 - annotated diagrams of system wide layout
+
+### query builder
+
+[knex](https://knexjs.org/guide/query-builder.html#knex)
+
+construct and cache queries
+pre compile & use cached queries in run time
+add prestart phase when queries compiled
+
+```js
+
+  class Q {
+    constructor(...a) {
+      this.argv = a
+      // proxy to handle chain calls
+      return new Proxy(this, {
+        has(trg, k, px) { return px },
+        get(trg, k, px) { return px },
+        set(trg, k, px) { return px },
+      })
+    }
+
+    key()    ; omit()
+    select() ; insert() ; update() ; create()
+    into()   ; from()   ; join()   ; using()
+    case()   ; when()   ; then()   ; where()
+    limit()  ; values() ; order()  ; conflict()
+    on()     ; and()    ; as()     ; by()
+    do()     ; or()     ; for()    ; set()
+
+    ...
+
+    static types = {
+      bol: Symbol('boolean'), num: Symbol('num'), obj : Symbol('jsonb'),
+      txt: Symbol('text')   , int: Symbol('int'), date: Symbol('timestamp'),
+
+      pk  : Symbol('primary key'), uniq : Symbol('unique')  ,
+      ref : Symbol('references') , nnl : Symbol('not null'),
+
+      get now() { return new Date },
+      def(x) { return `default ${ x }` },
+    }
+
+    static create(...a) { return Reflect.construct(this, [ 'create', ...a ]) }
+    static select(...a) { return Reflect.construct(this, [ 'select', ...a ]) }
+    static insert(...a) { return Reflect.construct(this, [ 'insert', ...a ]) }
+    static update(...a) { return Reflect.construct(this, [ 'update', ...a ]) }
+    ...
+  }
+
+  function Q() {
+    return new QBuild
+  }
+
+  const T = QBuild.types
+
+  Q.create('ships', {
+    sid     : [ T.txt, T.pk ],
+    pid     : [ T.txt, T.nn, T.uniq ],
+    stid    : T.txt,
+    status  : [ T.txt, T.nn, T.def('docked') ],
+    ansible : [ T.bool, T.nn, T.def(false)    ]
+  })
+
+  Q.table('ships')
+    .key('sid').txt.pk
+    .key('pid').txt.nnl.unq
+    .key('stid').txt
+    .key('status').txt.nnl.def('docked')
+    .key('ansible').bol.nnl.def(false)
+
+
+  Q.table.ships
+    .sid.txt.pk
+    .pid.txt.nnl.unq
+    .stid.txt
+    .status.txt.nnl.def.docked
+    .ansible.bol.nnl.def.false
+
+  Q.select('fm.slot', 'fm.gid')
+    .from('fitted_modules', 'fm')
+    .join('ships' 's')
+    .using('sid')
+    .where('fm.sid', sid)
+    .and('s.pid', pid)
+    .order('fm.slot')
+
+
+  Q.select
+    .from('ships')
+    .omit('ansible')
+    .order
+      .desc('departed)
+    .where('sid', 'xxxx')
+    .and({ pid: 'yyyy' })
+```
+
 
 
 ### infra
 
-- #### db
-    to avoid conflicts when branch switching,
-    create dedicated db per branch (on demand, not auto).
-    in case when branch alters/changes db structure,
-    create a branch specific dbs.
-    see `ship-upgrades` vs `ship-modules` branch conflicts
-
-- #### deploy
-    dockerize the game. need a real plan for this.
-    uptime check is a dev tool, not a production health check,
-    when this step lands, will be replaced with systemd/container-native
-    health check
-
-- #### logger
-
-  introduce logger.
-  can be part of `packages/service`
+<details>
+<summary>vscode sql highlight</summary>
+</details>
 
 
-- #### observability
+#### db
 
-  add monitoring tools.
-  logs query, grafana, prometheus (or modern equivalent).
-  need some reaserch: today defacto standart?, alternatives?, configs & costs?
+to avoid conflicts when branch switching,
+create dedicated db per branch (on demand, not auto).
+in case when branch alters/changes db structure,
+create a branch specific dbs.
+see `ship-upgrades` vs `ship-modules` branch conflicts
+
+#### deploy
+
+dockerize the game. need a real plan for this.
+uptime check is a dev tool, not a production health check,
+when this step lands, will be replaced with systemd/container-native
+health check
+
+#### logger
+
+introduce logger.
+can be part of `packages/service`
+
+
+#### observability
+
+add monitoring tools.
+logs query, grafana, prometheus (or equivalent).
+need some research: today de facto standard?, alternatives?, configs & costs?
 
 
 - #### load tests

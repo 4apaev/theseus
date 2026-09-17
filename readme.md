@@ -1,9 +1,7 @@
 🚀 theseus - an interstellar trade game
 ================================================
 
-[![CI](https://github.com/4apaev/theseus/actions/workflows/ci.yml/badge.svg)](https://github.com/4apaev/theseus/actions/workflows/ci.yml)
-
-
+![CI](https://github.com/4apaev/theseus/actions/workflows/ci.yml/badge.svg)
 
 ```
 ┌──────────────➖─┐ ┌──────────────➖─┐
@@ -26,8 +24,8 @@
 │ projection │ 📺 │ │ util       │ 🪏 │ │ scripts    │ 🎬 │
 │ player     │ 🕹️ │ │ kafka      │ 📮 │ ├────────────┼─➖─┤
 │ ship       │ 🚢 │ │ domain     │ 🧮 │ │ .logs      │ 📋 │
-└────────────┴─➖─┘ │ config     │ 🎛️ │ │ .github    │ 🐙 │
-               ➖   │ service    │ 🎖️ │ │ .vscode    │ 🆚 │
+│ comms      │ 📻 │ │ config     │ 🎛️ │ │ .github    │ 🐙 │
+└────────────┴─➖─┘ │ service    │ 🎖️ │ │ .vscode    │ 🆚 │
                ➖   │ testing    │ 🧪 │ │ .claude    │ 👾 │
                ➖   │ contracts  │ 📜 │ └────────────┴─➖─┘
                ➖   └────────────┴─➖─┘                ➖

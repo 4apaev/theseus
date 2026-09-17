@@ -102,6 +102,29 @@ export class Universe {
     }
 
     /**
+     * the shortest physical route between 2 stations, in light
+     * years. an ansible signal is not a ship. it takes no
+     * speed-limit discount near a star. this method weighs each
+     * edge by its own `ly` value alone, not by `path()`'s
+     * travel-time weight.
+     *
+     * @param {string} from
+     * @param {string} to
+     * @return {number} light years
+     */
+    distanceTo(from, to) {
+        this.has(from) || Fail.raise(`unknown station: ${ from }`)
+        this.has(to)   || Fail.raise(`unknown station: ${ to }`)
+
+        if (from === to) return 0
+
+        const dist = this.#shortestDistance(from)
+        return dist.has(to)
+            ? dist.get(to)
+            : Fail.raise(`unknown route: ${ from } → ${ to }`)
+    }
+
+    /**
      * dijkstra. the weight of one edge is travel time, not light years.
      *
      * a short in-system hop still costs a slow ship a lot of time.
@@ -110,9 +133,10 @@ export class Universe {
      * flies it at its own speed. a search by distance alone would
      * send a player through the whole Sol system for no gain - see progress.md.
      *
-     * edge weight = ly / min(velocity, c), in years. a slow ship gets
-     * no benefit from a fast route. so the best path can change with
-     * the ship. this is why `path()` needs the velocity.
+     * an edge weighs `legTime()`, in years. a fast route does not
+     * help a slow ship. every stop costs a weak drive more time.
+     * so the best path changes with the ship, and `path()` needs
+     * both numbers.
      *
      * returns the stids from `from` to `to`, in order, both included.
      * returns undefined when no route connects them.
@@ -120,16 +144,18 @@ export class Universe {
      * @param {string} from
      * @param {string} to
      * @param {number} velocity
+     * @param {number} acceleration
      * @return {string[] | undefined}
      */
-    path(from, to, velocity) {
+    path(from, to, velocity, acceleration) {
         this.has(from) || Fail.raise(`unknown station: ${ from }`)
         this.has(to)   || Fail.raise(`unknown station: ${ to }`)
         Is.n(velocity) && velocity > 0 || Fail.raise('velocity must be a positive number')
+        Is.n(acceleration) && acceleration > 0 || Fail.raise('acceleration must be a positive number')
 
         if (from === to) return [ from ]
 
-        const prev = this.#shortestTime(from, velocity)
+        const prev = this.#shortestTime(from, velocity, acceleration)
         return prev.has(to)
             ? trace(prev, from, to)
             : void 0
@@ -158,9 +184,10 @@ export class Universe {
      *
      * @param {string} from
      * @param {number} velocity
+     * @param {number} acceleration
      * @return {Map<string, string>}
      */
-    #shortestTime(from, velocity) {
+    #shortestTime(from, velocity, acceleration) {
         const prev  = new Map
         const dist  = new Map([[ from, 0 ]])
         const queue = new Set([ from ])
@@ -170,7 +197,7 @@ export class Universe {
             queue.delete(at)
 
             for (const [ next, edge ] of this.neighbors(at)) {
-                const cost = dist.get(at) + edge.ly / Math.min(velocity, edge.c)
+                const cost = dist.get(at) + legTime(edge.ly, edge.c, velocity, acceleration)
                 if (cost < (dist.get(next) ?? Infinity)) {
                     dist.set(next, cost)
                     prev.set(next, at)
@@ -179,6 +206,33 @@ export class Universe {
             }
         }
         return prev
+    }
+
+    /**
+     * the distance-only twin of `#shortestTime`. it uses the same
+     * dijkstra shape, but weighs each edge by `edge.ly` alone. it
+     * takes no velocity.
+     *
+     * @param {string} from
+     * @return {Map<string, number>} stid -> total light years from `from`
+     */
+    #shortestDistance(from) {
+        const dist  = new Map([[ from, 0 ]])
+        const queue = new Set([ from ])
+
+        while (queue.size) {
+            const at = closest(queue, dist)
+            queue.delete(at)
+
+            for (const [ next, edge ] of this.neighbors(at)) {
+                const cost = dist.get(at) + edge.ly
+                if (cost < (dist.get(next) ?? Infinity)) {
+                    dist.set(next, cost)
+                    queue.add(next)
+                }
+            }
+        }
+        return dist
     }
 
     /**
@@ -238,16 +292,16 @@ function trace(prev, from, to) {
 const AU       = 1 / 63241.077  // one astronomical unit, in light years
 const SUBLIGHT = 0.00008        // 24 km/s
 
-/*
-    the speed limit of an in-system route.
-    0.00008c is 24 km/s - 1.5 times voyager 2's speed.
+const LIGHT   = 299792458        // m/s
+const YEAR    = 31557600         // seconds in a julian year
+const LY      = LIGHT * YEAR     // metres in a light year
 
-    the limit stops a short hop from ending before it starts.
-    venus sits 0.000013 ly from mars.
-    at 0.6c that trip takes 0.0004 game seconds.
-    at 24 km/s it takes 3 seconds.
-    mars to titan, the longest hop in sol, takes 32 seconds,
-    still far under a trip between stars.
+/*
+    the peak speed of an in-system route.
+    0.00008c is 24 km/s - 1.5 times voyager 2's speed.
+    the cap limits a strong drive, so a short hop still takes game time.
+    it also holds every in-system speed far below light.
+    so an in-system leg has no time dilation.
 */
 const universe = new Universe
 export default universe
@@ -258,6 +312,34 @@ export default universe
  */
 function au(n) {
     return n * AU
+}
+
+/**
+ * the time of one leg, in years.
+ *
+ * a route between stars holds one speed for the whole leg.
+ * an in-system route accelerates to the midpoint, flips,
+ * then decelerates, and never passes `c`.
+ * see the domain readme, "the 2 travel models".
+ *
+ * @param {number} ly           - the leg, in light years
+ * @param {number} c            - the route speed limit, in fractions of light speed
+ * @param {number} velocity     - the ship cruise velocity, in fractions of light speed
+ * @param {number} acceleration - the ship acceleration, in m/s²
+ * @return {number} years
+ */
+export function legTime(ly, c, velocity, acceleration) {
+    if (c >= 1)
+        return ly / Math.min(velocity, c)
+
+    const d = ly * LY      // metres
+    const v = c * LIGHT    // m/s
+
+    const seconds = Math.sqrt(acceleration * d) <= v
+        ? 2 * Math.sqrt(d / acceleration)
+        : d / v + v / acceleration
+
+    return seconds / YEAR
 }
 
 universe.system('sol',            { name: 'Sol',            star: 'G2V yellow dwarf' })
@@ -275,9 +357,9 @@ universe.system('sirius',         { name: 'Sirius',         star: 'A1V + white d
 */
 universe.node('sol.mercury',    { system: 'sol', name: 'Mercury Deep',   produces: { ore  : 10 }, consumes: { grain: 6 }})
 universe.node('sol.venus',      { system: 'sol', name: 'Venus Lab',      produces: { spice:  6 }, consumes: { ore  : 4 }})
-universe.node('sol.outpost',    { system: 'sol', name: 'Sol Outpost',    produces: { ore  :  8 }, consumes: { grain: 5 }, stocks: [ 'reactor.mk1', 'cruise.mk1', 'cargo.mk1' ]})
+universe.node('sol.outpost',    { system: 'sol', name: 'Sol Outpost',    produces: { ore  :  8 }, consumes: { grain: 5 }, stocks: [ 'reactor.mk1', 'cruise.mk1', 'maneuver.mk1', 'cargo.mk1' ]})
 universe.node('sol.mars',       { system: 'sol', name: 'Mars Hub',       produces: { grain:  7 }, consumes: { spice: 5 }})
-universe.node('sol.ganymede',   { system: 'sol', name: 'Ganymede Yards', produces: { ore  :  6 }, consumes: { spice: 4 }, stocks: [ 'reactor.mk2', 'cruise.mk2', 'cargo.mk2' ]})
+universe.node('sol.ganymede',   { system: 'sol', name: 'Ganymede Yards', produces: { ore  :  6 }, consumes: { spice: 4 }, stocks: [ 'reactor.mk2', 'cruise.mk2', 'maneuver.mk2', 'cargo.mk2' ]})
 universe.node('sol.titan',      { system: 'sol', name: 'Titan Ring',     produces: { spice:  7 }, consumes: { grain: 5 }})
 
 universe.node('alpha.exchange', { system: 'alpha.centauri', name: 'Alpha Exchange', produces: { grain: 8 }, consumes: { spice: 5 }})
@@ -291,17 +373,22 @@ universe.node('sirius.gate',    { system: 'sirius',         name: 'Sirius Gate',
     distance from Sol, in this order: Mercury, Venus, Outpost, Mars,
     Ganymede, Titan.
 
-    on a line, a direct link is not a shortcut when a 3rd station sits
-    between the two ends. it costs the same as the long way round.
-    Titan↔Outpost (8.537 AU) equals Titan→Mars→Outpost added up, since
-    Mars sits between them. the same holds for Mars↔Titan (8.013 AU)
-    against Mars→Ganymede→Titan. `path()` finds no real shortcut on
-    either pair.
+    on a line, a direct link covers the same distance as the long way
+    round when a 3rd station sits between the two ends.
+    Titan ↔ Outpost (8.537 AU) equals Titan → Mars → Outpost, because
+    Mars sits between them. Mars ↔ Titan (8.013 AU) matches
+    Mars → Ganymede → Titan the same way.
 
-    Outpost↔Mercury is different. Outpost sits between Venus and Mars,
-    not beyond either one. so the direct link (0.613 AU) is truly
-    shorter than the long way round, through Venus and Mars (1.661
-    AU). this one is a real shortcut. `path()` finds it. */
+    equal distance is not equal time. a ship stops at every station,
+    then accelerates again. `legTime()` grows with the square root of
+    the distance, and a square root is subadditive. so the direct link
+    always costs less time, even on these pairs. `path()` takes it.
+
+    Outpost ↔ Mercury is shorter as well as faster.
+    Outpost sits between Venus and Mars, not beyond either one.
+    so the direct link (0.613 AU) beats the long way round,
+    through Venus and Mars (1.661 AU).
+*/
 universe
     .link('sol.outpost',  'sol.mercury',  au(0.613), SUBLIGHT)
     .link('sol.mercury',  'sol.venus',    au(0.336), SUBLIGHT)
@@ -347,23 +434,30 @@ export const goods = nil({
     'cruise.mk1' : { name: 'cruise drive mk1', price_base: 150,  elasticity: 1.0, kind: 'module', volume: 6 },
     'cruise.mk2' : { name: 'cruise drive mk2', price_base: 1200, elasticity: 1.0, kind: 'module', volume: 6 },
 
+    'maneuver.mk1': { name: 'maneuver drive mk1', price_base: 120, elasticity: 1.0, kind: 'module', volume: 6 },
+    'maneuver.mk2': { name: 'maneuver drive mk2', price_base: 900, elasticity: 1.0, kind: 'module', volume: 6 },
+
     'cargo.mk1'  : { name: 'cargo module mk1', price_base: 100,  elasticity: 1.0, kind: 'module', volume: 8 },
     'cargo.mk2'  : { name: 'cargo module mk2', price_base: 500,  elasticity: 1.0, kind: 'module', volume: 8 },
+
+    'ansible.mk1': { name: 'ansible transceiver', price_base: 80, elasticity: 1.0, kind: 'module', volume: 2 },
 })
 
 // ── starter ship ─────────────────────────────────────────────
 
 export const starterShip = nil({
     get name() { return randomShipName() },
-    stid    : 'sol.outpost',
-    velocity: 0.6,
-    capacity: 20,
+    stid        : 'sol.outpost',
+    velocity    : 0.6,
+    acceleration: 0.002,
+    capacity    : 20,
 })
 
 // ── game mechanics ───────────────────────────────────────────
 
 export const currency = '₢'                                  // @ts-ignore
 export const TIME_SCALE = readEnv('TIME_SCALE', 20)          // @ts-ignore
+export const ANSIBLE_SPEED = readEnv('ANSIBLE_SPEED', 100)   // @ts-ignore - a multiple of light speed
 export const INTEREST_RATE = readEnv('INTEREST_RATE', 0.05)  // @ts-ignore
 export const STARTER_CREDITS = readEnv('STARTER_CREDITS', 1000)
 export const universeData = nil({
@@ -374,8 +468,13 @@ export const universeData = nil({
     starter: starterShip,
     constants: {
         time_scale     : TIME_SCALE,
+        ansible_speed  : ANSIBLE_SPEED,
         interest_rate  : INTEREST_RATE,
         starter_credits: STARTER_CREDITS,
+        // the client repeats legTime() for its eta preview.
+        // these 2 convert light years to metres, and seconds to years.
+        light_speed    : LIGHT,
+        year_seconds   : YEAR,
         currency,
     },
 })

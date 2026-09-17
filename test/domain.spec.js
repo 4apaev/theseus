@@ -8,10 +8,9 @@ import {
     Universe,
     goods,
     starterShip,
+    ANSIBLE_SPEED,
     price,
     spread,
-    gameSeconds,
-    capitalCost,
     randomShipName,
     hulls,
     modules,
@@ -109,21 +108,23 @@ test('an in-system hop is far shorter than a light year', () => {
 
 // ── path() ───────────────────────────────────────────────────────────────────
 
-test('path rejects unknown stations or a bad velocity', () => {
-    assert.throws(() => universe.path('lost.harbor', 'sol.outpost', 0.6), /unknown station/)
-    assert.throws(() => universe.path('sol.outpost', 'lost.harbor', 0.6), /unknown station/)
-    assert.throws(() => universe.path('sol.outpost', 'sol.mars', 0), /velocity/)
-    assert.throws(() => universe.path('sol.outpost', 'sol.mars', -1), /velocity/)
+test('path rejects unknown stations, a bad velocity or a bad acceleration', () => {
+    assert.throws(() => universe.path('lost.harbor', 'sol.outpost', 0.6, 1), /unknown station/)
+    assert.throws(() => universe.path('sol.outpost', 'lost.harbor', 0.6, 1), /unknown station/)
+    assert.throws(() => universe.path('sol.outpost', 'sol.mars', 0, 1), /velocity/)
+    assert.throws(() => universe.path('sol.outpost', 'sol.mars', -1, 1), /velocity/)
+    assert.throws(() => universe.path('sol.outpost', 'sol.mars', 0.6, 0), /acceleration/)
+    assert.throws(() => universe.path('sol.outpost', 'sol.mars', 0.6, -1), /acceleration/)
 })
 
 test('path from a station to itself is the station alone', () => {
-    assert.deepEqual(universe.path('sol.outpost', 'sol.outpost', 0.6), [ 'sol.outpost' ])
+    assert.deepEqual(universe.path('sol.outpost', 'sol.outpost', 0.6, 1), [ 'sol.outpost' ])
 })
 
 test('path returns null when no route connects the 2 stations', () => {
     const u = weighted()
     u.node('d', { system: 'w', name: 'D' }) // no link to a, b or c
-    assert.equal(u.path('a', 'd', 0.5), void 0)
+    assert.equal(u.path('a', 'd', 0.5, 1), void 0)
 })
 
 /*  a slow ship, and a route that saves distance but not time, so a
@@ -146,15 +147,45 @@ function weighted() {
 }
 
 test('a ship slower than the cap takes the shorter route - ly and time agree', () => {
-    // velocity 0.05 < both caps: direct time 4/0.05=80, via b 1/0.05*2=40
-    assert.deepEqual(weighted().path('a', 'c', 0.05), [ 'a', 'b', 'c' ])
+    // a strong drive reaches both caps, so each b-leg costs
+    // 1/0.1 plus a short burn = 10.9yr, and 21.9yr in total.
+    // the direct leg costs 4/0.05 = 80yr. the shorter route wins.
+    assert.deepEqual(weighted().path('a', 'c', 0.05, 1), [ 'a', 'b', 'c' ])
 })
 
 test('a ship faster than the cap takes the longer route - it is faster in time', () => {
-    // velocity 0.5 > the 0.1 cap: direct time 4/0.5=8, via b 1/0.1*2=20
+    // the same 21.9yr through b, against 4/0.5 = 8yr direct.
     // via b covers less ground (2 ly vs 4) but the cap makes it slower -
     // a search that weighs by ly would pick it anyway, and be wrong
-    assert.deepEqual(weighted().path('a', 'c', 0.5), [ 'a', 'c' ])
+    assert.deepEqual(weighted().path('a', 'c', 0.5, 1), [ 'a', 'c' ])
+})
+
+test('distanceTo picks the shortest physical route, unlike path()\'s speed-weighted search', () => {
+    // the fast ship above takes the direct 4 ly edge. the 0.1c cap
+    // on each b-leg costs it more time than the shorter distance
+    // saves. distanceTo has no ship and no speed cap, so it finds
+    // the true shortest distance instead: 2, by way of b.
+    assert.equal(weighted().distanceTo('a', 'c'), 2)
+})
+
+test('distanceTo is 0 for a station and itself', () => {
+    assert.equal(universe.distanceTo('sol.outpost', 'sol.outpost'), 0)
+})
+
+test('distanceTo agrees with distance() on a direct route', () => {
+    assert.equal(
+        universe.distanceTo('sol.outpost', 'alpha.exchange'),
+        universe.distance('sol.outpost', 'alpha.exchange'),
+    )
+})
+
+test('distanceTo rejects unknown stations or an unreachable pair', () => {
+    assert.throws(() => universe.distanceTo('sol.outpost', 'lost.harbor'), /unknown station/)
+    assert.throws(() => universe.distanceTo('lost.harbor', 'sol.outpost'), /unknown station/)
+
+    const u = weighted()
+    u.node('d', { system: 'w', name: 'D' }) // no link to a, b or c
+    assert.throws(() => u.distanceTo('a', 'd'), /unknown route/)
 })
 
 // ── goods ─────────────────────────────────────────────────────────────────────
@@ -261,16 +292,50 @@ test('every module design joins a real good by gid', () => {
         assert.ok(goods[ gid ], `${ gid } has no matching good`)
 })
 
+test('the starter hull carries a utility slot, fitted with an ansible', () => {
+    const slot = hulls.starter.slots.find(s => s.family === 'utility')
+    assert.ok(slot, 'no utility slot on the starter hull')
+    assert.equal(starterRig[ slot.id ], 'ansible.mk1')
+})
+
+test('an ansible fits its slot docked or in transit, not port-only', () => {
+    assert.equal(modules[ 'ansible.mk1' ].family, 'utility')
+    assert.equal(modules[ 'ansible.mk1' ].context, 'field')
+})
+
+test('ANSIBLE_SPEED is a real speed, far past any ship', () => {
+    assert.ok(ANSIBLE_SPEED > 1, 'must be faster than light, ships never are')
+})
+
 test('starter rig resolves to todays capacity and velocity, before any upgrade', () => {
     const stats = deriveStats(hulls.starter, starterRig)
     assert.equal(stats.capacity, 20)
     assert.equal(stats.velocity, 0.6)
+    assert.equal(stats.acceleration, 0.002)
 })
 
 test('power tracks reactor supply against every fitted modules draw', () => {
     const { power } = deriveStats(hulls.starter, starterRig)
     assert.equal(power.available, 8) // hull 3 + reactor.mk1 +5
-    assert.equal(power.used, 2)      // reactor 1 + cruise 1 + cargo 0
+    assert.equal(power.used, 4)      // reactor 1 + cruise 1 + maneuver 1 + cargo 0 + ansible 1
+})
+
+test('the starter hull carries a maneuver slot, fitted with a placeholder drive', () => {
+    const slot = hulls.starter.slots.find(s => s.family === 'maneuver')
+    assert.ok(slot, 'no maneuver slot on the starter hull')
+    assert.equal(starterRig[ slot.id ], 'maneuver.mk1')
+})
+
+test('a maneuver drive raises acceleration, and the hull caps it', () => {
+    const { stats, errors } = previewRig(
+        hulls.starter,
+        { ...starterRig, power1: 'reactor.mk2' },
+        { type: 'install', slot: 'maneuver1', gid: 'maneuver.mk2' },
+        { docked: true },
+    )
+    assert.deepEqual(errors, [])
+    assert.equal(stats.acceleration, 0.006)   // 0.002 base + 0.004 flat
+    assert.equal(stats.velocity, 0.6, 'a maneuver drive leaves cruise velocity alone')
 })
 
 test('installing into an occupied slot replaces it, not a second slot', () => {
@@ -281,7 +346,7 @@ test('installing into an occupied slot replaces it, not a second slot', () => {
     )
     assert.deepEqual(errors, [])
     assert.equal(proposed.power1, 'reactor.mk2')
-    assert.equal(Object.keys(proposed).length, 3, 'still one module per slot')
+    assert.equal(Object.keys(proposed).length, 5, 'still one module per slot')
 })
 
 test('a faster drive is gated on the reactors rate, not on owning the old drive', () => {

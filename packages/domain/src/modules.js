@@ -77,9 +77,11 @@ export class Hull {
      * @param {number}  hull.power_base
      * @param {number}  hull.capacity_base
      * @param {number}  hull.velocity_base
+     * @param {number}  hull.acceleration_base
      * @param {number} [hull.power_max]
      * @param {number} [hull.capacity_max]
      * @param {number} [hull.velocity_max]
+     * @param {number} [hull.acceleration_max]
      * @param {Rate[]} [hull.rates]
      * @param {Slot[]}  hull.slots
      */
@@ -87,13 +89,15 @@ export class Hull {
         hull.id            || Fail.raise('hull needs an id')
         hull.slots?.length || Fail.raise(`hull ${ hull.id } needs at least one slot`)
 
-        this.id            = hull.id
-        this.power_base    = hull.power_base
-        this.capacity_base = hull.capacity_base
-        this.velocity_base = hull.velocity_base
-        this.capacity_max  = hull.capacity_max
-        this.velocity_max  = hull.velocity_max
-        this.power_max     = hull.power_max
+        this.id                = hull.id
+        this.power_base        = hull.power_base
+        this.capacity_base     = hull.capacity_base
+        this.velocity_base     = hull.velocity_base
+        this.acceleration_base = hull.acceleration_base
+        this.capacity_max      = hull.capacity_max
+        this.velocity_max      = hull.velocity_max
+        this.acceleration_max  = hull.acceleration_max
+        this.power_max         = hull.power_max
         this.rates = /** @type {readonly Rate[]} */ (O.freeze(A.from(hull.rates ?? [], O.freeze)))
         this.slots = /** @type {readonly Slot[]} */ (O.freeze(A.from(hull.slots, O.freeze)))
         O.freeze(this)
@@ -124,9 +128,10 @@ export class Fitting {
         const designs = O.values(fitted).map(gid => this.#catalog[ gid ]).filter(Boolean)
 
         return {
-            capacity: resolve(hull.capacity_base, hull.capacity_max ?? Infinity, designs, 'capacity'),
-            velocity: resolve(hull.velocity_base, hull.velocity_max ?? Infinity, designs, 'velocity'),
-            power   : {
+            capacity    : resolve(hull.capacity_base, hull.capacity_max ?? Infinity, designs, 'capacity'),
+            velocity    : resolve(hull.velocity_base, hull.velocity_max ?? Infinity, designs, 'velocity'),
+            acceleration: resolve(hull.acceleration_base, hull.acceleration_max ?? Infinity, designs, 'acceleration'),
+            power       : {
                 available: resolve(hull.power_base, hull.power_max ?? Infinity, designs, 'power'),
                 used     : designs.reduce((n, d) => n + d.power, 0),
             },
@@ -276,23 +281,37 @@ export const modules = O.freeze(O.setPrototypeOf({
     'cruise.mk1': new Design({ family: 'cruise', mount: 'light', power: 1 }),
     'cruise.mk2': new Design({ family: 'cruise', mount: 'light', power: 2, requires: [{ rate: 'power', rank: 2 }], effects: [{ stat: 'velocity', kind: 'percent', value: 0.08 }]}),
 
+    // a maneuver drive sets in-system acceleration.
+    // a cruise drive sets interstellar velocity - see docs/modules.md.
+    'maneuver.mk1': new Design({ family: 'maneuver', mount: 'light', power: 1 }),
+    'maneuver.mk2': new Design({ family: 'maneuver', mount: 'light', power: 2, requires: [{ rate: 'power', rank: 2 }], effects: [{ stat: 'acceleration', kind: 'flat', value: 0.004 }]}),
+
     'cargo.mk1': new Design({ family: 'cargo', mount: 'light', power: 0 }),
     'cargo.mk2': new Design({ family: 'cargo', mount: 'light', power: 1, effects: [{ stat: 'capacity', kind: 'flat', value: 10 }]}),
+
+    // a transceiver is small, general-purpose gear. it fits the
+    // doc's own 'utility' family. the field context lets a player
+    // fit it docked or in transit.
+    'ansible.mk1': new Design({ family: 'utility', mount: 'light', power: 1, context: 'field' }),
 }, null))
 
 /** @type {Record<'starter', Hull>} */
 export const hulls = O.freeze(O.setPrototypeOf({
     starter: new Hull({
-        id           : 'starter',
-        power_base   : 3,
-        capacity_base: 20,
-        velocity_base: 0.6,
-        velocity_max : 0.85,
-        rates        : new A,
-        slots        : A.of(
-            { id: 'power1',  family: 'power',  size: 'light' },
-            { id: 'cruise1', family: 'cruise', size: 'light' },
-            { id: 'cargo1',  family: 'cargo',  size: 'light' }),
+        id               : 'starter',
+        power_base       : 3,
+        capacity_base    : 20,
+        velocity_base    : 0.6,
+        velocity_max     : 0.85,
+        acceleration_base: 0.002,  // m/s²
+        acceleration_max : 0.01,
+        rates            : new A,
+        slots            : A.of(
+            { id: 'power1',    family: 'power',    size: 'light' },
+            { id: 'cruise1',   family: 'cruise',   size: 'light' },
+            { id: 'maneuver1', family: 'maneuver', size: 'light' },
+            { id: 'cargo1',    family: 'cargo',    size: 'light' },
+            { id: 'utility1',  family: 'utility',  size: 'light' }),
     }),
 }, null))
 
@@ -305,9 +324,11 @@ export const hulls = O.freeze(O.setPrototypeOf({
  * @type {Readonly<Record<string, string>>}
  */
 export const starterRig = O.freeze({
-    power1 : 'reactor.mk1',
-    cruise1: 'cruise.mk1',
-    cargo1 : 'cargo.mk1',
+    power1   : 'reactor.mk1',
+    cruise1  : 'cruise.mk1',
+    maneuver1: 'maneuver.mk1',
+    cargo1   : 'cargo.mk1',
+    utility1 : 'ansible.mk1',
 })
 
 /*
@@ -334,7 +355,7 @@ function mountIndex(size) {
  * @param {number} base
  * @param {number} max
  * @param {Design[]} designs
- * @param {'capacity'|'velocity'|'power'} stat
+ * @param {'capacity'|'velocity'|'acceleration'|'power'} stat
  * @return {number}
  */
 function resolve(base, max, designs, stat) {

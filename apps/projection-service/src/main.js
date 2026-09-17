@@ -15,7 +15,7 @@ export class Projection extends Service {
         the concrete topics, NOT events.all: outbox rows carry a single
         topic, so on a real broker events.all never receives anything
     */
-    static topics = [ Evt.player, Evt.wallet, Evt.ship, Evt.cargo, Evt.market ]
+    static topics = [ Evt.player, Evt.wallet, Evt.ship, Evt.cargo, Evt.market, Evt.comms ]
     static owns   = [ 'event_log', 'read_models' ]
     static role   =   'event log and disposable read models'
 

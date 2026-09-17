@@ -31,6 +31,7 @@ export {
 const dict = {
     auth      : '🔐  AUTH      🧪 ',
     bump      : '🏷️  BUMP      🧪 ',
+
     config    : '🎛️  CONFIG    🧪 ',
     contracts : '📜  CONTRACTS 🧪 ',
     db        : '📇  DB        🧪 ',
@@ -44,9 +45,11 @@ const dict = {
     testing   : '🧪  TESTING   🧪 ',
     util      : '🪏  UTIL      🧪 ',
     projection: '📺  PROJECTION 🧪',
+    comms     : '📻  COMMS     🧪 ',
 
     '/scripts/smoke.js': '🚬  SMOKE 😶‍🌫️ ',
 
+    'comms.integration'              : '🚦 📻 ∫∫ COMMS   ',
     'game.integration'               : '🚦 🚀 ∫∫ GAME    ',
     'gateway.integration'            : '🚦 ⛩️ ∫∫ GATEWAY ',
     'ship.integration'               : '🚦 🛸 ∫∫ SHIP    ',
@@ -55,7 +58,7 @@ const dict = {
     'market.rebuild.integration'     : '🚦 🎰 ∫∫ REBUILD MARKET     ',
     'projection.rebuild.integration' : '🚦 📺 ∫∫ REBUILD PROJECTION ',
 }
-
+// comms 📻
 const name = process.argv[ 1 ]
     .replace(process.cwd(), '')
     .replace(/\/test\/([^/]+)\.spec\.js$/i, '$1')

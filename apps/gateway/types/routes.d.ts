@@ -34,11 +34,13 @@ export interface RoutesInput {
  * - `POST /register` `/login` - correlated reply over events.player
  * - `POST /travel` `/buy` `/sell` `/modules/install` `/modules/remove` -
  *   command → 202 `{ cmd, correlation_id }`, pid from token claims
+ * - `POST /messages` - same, plus one lookup: `to` is a sid, resolved
+ *   to comms-service's pid first. an unknown sid answers 404
  * - `POST /modules/preview` - no command published; loads the
  *   projection's own hull/fitted/cargo and runs the same resolver
  *   ship-service does. advisory - the real command is the final judge
  * - `GET /me` `/ships` `/ships/:sid/modules` `/cargo/:sid` `/market/:stid`
- *   `/trades` - projection reads
+ *   `/trades` `/messages` - projection reads
  * - `GET /traffic` `/station/:stid/ships` - public ship traffic, one shared
  *   query, handle instead of pid
  * - `GET /admin/players` `/admin/events` `/admin/inventory/:stid`

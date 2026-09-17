@@ -46,3 +46,6 @@ export function waitFor<F extends (...a: any[]) => Promise<any>>(
 export function sleep<T>(ms?: string | number, x?: T): Promise<T>
 export function findWhere<T>(it: ArrayLike<T>, query: AQuery<T>, ctx?: unknown): T
 export function where<T>(it: ArrayLike<T>, query: AQuery<T>, ctx?: unknown): T
+
+export function pick<T, K extends keyof T>(o: T, ...a: K[]): {[ P in K ]: T[ P ]}
+export type FPick = typeof pick

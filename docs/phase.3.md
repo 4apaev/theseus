@@ -31,12 +31,12 @@ dependency of 3.4's ansible hardware and 3.5's maneuver drive; the later
 content and visualization steps remain independent.
 
 | step | what                                          | status |
-|------|----------------------------------------------|--------|
+|------|-----------------------------------------------|--------|
 | 3.1  | ships name generator                          | done ✔ |
 | 3.2  | tech debt sweep                               | done ✔ |
-| 3.3  | ship modules - rigs and upgrades               | in progress |
-| 3.4  | player messenger - the ansible                |        |
-| 3.5  | ΔV mechanics - in-system travel               |        |
+| 3.3  | ship modules - rigs and upgrades              | done ✔ |
+| 3.4  | player messenger - the ansible                | done ✔ |
+| 3.5  | ΔV mechanics - in-system travel               | done ✔ |
 | 3.6  | universe growth - more stations, path() perf  |        |
 | 3.7  | travel manifest visualization                 |        |
 | 3.8  | jsdoc pass - close the types gap              |        |
@@ -218,8 +218,15 @@ touches: new `apps/comms-service` (handlers, migrations, a poll),
 routing), `client/js` (a messages panel - already sketched, never built,
 in `client.md`'s old layout mockup).
 
+**done ✔, server side only.** comms-service, the contracts, the gateway
+routes, the feed routing and the read model all landed. the client panel
+did not - the client rewrite is an open decision (see
+[phase.4.md](phase.4.md)), so a panel built against today's client would
+be thrown away. the panel moves to that rewrite. every message route
+already works over http.
 
-### step 3.5 - ΔV mechanics, in-system travel
+
+### step 3.5 - ΔV mechanics, in-system travel - done ✔
 
 `game.md`'s own reading list points straight at this: a brachistochrone
 trajectory - constant thrust to the midpoint, flip, constant thrust to
@@ -261,6 +268,29 @@ transit, so an existing arrival time never changes under the ship.
 touches `apps/ship-service/src/travel.js` (the branch), the step 3.3
 hull/rig model (acceleration and unit helpers), and client eta previews
 (`client/js/map.js`'s `routeInfo()`).
+
+**done ✔.** the open unit call went to **m/s²**, with the conversion
+constants next to `AU` in `universe.js`. `c` stays on every route, and
+changes job: it is now the peak speed a ship must not pass, not the only
+speed it flies. a leg under the cap takes `2·√(d/a)`; a leg that reaches
+the cap coasts between the 2 burns and takes `d/c + c/a`. that second
+formula approaches `d/c` as `a` grows, so the old flat-speed model is
+this same model with an unlimited drive - a useful property, and a test
+asserts it.
+
+**the `maneuver` family got its first modules**: `maneuver.mk1`, a
+net-zero placeholder on the starter rig, and `maneuver.mk2`, gated on
+`reactor.mk2`'s power rank exactly as `cruise.mk2` is. the starter hull
+gained a `maneuver1` slot, `acceleration_base` and `acceleration_max`.
+`deriveStats` resolves the new stat through the existing `resolve`
+helper - no new arithmetic.
+
+**one thing the step plan did not predict**: `#shortestTime`'s dijkstra
+edge weight assumed travel time grows in a straight line with distance.
+it does not any more. a square root is subadditive, so a direct link now
+always beats the same distance split over 2 hops, and every "tied route"
+claim in `packages/domain/readme.md` became wrong. the weight now calls
+`legTime()` too, and the readme is rewritten.
 
 
 ### step 3.6 - universe growth, more stations

@@ -33,6 +33,9 @@ import {
     tradeExecuted,
     tradeRejected,
     marketPriceChanged,
+    messageSent,
+    messageDelivered,
+    messageSendRejected,
 } from './schemas.js'
 
 const definitions = [
@@ -60,11 +63,15 @@ const definitions = [
     tradeExecuted,
     tradeRejected,
     marketPriceChanged,
+    messageSent,
+    messageDelivered,
+    messageSendRejected,
 ]
 
 export const eventTopics = Object.freeze({
     all   : 'events.all',
     cargo : 'events.cargo',
+    comms : 'events.comms',
     market: 'events.market',
     player: 'events.player',
     ship  : 'events.ship',
@@ -113,6 +120,11 @@ export const tree = freezer({
     trade: {
         executed: tradeExecuted.slug,
         rejected: tradeRejected.slug,
+    },
+    message: {
+        sent     : messageSent.slug,
+        delivered: messageDelivered.slug,
+        send     : { rejected: messageSendRejected.slug },
     },
 })
 

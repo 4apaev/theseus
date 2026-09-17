@@ -11,7 +11,13 @@ export interface FeedOptions {
 export interface Feed {
     /** wire to `server.on('upgrade')` - answers 101 or a plain http refusal */
     handleUpgrade(rq: IncomingMessage, socket: Duplex): void
-    /** one event → one text frame: owner's sockets by payload.pid, price changes broadcast */
+    /**
+     * one event becomes one text frame.
+     * the owner sees it by payload.pid.
+     * a price change reaches every socket.
+     * a message reaches only its 2 participants, or its station's
+     * currently-docked sockets.
+     */
     push(e: AnyEventEnvelope): void
     stats(): { sockets: number }
     /** close-frame every socket (1001), stop the heartbeat */

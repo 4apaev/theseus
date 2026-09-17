@@ -1,28 +1,20 @@
 /* eslint-disable camelcase */
 
-import test   from 'node:test'
-import assert from 'node:assert/strict'
-
-import Sync from 'garage/sync'
-
-import { create } from '@theseus/auth'
-import { TIME_SCALE, universe } from '@theseus/domain'
-import { Codec, echo } from '@theseus/util'
+import test                             from 'node:test'
+import assert                           from 'node:assert/strict'
+import Sync                             from 'garage/sync'
+import * as Kafka                       from '@theseus/kafka'
+import { create }                       from '@theseus/auth'
+import { Codec, echo }                  from '@theseus/util'
+import { TIME_SCALE, universe }         from '@theseus/domain'
+import { EVT, CMD, commandTopics      } from '@theseus/contracts'
 import { acceptKey, createFrameParser } from 'garage/mw/ws'
-import {
-    createEmitter,
-    createMemoryKafka,
-    decodeTopicMessage,
-} from '@theseus/kafka'
 
 import {
-    eventTree as EVT,
-    commandTree as CMD,
-    commandTopics,
-} from '@theseus/contracts'
+    start,
+    createReplies,
+} from '@theseus/gateway'
 
-import start             from '#gateway/main.js'
-import { createReplies } from '#gateway/replies.js'
 import { seesAll       } from '#gateway/feed.js'
 
 import {
@@ -33,7 +25,7 @@ import {
 
 const SECRET = 'test-secret'
 const jwt    = create(SECRET)
-const emit   = createEmitter('player-fake')
+const emit   = Kafka.createEmitter('player-fake')
 
 // in-process stand-in for player-service: replies to register / login
 function fakePlayerService(kafka) {
@@ -42,7 +34,7 @@ function fakePlayerService(kafka) {
         topics : [ commandTopics.player ],
 
         async handler(msg) {
-            const { value: cmd } = decodeTopicMessage(msg)
+            const { value: cmd } = Kafka.decodeTopicMessage(msg)
             const { correlation_id, cmd: causation_id, payload: p } = cmd
 
             if (cmd.command_type === CMD.player.register.requested) {
@@ -94,13 +86,21 @@ function projectionPool() { /*
         'players+wallets': ([      pid ]) => ({ rows: pid === 'p1' ? [{ pid, handle: 'alice', created: 'now', balance: 1000 }] : []}),
         'players+ships'  : ([     stid ]) => ({ rows: stid ? [ TRAFFIC[ 0 ] ] : TRAFFIC }),
         'cargo+ships'    : ([ sid, pid ]) => ({ rows: [{ gid: 'ore', pid , sid, quantity: 5  }]}),
-        ships            : ([      pid ]) => ({ rows: [{
-            sid: 's1', pid, status: 'docked',
-            hull: 'starter', capacity: 20, velocity: 0.6, power: 2, power_pool: 8,
-        }]}),
+        // ships(pid) for our own p1. shipOwner resolves s2 to p2, and
+        // anything else to nothing - both reach the bare ships table.
+        ships: ([ x ]) => x === 'p1'
+            ? { rows: [{
+                sid: 's1', pid: x, status: 'docked',
+                hull: 'starter', capacity: 20, velocity: 0.6, acceleration: 0.002, power: 2, power_pool: 8,
+            }]}
+            : { rows: x === 's2' ? [{ pid: 'p2' }] : []},
         'fitted_modules+ships': ([ sid ]) => ({ rows: sid === 's1' ? [{ slot: 'power1', gid: 'reactor.mk1' }] : []}),
         market_prices    : ([     stid ]) => ({ rows: [{ gid: 'ore', stid, price_buy: 30, price_sell: 25 }]}),
         trade_history    : () => ({ rows: []}),
+        'messages+ships' : ([      pid ]) => ({ rows: pid === 'p1'
+            ? [{ mid: 'm1', from: 'p1', to: 'p2', stid: null, body: 'hi',
+                sent: 'now', deliver: 'now', delivered: null }]
+            : []}),
     })
 }
 
@@ -115,7 +115,7 @@ const otherToken = jwt.sign({ pid: 'p2', handle: 'bob' }) // another player, for
 let kafka, gw, pool
 
 test.before(async () => {
-    kafka = createMemoryKafka()
+    kafka = Kafka.createMemoryKafka()
     fakePlayerService(kafka)
     pool  = projectionPool()
     gw    = await start(kafka, { pool, secret: SECRET, port: 0, timeout: 300 })
@@ -141,7 +141,7 @@ test('POST/register replies 409 when the handle is taken', async () => {
 })
 
 test('POST/register falls back to 202 when no reply arrives', async () => {
-    const lonely = createMemoryKafka()          // no player service listening
+    const lonely = Kafka.createMemoryKafka()          // no player service listening
     const alone  = await start(lonely, { pool: fakeTablePool(), secret: SECRET, port: 0, timeout: 50 })
 
     const url = `http://127.0.0.1:${ alone.port }/register`
@@ -190,6 +190,35 @@ test('POST/travel publishes the command with pid from the token, not the body', 
     assert.equal(cmd.payload.pid, 'p1')
 })
 
+test('POST/messages resolves the recipient sid to a pid, pid from the token', async () => {
+    const rs = await Sync.post('/messages', { to: 's2', body: 'hi', pid: 'evil' }).set(bear)
+    assert.equal(rs.status, 202)
+
+    const record = kafka.messages(commandTopics.comms).at(-1)
+    const cmd = Codec.decode(record.value)
+
+    assert.equal(cmd.cmd, rs.body.cmd)
+    assert.equal(cmd.command_type, CMD.comms.send.requested)
+    assert.equal(cmd.payload.pid, 'p1')
+    assert.equal(cmd.payload.to, 'p2', 'sid s2 resolves to its pid')
+    assert.equal(cmd.payload.body, 'hi')
+})
+
+test('POST/messages replies 404 for a recipient sid nobody owns', async () => {
+    const rs = await Sync.post('/messages', { to: 'nope', body: 'hi' }).set(bear).then(echo, echo)
+    assert.equal(rs.status, 404)
+})
+
+test('POST/messages with no to publishes a station-chat command', async () => {
+    const rs = await Sync.post('/messages', { body: 'hi all' }).set(bear)
+    assert.equal(rs.status, 202)
+
+    const record = kafka.messages(commandTopics.comms).at(-1)
+    const cmd = Codec.decode(record.value)
+    assert.equal(cmd.payload.to, void 0)
+    assert.equal(cmd.payload.body, 'hi all')
+})
+
 test('POST/buy/sell publish market commands', async () => {
     const data = { gid: 'ore', sid: 's1', stid: 'st1', quantity: 5 }
     const buy  = await Sync.post('/buy',  { ...data, price_unit_max: 30 }).set(bear)
@@ -210,7 +239,7 @@ test('POST/rename publishes the command with the pid from the token', async () =
     assert.equal(rs.status, 202)
 
     const cmd = kafka.messages(commandTopics.ship)
-        .map(m => decodeTopicMessage({ value: m.value }).value)
+        .map(m => Kafka.decodeTopicMessage({ value: m.value }).value)
         .find(c => c.cmd === rs.body.cmd)
 
     assert.equal(cmd.command_type, CMD.ship.rename.requested)
@@ -229,7 +258,7 @@ test('POST/modules/install publishes the install command, pid from the token', a
     assert.equal(rs.status, 202)
 
     const cmd = kafka.messages(commandTopics.ship)
-        .map(m => decodeTopicMessage({ value: m.value }).value)
+        .map(m => Kafka.decodeTopicMessage({ value: m.value }).value)
         .find(c => c.cmd === rs.body.cmd)
 
     assert.equal(cmd.command_type, CMD.ship.module.install.requested)
@@ -242,7 +271,7 @@ test('POST/modules/remove publishes the remove command', async () => {
     assert.equal(rs.status, 202)
 
     const cmd = kafka.messages(commandTopics.ship)
-        .map(m => decodeTopicMessage({ value: m.value }).value)
+        .map(m => Kafka.decodeTopicMessage({ value: m.value }).value)
         .find(c => c.cmd === rs.body.cmd)
 
     assert.equal(cmd.command_type, CMD.ship.module.remove.requested)
@@ -400,6 +429,16 @@ test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async
     assert.equal(trades, void 0)
 })
 
+test('GET/messages returns projection rows, owner-scoped', async () => {
+    const { body: [ mssg ] } = await Sync.get('/messages').set(bear)
+    assert.equal(mssg.mid, 'm1')
+    assert.equal(mssg.from, 'p1')
+
+    const stranger = { authorization: `Bearer ${ jwt.sign({ pid: 'p9', handle: 'ghost' }) }` }
+    const rs = await Sync.get('/messages').set(stranger)
+    assert.deepEqual(rs.body, [])
+})
+
 test('GET/ships/:sid/modules returns the fitted slots, owner-scoped', async () => {
     const rs = await Sync.get('/ships/s1/modules').set(bear)
     assert.equal(rs.status, 200)
@@ -468,7 +507,7 @@ test('admin routes: players, events, inventory, rebuild', async () => {
         'market.station_inventory' : () => ({ rows: [{ gid: 'ore', stock: 160, target: 100, updated: 'now' }]}),
     })
     const rebuild = async () => 3
-    const admin   = await start(createMemoryKafka(), { pool, secret: SECRET, port: 0, rebuild })
+    const admin   = await start(Kafka.createMemoryKafka(), { pool, secret: SECRET, port: 0, rebuild })
     const base    = `http://127.0.0.1:${ admin.port }`
 
     try {
@@ -605,15 +644,18 @@ test('seesAll: admin and the owner see all, a stranger does not', () => {
     assert.equal(seesAll({}, void 0), false, 'undefined never equals undefined here')
 })
 
+// one socket, decoding every frame it receives
+async function listenOn(t) {
+    const { socket } = await wsConnect(gw.port, `?token=${ t }`)
+    const got = []
+    const parser = createFrameParser(f => got.push(Codec.decode(f.payload)))
+    socket.on('data', chunk => parser.push(chunk))
+    return { socket, got }
+}
+
 // listen on 2 sockets at once: the owner, and another player
 async function twoSockets() {
-    const rx = t => wsConnect(gw.port, `?token=${ t }`).then(({ socket }) => {
-        const got = []
-        const parser = createFrameParser(f => got.push(Codec.decode(f.payload)))
-        socket.on('data', chunk => parser.push(chunk))
-        return { socket, got }
-    })
-    return { own: await rx(token), other: await rx(otherToken) }
+    return { own: await listenOn(token), other: await listenOn(otherToken) }
 }
 
 test('ws sends ship movement to everyone, but the pid only to the owner', async () => {
@@ -655,7 +697,7 @@ test('ws sends ship created and arrived to everyone, without the pid', async () 
     await kafka.publish(emit(EVT.ship.created, {
         aggregate_id: 's1', aggregate_type: 'ship',
         payload: {
-            sid: 's1', pid: 'p1', stid: 'st1', name: 'Argo', capacity: 20, velocity: 0.6,
+            sid: 's1', pid: 'p1', stid: 'st1', name: 'Argo', capacity: 20, velocity: 0.6, acceleration: 0.002,
             hull: 'starter', rig: 1, fitted: [], power: 0, power_pool: 8,
         },
     }))
@@ -691,4 +733,67 @@ test('ws keeps a travel rejection private', async () => {
 
     own.socket.destroy()
     other.socket.destroy()
+})
+
+// ── messages: the ansible ───────────────────────────────────────────────────
+
+test('ws sends a message to its 2 participants only, never a redacted copy', async () => {
+    const { own, other } = await twoSockets()                     // p1, p2
+    const bystander = await listenOn(jwt.sign({ pid: 'p3', handle: 'eve' }))
+
+    await kafka.publish(emit(EVT.message.sent, {
+        aggregate_id: 'm1', aggregate_type: 'comms',
+        payload: {
+            mid: 'm1', from: 'p1', to: 'p2', body: 'hi',
+            sent: (new Date).toISOString(), deliver: (new Date).toISOString(),
+        },
+    }))
+
+    await waitFor(() => own.got.length && other.got.length)
+
+    assert.equal(own.got[ 0 ].payload.body, 'hi', 'the sender')
+    assert.equal(other.got[ 0 ].payload.body, 'hi', 'the recipient')
+    assert.equal(bystander.got.length, 0, 'not a participant')
+
+    own.socket.destroy()
+    other.socket.destroy()
+    bystander.socket.destroy()
+})
+
+test('ws sends station chat to the sockets docked there, and no one else', async () => {
+    const there = await twoSockets()                              // p1, p2 dock at st9
+    const away  = await listenOn(jwt.sign({ pid: 'p3', handle: 'eve' }))  // never docks there
+
+    const dock = (pid, sid) => kafka.publish(emit(EVT.ship.created, {
+        aggregate_id: sid, aggregate_type: 'ship',
+        payload: {
+            sid, pid, stid: 'st9', name: sid, capacity: 20, velocity: 0.6, acceleration: 0.002,
+            hull: 'starter', rig: 1, fitted: [], power: 0, power_pool: 8,
+        },
+    }))
+    await dock('p1', 'sA')
+    await dock('p2', 'sB')
+
+    // ship.created also broadcasts a public copy to everyone.
+    // let that noise pass, then listen for the chat line alone.
+    await waitFor(() => there.own.got.length && there.other.got.length && away.got.length)
+    there.own.got.length = there.other.got.length = away.got.length = 0
+
+    await kafka.publish(emit(EVT.message.sent, {
+        aggregate_id: 'm9', aggregate_type: 'comms',
+        payload: {
+            mid: 'm9', from: 'p1', stid: 'st9', body: 'hey',
+            sent: (new Date).toISOString(), deliver: (new Date).toISOString(),
+        },
+    }))
+
+    await waitFor(() => there.own.got.length && there.other.got.length)
+
+    assert.equal(there.own.got[ 0 ].payload.body, 'hey')
+    assert.equal(there.other.got[ 0 ].payload.body, 'hey')
+    assert.equal(away.got.length, 0, 'never docked at st9')
+
+    there.own.socket.destroy()
+    there.other.socket.destroy()
+    away.socket.destroy()
 })

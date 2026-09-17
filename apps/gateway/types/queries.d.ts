@@ -18,6 +18,8 @@ export interface ShipRow {
     years_rel : string | null
 
     velocity  : string
+    // numeric, in m/s² - pg returns it as a string
+    acceleration: string
     capacity  : number
 
     hull      : string
@@ -61,6 +63,18 @@ export interface TradeRow {
     created    : Date
 }
 
+// a message has a to and no stid. chat has a stid and no to.
+export interface MessageRow {
+    mid      : string
+    from     : string
+    to       : string | null
+    stid     : string | null
+    body     : string
+    sent     : Date
+    deliver  : Date
+    delivered: Date | null
+}
+
 // public ship traffic - no pid, no capacity, no velocity.
 // stid is null while the ship is in transit.
 export interface TrafficRow {
@@ -98,6 +112,12 @@ export interface Queries {
     trades(pid: string): Promise<TradeRow[]>
     market(stid: string): Promise<MarketPriceRow[]>
     cargo(sid: string, pid: string): Promise<CargoRow[]>
+
+    /** the pid owning sid - resolves a message's public target to comms-service's own key */
+    shipOwner(sid: string): Promise<string | undefined>
+
+    /** sent by pid, received by pid, or chat at pid's current dock */
+    messages(pid: string): Promise<MessageRow[]>
 
     /** every ship when stid is omitted, the ships docked at stid otherwise */
     traffic(stid?: string): Promise<TrafficRow[]>

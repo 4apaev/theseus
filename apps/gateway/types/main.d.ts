@@ -17,6 +17,7 @@ export {
     type CargoRow,
     type MarketPriceRow,
     type TradeRow,
+    type MessageRow,
     type TrafficRow,
     type EventLogRow,
     type InventoryRow,

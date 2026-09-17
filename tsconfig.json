@@ -3,6 +3,7 @@
         "types": [
             "pg",
             "node",
+            "./apps/comms-service/types/main.d.ts",
             "./apps/gateway/types/main.d.ts",
             "./apps/market-service/types/main.d.ts",
             "./apps/player-service/types/main.d.ts",

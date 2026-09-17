@@ -1,3 +1,12 @@
+export type {
+    Pool,
+    Client,
+    Connection,
+    QueryArrayResult,
+    QueryResult,
+    Result,
+} from 'pg'
+
 export {
     type IInbox,
     type Inbox as TInbox,

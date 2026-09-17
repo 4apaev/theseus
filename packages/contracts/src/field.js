@@ -21,7 +21,8 @@ export const field = Object.freeze({
     nonNegativeNumber(x)       { return Is.n(x) && x >= 0 },
     positiveInteger(x)         { return Is.N(x) && x > 0 },
     positiveNumber(x)          { return Is.n(x) && x > 0 },
-    velocity(x)                { return Is.n(x) && x > 0 && x < 1 },
+    velocity(x)                { return Is.n(x) && x > 0 && x < 1 },  // velocity is a fraction of light speed.
+    acceleration(x)            { return field.positiveNumber(x) },    // acceleration is m/s², so it takes any positive number.
     shipName(x)                { return isNonEmptyString(x) && SHIP_NAME.test(x) && x.trim() === x },
     arrayOf,
     nonEmptyArrayOf,

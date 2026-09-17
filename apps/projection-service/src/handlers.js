@@ -20,5 +20,7 @@ export function createHandlers(pool, transact) {
         [ EVT.cargo.module.exchanged ]: Q.cargoModuleExchanged,
         [ EVT.trade.executed         ]: Q.tradeExecuted,
         [ EVT.market.price.changed   ]: Q.priceChanged,
+        [ EVT.message.sent           ]: Q.messageSent,
+        [ EVT.message.delivered      ]: Q.messageDelivered,
     })
 }

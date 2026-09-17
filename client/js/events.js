@@ -153,12 +153,13 @@ function shipRigChanged(p) {
     if (!mine(p)) return
 
     Object.assign(state.ship, {
-        hull      : p.hull,
-        rig       : p.rig,
-        capacity  : p.capacity,
-        velocity  : p.velocity,
-        power     : p.power,
-        power_pool: p.power_pool,
+        hull        : p.hull,
+        rig         : p.rig,
+        capacity    : p.capacity,
+        velocity    : p.velocity,
+        acceleration: p.acceleration,
+        power       : p.power,
+        power_pool  : p.power_pool,
     })
     state.fitted = p.fitted
 }

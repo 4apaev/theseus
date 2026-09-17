@@ -19,6 +19,7 @@ import { createQueries } from './queries.js'
 import { createReplies } from './replies.js'
 import { rebuild       } from '../../../scripts/rebuild.js'
 
+export * from './feed.js'
 export { createRoutes, createQueries, createReplies }
 export const service = 'gateway'
 
@@ -68,6 +69,7 @@ export async function start(client, opt = {}) {
             eventTopics.ship,
             eventTopics.cargo,
             eventTopics.market,
+            eventTopics.comms,
         ],
         handler(record) {
             const { value } = decodeTopicMessage(record)

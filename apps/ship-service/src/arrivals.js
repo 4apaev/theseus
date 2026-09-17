@@ -22,7 +22,7 @@ function arriveDue(pool, transact) {
                    updated = now()
              WHERE status = 'transit'
                AND arrives <= now()
-         RETURNING sid, pid, stid, arrived, velocity, manifest, causation_id, correlation_id
+         RETURNING sid, pid, stid, arrived, velocity, acceleration, manifest, causation_id, correlation_id
         `)
 
         // arrived comes back as a Date - pool.js's oid 1114 parser, not a string;
@@ -52,7 +52,15 @@ function arriveDue(pool, transact) {
 async function advanceManifest(client, ships) {
     for (const ship of ships) {
         const [ to, ...manifest ] = ship.manifest
-        const { arrives, years_abs, years_rel } = travel(ship.stid, to, ship.velocity)
+
+        // pg numeric comes back as a string
+        const { arrives, years_abs, years_rel } = travel(
+            ship.stid,
+            to,
+            Number(ship.velocity),
+            Number(ship.acceleration),
+        )
+
         const departed = (new Date).toISOString()
 
         await client.query(`

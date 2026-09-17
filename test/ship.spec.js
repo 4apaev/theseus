@@ -1,7 +1,7 @@
 import test           from 'node:test'
 import assert         from 'node:assert/strict'
 import { setTimeout } from 'node:timers/promises'
-import { TIME_SCALE, universe } from '@theseus/domain'
+import { TIME_SCALE, universe, legTime } from '@theseus/domain'
 import {
     makeCmd,
     fakeClient,
@@ -22,7 +22,9 @@ const dockedShip = (over = {}) => () => ({ rows: [{
     name    : 'far treasure',
     status  : 'docked',
     capacity: 20,
-    velocity: '0.6', // pg numeric comes back as string
+    // pg numeric comes back as string
+    velocity    : '0.6',
+    acceleration: '0.002',
     hull    : 'starter',
     rig     : 1,
     ...over,
@@ -53,7 +55,7 @@ test('distance throws on unknown route', () => {
 })
 
 test('travel computes absolute and relativistic years', () => {
-    const t   = travel('sol.outpost', 'alpha.exchange', 0.6)
+    const t   = travel('sol.outpost', 'alpha.exchange', 0.6, 0.002)
     const abs = 4.32 / 0.6
 
     assert.equal(t.years_abs, abs)
@@ -62,7 +64,7 @@ test('travel computes absolute and relativistic years', () => {
 })
 
 test('travel converts common-frame years to game milliseconds', () => {
-    const t = travel('sol.outpost', 'barnards.port', 0.6)
+    const t = travel('sol.outpost', 'barnards.port', 0.6, 0.002)
 
     assert.equal(t.ms, 5.95 / 0.6 * TIME_SCALE * 1000)
     assert.ok(new Date(t.arrives) > new Date, 'arrives in the future')
@@ -70,23 +72,47 @@ test('travel converts common-frame years to game milliseconds', () => {
 
 // ── the route speed limit ────────────────────────────────────────────────────
 
-test('an in-system route flies at its own speed limit, not the ship velocity', () => {
+test('an in-system route accelerates and decelerates, it does not hold one speed', () => {
     const ly = universe.distance('sol.venus', 'sol.mars')
     const c  = universe.speedLimit('sol.venus', 'sol.mars')
-    const t  = travel('sol.venus', 'sol.mars', 0.6)
+    const t  = travel('sol.venus', 'sol.mars', 0.6, 0.002)
 
-    assert.equal(t.years_abs, ly / c, 'the route caps the ship')
+    assert.equal(t.years_abs, legTime(ly, c, 0.6, 0.002))
+    assert.ok(t.years_abs > ly / c, 'a real burn costs more time than the flat cap')
     assert.ok(t.years_abs > 0.1, `a short hop still takes game time, got ${ t.years_abs }`)
 })
 
+test('a stronger maneuver drive shortens an in-system hop', () => {
+    const slow = travel('sol.venus', 'sol.mars', 0.6, 0.002)
+    const fast = travel('sol.venus', 'sol.mars', 0.6, 0.006)
+
+    assert.ok(fast.years_abs < slow.years_abs, 'more thrust arrives sooner')
+})
+
+test('an unlimited drive reaches the flat speed cap, and never passes it', () => {
+    const ly = universe.distance('sol.venus', 'sol.mars')
+    const c  = universe.speedLimit('sol.venus', 'sol.mars')
+    const t  = travel('sol.venus', 'sol.mars', 0.6, 1e12)
+
+    assert.ok(Math.abs(t.years_abs - ly / c) < 1e-6, 'the old model is this one with an infinite drive')
+})
+
+test('a maneuver drive leaves an interstellar leg alone', () => {
+    const weak   = travel('sol.outpost', 'alpha.exchange', 0.6, 0.002)
+    const strong = travel('sol.outpost', 'alpha.exchange', 0.6, 0.006)
+
+    assert.equal(weak.years_abs, strong.years_abs)
+    assert.equal(weak.years_abs, 4.32 / 0.6)
+})
+
 test('a sublight hop ages the pilot and the galaxy by the same amount', () => {
-    const t = travel('sol.venus', 'sol.mars', 0.6)
-    assert.ok(t.years_abs - t.years_rel < 1e-6, 'no dilation below light speed')
+    const t = travel('sol.venus', 'sol.mars', 0.6, 0.002)
+    assert.equal(t.years_abs, t.years_rel, 'no dilation below light speed')
 })
 
 test('a route between stars leaves the speed to the ship', () => {
-    const fast = travel('sol.outpost', 'alpha.exchange', 0.9)
-    const slow = travel('sol.outpost', 'alpha.exchange', 0.3)
+    const fast = travel('sol.outpost', 'alpha.exchange', 0.9, 0.002)
+    const slow = travel('sol.outpost', 'alpha.exchange', 0.3, 0.002)
 
     assert.equal(fast.years_abs, 4.32 / 0.9)
     assert.ok(fast.years_abs < slow.years_abs, 'a faster ship arrives sooner')
@@ -195,14 +221,17 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
     assert.ok(insert, 'ship inserted')
     assert.equal(insert.params[ 1 ], 'p1')
     assert.equal(insert.params[ 2 ], 'sol.outpost')
-    assert.equal(insert.params[ 6 ], 'starter', 'hull')
-    assert.equal(insert.params[ 7 ], 1, 'rig')
+    assert.equal(insert.params[ 6 ], 0.002, 'acceleration')
+    assert.equal(insert.params[ 7 ], 'starter', 'hull')
+    assert.equal(insert.params[ 8 ], 1, 'rig')
 
     const fitted = client.log.filter(({ sql }) => sql.includes('INSERT INTO fitted_modules'))
     assert.deepEqual(fitted.map(q => q.params.slice(1)), [
         [ 'power1', 'reactor.mk1' ],
         [ 'cruise1', 'cruise.mk1' ],
+        [ 'maneuver1', 'maneuver.mk1' ],
         [ 'cargo1', 'cargo.mk1' ],
+        [ 'utility1', 'ansible.mk1' ],
     ])
 
     const [ e ] = outboxEvents(client)
@@ -216,14 +245,17 @@ test('playerCreated seeds the starter ship and emits ship.created', async () => 
     assert.ok(e.payload.name.length > 0, 'ship gets a name')
     assert.equal(e.payload.capacity, 20)
     assert.equal(e.payload.velocity, 0.6)
+    assert.equal(e.payload.acceleration, 0.002)
     assert.equal(e.payload.hull, 'starter')
     assert.equal(e.payload.rig, 1)
     assert.deepEqual(e.payload.fitted, [
         { slot: 'power1', gid: 'reactor.mk1' },
         { slot: 'cruise1', gid: 'cruise.mk1' },
+        { slot: 'maneuver1', gid: 'maneuver.mk1' },
         { slot: 'cargo1', gid: 'cargo.mk1' },
+        { slot: 'utility1', gid: 'ansible.mk1' },
     ])
-    assert.equal(e.payload.power, 2)
+    assert.equal(e.payload.power, 4)
     assert.equal(e.payload.power_pool, 8)
 })
 
@@ -355,7 +387,7 @@ const pendingOperation = (over = {}) => () => ({ rows: [{
 }]})
 
 const updatedShip = (over = {}) => () => ({ rows: [{
-    sid: 's1', hull: 'starter', rig: 2, capacity: 20, velocity: '0.6', ...over,
+    sid: 's1', hull: 'starter', rig: 2, capacity: 20, velocity: '0.6', acceleration: '0.002', ...over,
 }]})
 
 const unread = () => ({ rows: []})

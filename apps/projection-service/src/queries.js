@@ -42,18 +42,19 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
 
         async shipCreated({ payload: p }) {
             await sql`
-                INSERT INTO ships (sid, pid, stid, name, capacity, velocity, hull, rig, power, power_pool, status)
+                INSERT INTO ships (sid, pid, stid, name, capacity, velocity, acceleration, hull, rig, power, power_pool, status)
                 VALUES (
-                    ${ p.sid        },
-                    ${ p.pid        },
-                    ${ p.stid       },
-                    ${ p.name       },
-                    ${ p.capacity   },
-                    ${ p.velocity   },
-                    ${ p.hull       },
-                    ${ p.rig        },
-                    ${ p.power      },
-                    ${ p.power_pool },
+                    ${ p.sid          },
+                    ${ p.pid          },
+                    ${ p.stid         },
+                    ${ p.name         },
+                    ${ p.capacity     },
+                    ${ p.velocity     },
+                    ${ p.acceleration },
+                    ${ p.hull         },
+                    ${ p.rig          },
+                    ${ p.power        },
+                    ${ p.power_pool   },
                     'docked'
                 )
                 ON CONFLICT (sid)
@@ -75,13 +76,14 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
                 const tsql = Query(client)
                 const { rowCount } = await tsql`
                     UPDATE ships
-                       SET hull       = ${ p.hull },
-                           rig        = ${ p.rig },
-                           capacity   = ${ p.capacity },
-                           velocity   = ${ p.velocity },
-                           power      = ${ p.power },
-                           power_pool = ${ p.power_pool },
-                           updated    = now()
+                       SET hull         = ${ p.hull },
+                           rig          = ${ p.rig },
+                           capacity     = ${ p.capacity },
+                           velocity     = ${ p.velocity },
+                           acceleration = ${ p.acceleration },
+                           power        = ${ p.power },
+                           power_pool   = ${ p.power_pool },
+                           updated      = now()
                      WHERE sid = ${ p.sid }
                        AND rig < ${ p.rig }`
 
@@ -194,6 +196,35 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
                         SET price_buy  = $3,
                             price_sell = $4,
                             updated    = now()`
+        },
+
+        /*
+            chat has no delay.
+            message.sent alone carries no delivered time.
+            so a station chat row (stid) lands as delivered here.
+            a message stays null until message.delivered.
+        */
+        messageSent({ payload: p }) {
+            return sql`
+                INSERT INTO messages (mid, "from", "to", stid, body, sent, deliver, delivered)
+                VALUES (
+                    ${ p.mid     },
+                    ${ p.from    },
+                    ${ p.to      },
+                    ${ p.stid    },
+                    ${ p.body    },
+                    ${ p.sent    },
+                    ${ p.deliver },
+                    ${ p.to ? null : p.sent })
+                ON CONFLICT (mid)
+                    DO NOTHING`
+        },
+
+        messageDelivered({ payload: { mid, delivered }}) {
+            return sql`
+                UPDATE messages
+                   SET delivered = ${ delivered }
+                 WHERE mid = ${ mid }`
         },
     }
 }

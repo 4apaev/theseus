@@ -35,7 +35,7 @@ function shipCreated(sid, pid, stid = 'sol.outpost') {
         aggregate_version: 1,
         producer         : 'integration-test',
         payload          : {
-            sid, pid, stid, name: 'far treasure', capacity: 20, velocity: 0.6,
+            sid, pid, stid, name: 'far treasure', capacity: 20, velocity: 0.6, acceleration: 0.002,
             hull: 'starter', rig: 1, fitted: [], power: 0, power_pool: 8,
         },
     }))

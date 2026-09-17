@@ -150,6 +150,7 @@ test('event envelope validates event-specific payloads', () => {
             hull      : 'starter',
             rig       : 1,
             velocity  : 0.6,
+            acceleration: 0.002,
             capacity  : 20,
             power     : 1,
             power_pool: 8,
@@ -284,7 +285,7 @@ test('ship.rig.changed is a valid event, full snapshot included', () => {
                 { slot: 'cruise1', gid: 'cruise.mk2' },
                 { slot: 'cargo1', gid: 'cargo.mk1' },
             ],
-            capacity: 20, velocity: 0.648, power: 4, power_pool: 12,
+            capacity: 20, velocity: 0.648, acceleration: 0.002, power: 4, power_pool: 12,
         },
     })
     assert.equal(evt.event_type, eventTypes.ship_rig_changed_v1)
@@ -302,7 +303,7 @@ test('ship.rig.changed rejects a malformed fitted slot', () => {
             operation: 'op_1', pid: 'player_1', sid: 'ship_1',
             hull: 'starter', rig: 2, slot: 'cruise1',
             fitted: [{ slot: 'cruise1' }], // no gid
-            capacity: 20, velocity: 0.6, power: 2, power_pool: 8,
+            capacity: 20, velocity: 0.6, acceleration: 0.002, power: 2, power_pool: 8,
         },
     }), /fitted/)
 })
@@ -352,6 +353,63 @@ test('cargo.module.exchanged and cargo.module.exchange.rejected are valid events
         payload          : { operation: 'op_1', pid: 'player_1', sid: 'ship_1', reasons: [ 'over capacity' ]},
     })
     assert.equal(rejected.event_type, eventTypes.cargo_module_exchange_rejected_v1)
+})
+
+test('message.send.requested is valid for a message and for chat', () => {
+    const msg = createCommandEnvelope({
+        cmd         : 'cmd_1',
+        command_type: commandTypes.comms_send_requested_v1,
+        requested_by: 'player_1',
+        payload     : { pid: 'player_1', to: 'player_2', body: 'hello' },
+    })
+    assert.equal(msg.command_type, commandTypes.comms_send_requested_v1)
+
+    // chat names no recipient. comms-service derives the
+    // station itself, from the sender's own current position.
+    const chat = createCommandEnvelope({
+        cmd         : 'cmd_2',
+        command_type: commandTypes.comms_send_requested_v1,
+        requested_by: 'player_1',
+        payload     : { pid: 'player_1', body: 'hello, station' },
+    })
+    assert.equal(chat.payload.to, void 0)
+})
+
+test('message.sent, message.delivered and message.send.rejected are valid events', () => {
+    const now = (new Date).toISOString()
+
+    const sent = createEventEnvelope({
+        aggregate_id     : 'player_1',
+        aggregate_type   : 'comms',
+        aggregate_version: 1,
+        eid              : 'eid_1',
+        event_type       : eventTypes.comms_sent_v1,
+        producer         : 'comms-service',
+        payload          : { mid: 'msg_1', from: 'player_1', to: 'player_2', body: 'hello', sent: now, deliver: now },
+    })
+    assert.equal(sent.event_type, eventTypes.comms_sent_v1)
+
+    const delivered = createEventEnvelope({
+        aggregate_id     : 'player_1',
+        aggregate_type   : 'comms',
+        aggregate_version: 1,
+        eid              : 'eid_2',
+        event_type       : eventTypes.comms_delivered_v1,
+        producer         : 'comms-service',
+        payload          : { mid: 'msg_1', from: 'player_1', to: 'player_2', body: 'hello', delivered: now },
+    })
+    assert.equal(delivered.event_type, eventTypes.comms_delivered_v1)
+
+    const rejected = createEventEnvelope({
+        aggregate_id     : 'player_1',
+        aggregate_type   : 'comms',
+        aggregate_version: 1,
+        eid              : 'eid_3',
+        event_type       : eventTypes.comms_send_rejected_v1,
+        producer         : 'comms-service',
+        payload          : { pid: 'player_1', reason: 'unknown recipient' },
+    })
+    assert.equal(rejected.event_type, eventTypes.comms_send_rejected_v1)
 })
 
 // ── helpers ─────────────────────────────────────────────────────────────────

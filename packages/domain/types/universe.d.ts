@@ -41,6 +41,7 @@ export interface Ship {
     name: string
     stid: string
     velocity: number
+    acceleration: number
     capacity: number
 }
 
@@ -56,13 +57,14 @@ export declare class Universe {
     neighbors(stid: string): Map<string, Edge>
     route(from: string, to: string): Edge
     distance(from: string, to: string): number
+    distanceTo(from: string, to: string): number
     speedLimit(from: string, to: string): number
     /**
-     *  dijkstra, weighted by travel time - `ly / min(velocity, c)`,
-     *  not by `ly` alone. the winning route can change with the ship.
+     *  dijkstra, weighted by travel time - `legTime()`, not by `ly`
+     *  alone. the winning route can change with the ship.
      *  returns the ordered stids from `from` to `to`, both included,
      *  or null when no route connects them. */
-    path(from: string, to: string, velocity: number): string[] | undefined
+    path(from: string, to: string, velocity: number, acceleration: number): string[] | undefined
     /** plain json shape - both directions of every link, one row each */
     toJSON(): UniverseJSON
 }
@@ -79,8 +81,15 @@ export interface Good {
 }
 
 export declare const TIME_SCALE: number
+export declare const ANSIBLE_SPEED: number
 export declare const INTEREST_RATE: number
 export declare const STARTER_CREDITS: number
+
+/**
+ *  the time of one leg, in years. an interstellar route (`c === 1`)
+ *  holds a constant velocity. an in-system route accelerates to the
+ *  midpoint, flips, then decelerates, and caps its peak speed at `c`. */
+export declare function legTime(ly: number, c: number, velocity: number, acceleration: number): number
 
 export declare const currency: '₢'
 export declare const universeData: UniverseJSON & {
@@ -90,8 +99,11 @@ export declare const universeData: UniverseJSON & {
     starter: Ship
     constants: {
         time_scale: number
+        ansible_speed: number
         interest_rate: number
         starter_credits: number
+        light_speed: number
+        year_seconds: number
         currency: '₢'
     }
 }
@@ -104,6 +116,8 @@ export declare const goods: Readonly<Record<
     | 'reactor.mk2'
     | 'cruise.mk1'
     | 'cruise.mk2'
+    | 'maneuver.mk1'
+    | 'maneuver.mk2'
     | 'cargo.mk1'
     | 'cargo.mk2',
     Good

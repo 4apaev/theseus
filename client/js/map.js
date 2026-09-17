@@ -193,12 +193,31 @@ function routeLines(edges, pos) {
     }).join('')
 }
 
+/*
+    the same model as the server's legTime().
+    keep the 2 in step, or the preview shows a false eta.
+*/
+function legTime(route, ship) {
+    const { light_speed, year_seconds } = state.universe.constants
+
+    if (route.c >= 1) return route.ly / Math.min(ship.velocity, route.c)
+
+    const a = Number(ship.acceleration)
+    const d = route.ly * light_speed * year_seconds  // metres
+    const v = route.c * light_speed                  // m/s
+
+    const seconds = Math.sqrt(a * d) <= v
+        ? 2 * Math.sqrt(d / a)
+        : d / v + v / a
+
+    return seconds / year_seconds
+}
+
 function routeInfo(route, ship) {
     const { time_scale, interest_rate } = state.universe.constants
-    const v = Math.min(ship.velocity, route.c)
 
-    const abs  = route.ly / v
-    const rel  = abs * Math.sqrt(1 - v * v)
+    const abs  = legTime(route, ship)
+    const rel  = route.c < 1 ? abs : abs * Math.sqrt(1 - ship.velocity * ship.velocity)
     const secs = Math.round(abs * time_scale)
     const cost = Number(state.me?.balance ?? 0) * (Math.pow(1 + interest_rate, abs) - 1)
 

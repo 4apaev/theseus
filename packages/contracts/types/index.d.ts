@@ -9,6 +9,7 @@ export {
     type WalletTransactionRequestPayload,
 
     tree as commandTree,
+    tree as CMD,
 
     commandTopics,
     commandDefinition,
@@ -39,6 +40,7 @@ export {
     type WalletTransactionPayload,
 
     tree as eventTree,
+    tree as EVT,
 
     eventTopics,
     eventDefinition,

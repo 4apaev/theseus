@@ -19,7 +19,7 @@ export function createQueries(pool) {
             const { rows } = await sql`
                 SELECT sid, name, status, stid, "from", "to",
                        departs, arrives, arrived,
-                       capacity, velocity, hull, rig, power, power_pool,
+                       capacity, velocity, acceleration, hull, rig, power, power_pool,
                        years_abs, years_rel, updated
                   FROM ships
                  WHERE pid = ${ pid }
@@ -67,6 +67,40 @@ export function createQueries(pool) {
                   FROM trade_history
                  WHERE pid = ${ pid }
                  ORDER BY created DESC
+                 LIMIT 100`
+            return rows
+        },
+
+        /*
+            a message's `to` is a pid, but the client
+            only ever sees a sid - traffic and port
+            never publish a pid, by design.
+            the route resolves one from the other,
+            before it fires the command.
+        */
+        async shipOwner(sid) {
+            const { rows: [ row ] } = await sql`
+                SELECT pid
+                  FROM ships
+                 WHERE sid = ${ sid }`
+            return row?.pid
+        },
+
+        /*
+            sent by the caller, received by the caller,
+            or station chat at the caller's current dock.
+            a subquery on ships finds that dock.
+            a player with no docked ship sees no station chat.
+            such a player still sees direct messages.
+        */
+        async messages(pid) {
+            const { rows } = await sql`
+                SELECT *
+                  FROM messages
+                 WHERE "from" = ${ pid }
+                    OR "to" = ${ pid }
+                    OR stid = (SELECT stid FROM ships WHERE pid = ${ pid } AND status = 'docked')
+                 ORDER BY sent DESC
                  LIMIT 100`
             return rows
         },
