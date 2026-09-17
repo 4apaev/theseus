@@ -104,6 +104,7 @@ export interface EventPayloads {
         sid: string
         stid: string
         velocity: number
+        acceleration: number
         hull: string
         rig: number
         fitted: FittedSlot[]
@@ -153,6 +154,7 @@ export interface EventPayloads {
         fitted: FittedSlot[]
         capacity: number
         velocity: number
+        acceleration: number
         power: number
         power_pool: number
     }

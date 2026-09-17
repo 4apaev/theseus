@@ -38,7 +38,7 @@ function shipCreated(sid, pid, stid, fitted) {
         producer         : 'integration-test',
         payload          : {
             sid, pid, stid, fitted,
-            name: 'far treasure', capacity: 20, velocity: 0.6,
+            name: 'far treasure', capacity: 20, velocity: 0.6, acceleration: 0.002,
             hull: 'starter', rig: 1, power: 2, power_pool: 8,
         },
     }))
@@ -179,7 +179,7 @@ test('a fitted transceiver removed on refit blocks the next message', async () =
         producer         : 'integration-test',
         payload          : {
             pid, sid, slot: 'utility1', fitted: NO_ANSIBLE,
-            capacity: 20, velocity: 0.6, hull: 'starter', rig: 2,
+            capacity: 20, velocity: 0.6, acceleration: 0.002, hull: 'starter', rig: 2,
             operation: guid('refit'), outgoing: 'ansible.mk1',
             power: 1, power_pool: 8,
         },

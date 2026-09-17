@@ -11,11 +11,11 @@ export async function renameShip(client, sid, pid, name) {
     return row
 }
 
-export function insertShip(client, { sid, pid, stid, name, capacity, velocity, hull, rig }) {
+export function insertShip(client, { sid, pid, stid, name, capacity, velocity, acceleration, hull, rig }) {
     return client.query(`
-        INSERT INTO ships (sid, pid, stid, name, capacity, velocity, hull, rig)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, [ sid, pid, stid, name, capacity, velocity, hull, rig ])
+        INSERT INTO ships (sid, pid, stid, name, capacity, velocity, acceleration, hull, rig)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [ sid, pid, stid, name, capacity, velocity, acceleration, hull, rig ])
 }
 
 export async function getShip(client, sid) {
@@ -30,16 +30,17 @@ export async function lockShip(client, sid) {
 }
 
 // rig increments atomically - no separate read to race against.
-export async function updateShipRig(client, sid, { capacity, velocity }) {
+export async function updateShipRig(client, sid, { capacity, velocity, acceleration }) {
     const { rows: [ row ] } = await client.query(`
         UPDATE ships
-           SET rig      = rig + 1,
-               capacity = $2,
-               velocity = $3,
-               updated  = now()
+           SET rig          = rig + 1,
+               capacity     = $2,
+               velocity     = $3,
+               acceleration = $4,
+               updated      = now()
          WHERE sid = $1
      RETURNING *
-    `, [ sid, capacity, velocity ])
+    `, [ sid, capacity, velocity, acceleration ])
     return row
 }
 

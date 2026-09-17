@@ -19,7 +19,7 @@ export function createQueries(pool) {
             const { rows } = await sql`
                 SELECT sid, name, status, stid, "from", "to",
                        departs, arrives, arrived,
-                       capacity, velocity, hull, rig, power, power_pool,
+                       capacity, velocity, acceleration, hull, rig, power, power_pool,
                        years_abs, years_rel, updated
                   FROM ships
                  WHERE pid = ${ pid }

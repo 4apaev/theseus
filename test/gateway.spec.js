@@ -91,7 +91,7 @@ function projectionPool() { /*
         ships: ([ x ]) => x === 'p1'
             ? { rows: [{
                 sid: 's1', pid: x, status: 'docked',
-                hull: 'starter', capacity: 20, velocity: 0.6, power: 2, power_pool: 8,
+                hull: 'starter', capacity: 20, velocity: 0.6, acceleration: 0.002, power: 2, power_pool: 8,
             }]}
             : { rows: x === 's2' ? [{ pid: 'p2' }] : []},
         'fitted_modules+ships': ([ sid ]) => ({ rows: sid === 's1' ? [{ slot: 'power1', gid: 'reactor.mk1' }] : []}),
@@ -697,7 +697,7 @@ test('ws sends ship created and arrived to everyone, without the pid', async () 
     await kafka.publish(emit(EVT.ship.created, {
         aggregate_id: 's1', aggregate_type: 'ship',
         payload: {
-            sid: 's1', pid: 'p1', stid: 'st1', name: 'Argo', capacity: 20, velocity: 0.6,
+            sid: 's1', pid: 'p1', stid: 'st1', name: 'Argo', capacity: 20, velocity: 0.6, acceleration: 0.002,
             hull: 'starter', rig: 1, fitted: [], power: 0, power_pool: 8,
         },
     }))
@@ -767,7 +767,7 @@ test('ws sends station chat to the sockets docked there, and no one else', async
     const dock = (pid, sid) => kafka.publish(emit(EVT.ship.created, {
         aggregate_id: sid, aggregate_type: 'ship',
         payload: {
-            sid, pid, stid: 'st9', name: sid, capacity: 20, velocity: 0.6,
+            sid, pid, stid: 'st9', name: sid, capacity: 20, velocity: 0.6, acceleration: 0.002,
             hull: 'starter', rig: 1, fitted: [], power: 0, power_pool: 8,
         },
     }))

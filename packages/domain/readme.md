@@ -23,7 +23,7 @@
     - `Universe` - two levels: `systems` (stars) hold `nodes` (stations),
       `edges` is the undirected adjacency between stations
         - `system(sysid, meta)` / `node(stid, meta)` / `has` / `neighbors`
-        - `link(a, b, ly, c)` - `c` is the speed limit of the route, in
+        - `link(a, b, ly, c)` - `c` is the peak speed of the route, in
           fractions of light speed. `1` lets the ship use its own velocity
         - `route(from, to)` → `{ ly, c }` / `distance(from, to)` → `ly` /
           `speedLimit(from, to)` → `c`
@@ -32,10 +32,13 @@
         - `toJSON()` → `{ systems, stations, routes }` - plain wire shape,
           both directions of every link as its own row (gateway's
           `GET /universe`)
-        - `path(from, to, velocity)` → ordered stids, `from` and `to`
-          both included, or `undefined` when nothing connects them - dijkstra,
-          weighted by travel time (`ly / min(velocity, c)`), not by `ly`
-          alone, so the winning route can change with the ship
+        - `path(from, to, velocity, acceleration)` → ordered stids, `from`
+          and `to` both included, or `undefined` when nothing connects them -
+          dijkstra, weighted by `legTime()`, not by `ly` alone, so the
+          winning route can change with the ship
+        - `legTime(ly, c, velocity, acceleration)` → years for one leg.
+          an interstellar route holds one speed. an in-system route
+          accelerates, then decelerates - see "the 2 travel models" below
     - `universe`    - the known universe singleton, 5 systems, 10 stations,
       15 links, 30 directed routes
     - `goods`       - `{ gid: { name, price_base, elasticity, kind, volume } }` -
@@ -125,20 +128,26 @@ every station exports one good cheap (`↑ produces`) and craves another
 (`↓ consumes`), so profitable routes exist in every direction. whether a run
 profits after `capitalCost` of travel time - that's the game.
 
-**a straight line inside Sol is usually not a shortcut, but it can be.**
-every in-system distance is `|radius_a - radius_b|`, so every station sits
-on one line, at its own distance from Sol, in this order: Mercury, Venus,
-Outpost, Mars, Ganymede, Titan. when a 3rd station sits between the 2 you
-are comparing, a direct link costs exactly what the long way costs:
-titan↔outpost (8.537 AU) equals titan→mars→outpost added up, since Mars
-sits between them - and the same is true of mars↔titan against
-mars→ganymede→titan. `path()` finds no shortcut on either pair, and
-returns one of the tied routes - which one is not meaningful, they cost
-the same. but outpost↔mercury is a real shortcut (0.613 AU direct, 1.661
-AU the long way through Venus and Mars), because Outpost sits between
-Venus and Mars, not beyond either one - so no 3rd station lies between
-Outpost and Mercury. the stars are also not on one line, so `path()` has
-real work there too - `sol.mercury` to `sirius.gate` comes back
+**a straight line inside Sol always wins on time, and sometimes on
+distance too.** every in-system distance is `|radius_a - radius_b|`, so
+every station sits on one line, at its own distance from Sol, in this
+order: Mercury, Venus, Outpost, Mars, Ganymede, Titan. when a 3rd station
+sits between the 2 you are comparing, a direct link covers exactly the
+distance the long way covers: titan↔outpost (8.537 AU) equals
+titan→mars→outpost added up, since Mars sits between them - and the same
+is true of mars↔titan against mars→ganymede→titan.
+
+equal distance is not equal time. a ship stops at every station on its
+route, then accelerates again from rest. an in-system leg costs roughly
+`2·√(d/a)`, and a square root is subadditive, so 2 legs always cost more
+than 1 leg of the same total distance. `path()` takes the direct link on
+both pairs.
+
+outpost↔mercury is shorter as well as faster (0.613 AU direct, 1.661 AU
+the long way through Venus and Mars), because Outpost sits between Venus
+and Mars, not beyond either one - so no 3rd station lies between Outpost
+and Mercury. the stars are also not on one line, so `path()` has real
+work there too - `sol.mercury` to `sirius.gate` comes back
 `sol.outpost → alpha.exchange → sirius.gate`, the 2-hop route, never the
 3-hop one through Barnards Star and Wolf 359.
 
@@ -161,19 +170,37 @@ really is 7.80 ly from Wolf 359 and 8.60 ly from Sirius, both a straight
 line. `path()` picks the multi-hop route, so a player never has to plan the
 detour by hand.
 
-### the route speed limit
+### the 2 travel models
 
-an in-system route caps the ship at `0.00008c`. this is 24 km/s, or 1.5 times
-the speed of Voyager 2.
+`legTime(ly, c, velocity, acceleration)` holds both. the route's own `c`
+picks between them.
 
-the cap keeps a short hop from ending before it starts. Venus to Mars at 0.6c
-takes 0.0004 game seconds. at 24 km/s the same trip takes 3 seconds. Mars to
-Titan, the longest hop in Sol, takes 32 seconds - still an order of magnitude
-under a trip between stars.
+**between stars, `c` is 1.** the ship holds its own velocity for the whole
+leg, and the leg takes `ly / velocity`. this is Krugman's own
+simplification - see
+[The.Theory.of.Interstellar.Trade.md](../../docs/The.Theory.of.Interstellar.Trade.md).
+the pilot ages less than the galaxy.
 
-time dilation follows the speed the ship really flies. a sublight hop ages the
-pilot and the galaxy by the same amount. only a trip between stars costs the
-pilot less time than the clock.
+**inside a system, `c` is `0.00008`** - 24 km/s, or 1.5 times the speed of
+Voyager 2. the ship accelerates to the midpoint, flips, then decelerates.
+this is a brachistochrone trajectory. `a` comes from the hull and the
+fitted maneuver drive.
+
+the peak speed is `√(a·d)`. a leg that stays under `c` takes `2·√(d/a)`.
+a leg that reaches `c` coasts between the 2 burns, and takes `d/c + c/a`.
+the coast formula approaches `d/c` as `a` grows, so the old flat-speed
+model is this same model with an unlimited drive.
+
+the cap keeps a strong drive from ending a short hop at once. it also
+holds every in-system speed far below light, so an in-system leg ages the
+pilot and the galaxy by the same amount. only a trip between stars costs
+the pilot less time than the clock.
+
+the starter hull accelerates at `0.002` m/s². Venus to Mars then takes
+about 10 game seconds, and Titan to Sol Outpost, the longest hop in Sol,
+about 41. a `maneuver.mk2` drive raises `a` to `0.006`, which cuts the
+short hop to about 6 seconds. the hull caps `a` at `0.01`. these are
+balance numbers, not physics.
 
 
 TODO

@@ -18,6 +18,8 @@ export interface ShipRow {
     years_rel : string | null
 
     velocity  : string
+    // numeric, in m/s² - pg returns it as a string
+    acceleration: string
     capacity  : number
 
     hull      : string

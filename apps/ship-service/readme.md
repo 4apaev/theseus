@@ -64,15 +64,28 @@ other players' screens, so `esc()` still guards every render.
   `ship.arrived` back to the original travel command
 - `003_ships_manifest.sql` - adds `manifest text[] not null default '{}'` - the stops still
   to come after the leg in flight (`"to"`). a direct hop leaves it empty.
+- `004_modules.sql` - adds `hull text not null`, `rig integer not null`, and the
+  `fitted_modules` and `module_operations` tables
+- `005_ships_acceleration.sql` - adds `acceleration numeric not null default 0.002` -
+  in-system acceleration, in m/s², from the hull and the fitted maneuver drive. the
+  default matches the starter hull base, so it backfills every existing ship.
 
 ------------------------------------------------------------------------------------------------
 
 ### travel math
-- station distance map - hardcoded from constants, keys normalized to sorted
-  order at init so routes can be listed either way
-- years `years_abs = distance / velocity`
-- years `years_rel = years_abs * sqrt(1 - velocity²)` - relativistic proper time
+`travel()` calls `legTime()` from `@theseus/domain` - see that package's readme,
+"the 2 travel models". the route's own `c` picks the model.
+
+- **between stars** (`c === 1`) - `years_abs = ly / velocity`, one constant speed
+- **inside a system** (`c < 1`) - the ship accelerates to the midpoint, flips, then
+  decelerates, and never passes `c`. `years_abs = 2·√(d/a)` under the cap, and
+  `d/c + c/a` once it reaches the cap
+- `years_rel = years_abs * sqrt(1 - velocity²)` between stars - relativistic proper time.
+  an in-system leg stays far below light, so `years_rel = years_abs` there
 - `ms = abs * TIME_SCALE * 1000` - game milliseconds
+
+acceleration is snapshotted on the `ships` row. propulsion is not field-installable,
+so a refit never moves an arrival time that is already scheduled.
 
 ------------------------------------------------------------------------------------------------
 
@@ -92,8 +105,8 @@ other players' screens, so `esc()` still guards every render.
 - reject if ship not at `from` station (`stid !== from`)
 - reject if `from === to`
 - `to` is the final destination, not necessarily a neighbor - `universe.path(from, to,
-  velocity)` resolves the full hop sequence; reject with `'no route to destination'` if
-  nothing connects them
+  velocity, acceleration)` resolves the full hop sequence; reject with
+  `'no route to destination'` if nothing connects them
 - the first hop becomes `"to"`, the rest becomes `manifest` - `arrivals.js` consumes it
   one hop at a time
 - calculate the first leg's travel time → `{ arrives, years_abs, years_rel }`

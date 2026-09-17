@@ -1,24 +1,34 @@
-import { universe, TIME_SCALE } from '@theseus/domain'
+// @ts-check
+
+import {
+    legTime,
+    universe,
+    TIME_SCALE,
+} from '@theseus/domain'
 
 export default travel
 
 /*
-    the route sets a speed limit.
-    an in-system route caps the ship at a sublight transfer speed,
-    so a short hop still takes game time.
-    a route between stars sets 1, and the ship uses its own velocity.
-    time dilation follows the ship's real speed.
-    so a in-system slow hop, have no relativistic effects.
+    the route's own c picks the model - legTime() holds both.
+    a leg between stars costs the pilot less time than the clock.
+    an in-system leg stays far below light, so both clocks agree.
 */
-export function travel(from, to, velocity) {
+
+/**
+ * @param {string} from
+ * @param {string} to
+ * @param {number} velocity     - fractions of light speed
+ * @param {number} acceleration - m/s²
+ * @return {{ ms: number, arrives: string, years_abs: number, years_rel: number }}
+ */
+export function travel(from, to, velocity, acceleration) {
 
     // c is the speed limit of the route,
     // in fractions of light speed.
     const { ly, c } = universe.route(from, to)
-    const v         = Math.min(velocity, c)
 
-    const abs     = ly / v
-    const rel     = abs * Math.sqrt(1 - v ** 2)
+    const abs     = legTime(ly, c, velocity, acceleration)
+    const rel     = c < 1 ? abs : abs * Math.sqrt(1 - Math.min(velocity, c) ** 2)
     const ms      = abs * TIME_SCALE * 1000
     const arrives = new Date(Date.now() + ms).toISOString()
 

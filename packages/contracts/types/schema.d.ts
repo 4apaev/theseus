@@ -17,6 +17,7 @@ export declare const field: Readonly<{
     positiveInteger: Validator
     positiveNumber: Validator
     velocity: Validator
+    acceleration: Validator
     shipName: Validator
     arrayOf(v: Validator): Validator
     nonEmptyArrayOf(v: Validator): Validator

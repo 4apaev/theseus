@@ -85,12 +85,12 @@ export function createHandlers(pool, transact) {
     // saga: every new player gets the starter ship, docked at sol.outpost
     async function playerCreated({ eid: causation_id, correlation_id, payload: { pid }}) {
         const sid = guid('ship')
-        const { stid, name, velocity, capacity } = starterShip // random name getter, read it once by destructing
+        const { stid, name, velocity, acceleration, capacity } = starterShip // random name getter, read it once by destructing
 
         await transact(pool, async client => {
             await insertShip(client, {
                 sid, pid, stid, name,
-                capacity, velocity,
+                capacity, velocity, acceleration,
                 rig: 1, hull: starterHull.id,
 
             })
@@ -104,7 +104,7 @@ export function createHandlers(pool, transact) {
                     aggregate_type   : 'ship',
                     aggregate_version: 1,
                     payload          : {
-                        sid, pid, stid, name, capacity, velocity,
+                        sid, pid, stid, name, capacity, velocity, acceleration,
                         hull      : starterHull.id,
                         rig       : 1,
                         fitted    : starterFitted,
@@ -132,17 +132,18 @@ export function createHandlers(pool, transact) {
 
             // pg numeric comes back as a string - path() checks the
             // type strictly, unlike travel()'s bare arithmetic
-            const velocity = Number(ship.velocity)
+            const velocity     = Number(ship.velocity)
+            const acceleration = Number(ship.acceleration)
 
             // p.to is the final destination - it need not be a direct
             // neighbor. path() resolves the full hop sequence; the
             // hops after the first go on `manifest` and get consumed
             // one at a time by arrivals.js.
-            const stops = universe.path(p.from, p.to, velocity)
+            const stops = universe.path(p.from, p.to, velocity, acceleration)
             if (!stops) return reject(client, { reason: 'no route to destination', causation_id, correlation_id, p })
 
             const [ , to, ...manifest ] = stops
-            const { arrives, years_abs, years_rel } = travel(p.from, to, velocity)
+            const { arrives, years_abs, years_rel } = travel(p.from, to, velocity, acceleration)
 
             const departed = (new Date).toISOString()
 
@@ -273,19 +274,20 @@ export function createHandlers(pool, transact) {
                     aggregate_type   : 'ship',
                     aggregate_version: ship.rig,
                     payload          : {
-                        pid       : opr.pid,
-                        sid       : opr.sid,
-                        slot      : opr.slot,
-                        fitted    : Object.entries(opr.proposed).map(a2o),
-                        capacity  : ship.capacity,
-                        velocity  : Number(ship.velocity), // pg numeric comes back as a string
-                        hull      : ship.hull,
-                        rig       : ship.rig,
-                        operation : opr.oid,
-                        incoming  : opr.incoming,
-                        outgoing  : opr.outgoing,
-                        power     : opr.stats.power.used,
-                        power_pool: opr.stats.power.available,
+                        pid         : opr.pid,
+                        sid         : opr.sid,
+                        slot        : opr.slot,
+                        fitted      : Object.entries(opr.proposed).map(a2o),
+                        capacity    : ship.capacity,
+                        velocity    : Number(ship.velocity), // pg numeric comes back as a string
+                        acceleration: Number(ship.acceleration),
+                        hull        : ship.hull,
+                        rig         : ship.rig,
+                        operation   : opr.oid,
+                        incoming    : opr.incoming,
+                        outgoing    : opr.outgoing,
+                        power       : opr.stats.power.used,
+                        power_pool  : opr.stats.power.available,
                     },
                 }),
             ])

@@ -65,7 +65,7 @@ async function snapshot(pid, sid) {
         cargo   : await rows`SELECT sid, gid, quantity FROM cargo   WHERE sid = ${ sid }`,
         fitted  : await rows`SELECT sid, slot, gid FROM fitted_modules WHERE sid = ${ sid } ORDER BY slot`,
         ships   : await rows`
-            SELECT sid, pid, stid, name, status, capacity, velocity, hull, rig, power, power_pool,
+            SELECT sid, pid, stid, name, status, capacity, velocity, acceleration, hull, rig, power, power_pool,
                    "from", "to", departs, arrives, arrived, years_abs, years_rel
               FROM ships
              WHERE sid = ${ sid }`,
@@ -146,7 +146,7 @@ test('truncate + replay through event_log reproduces the exact same read models'
 
     const before = await snapshot(pid, sid)
     assert.ok(before.trades.length === 2, 'buy + sell both landed pre-rebuild')
-    assert.deepEqual(before.fitted.map(f => f.slot), [ 'cruise1', 'power1', 'utility1' ], 'cargo1 removed pre-rebuild')
+    assert.deepEqual(before.fitted.map(f => f.slot), [ 'cruise1', 'maneuver1', 'power1', 'utility1' ], 'cargo1 removed pre-rebuild')
 
     await rebuild()
 

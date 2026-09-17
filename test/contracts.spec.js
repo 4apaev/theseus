@@ -150,6 +150,7 @@ test('event envelope validates event-specific payloads', () => {
             hull      : 'starter',
             rig       : 1,
             velocity  : 0.6,
+            acceleration: 0.002,
             capacity  : 20,
             power     : 1,
             power_pool: 8,
@@ -284,7 +285,7 @@ test('ship.rig.changed is a valid event, full snapshot included', () => {
                 { slot: 'cruise1', gid: 'cruise.mk2' },
                 { slot: 'cargo1', gid: 'cargo.mk1' },
             ],
-            capacity: 20, velocity: 0.648, power: 4, power_pool: 12,
+            capacity: 20, velocity: 0.648, acceleration: 0.002, power: 4, power_pool: 12,
         },
     })
     assert.equal(evt.event_type, eventTypes.ship_rig_changed_v1)
@@ -302,7 +303,7 @@ test('ship.rig.changed rejects a malformed fitted slot', () => {
             operation: 'op_1', pid: 'player_1', sid: 'ship_1',
             hull: 'starter', rig: 2, slot: 'cruise1',
             fitted: [{ slot: 'cruise1' }], // no gid
-            capacity: 20, velocity: 0.6, power: 2, power_pool: 8,
+            capacity: 20, velocity: 0.6, acceleration: 0.002, power: 2, power_pool: 8,
         },
     }), /fitted/)
 })

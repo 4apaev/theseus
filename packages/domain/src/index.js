@@ -9,6 +9,7 @@ export {
     Universe,
     default as universe,
     goods,
+    legTime,
     starterShip,
     universeData,
     currency,

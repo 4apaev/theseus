@@ -300,11 +300,12 @@ export function createRoutes({
         load <= stats.capacity || errors.push('over capacity')
 
         rs.json(200, {
-            proposed  : O.entries(proposed).map(([ slot, gid ]) => ({ slot, gid })),
-            capacity  : stats.capacity,
-            velocity  : stats.velocity,
-            power     : stats.power.used,
-            power_pool: stats.power.available,
+            proposed    : O.entries(proposed).map(([ slot, gid ]) => ({ slot, gid })),
+            capacity    : stats.capacity,
+            velocity    : stats.velocity,
+            acceleration: stats.acceleration,
+            power       : stats.power.used,
+            power_pool  : stats.power.available,
             load,
             errors,
         })

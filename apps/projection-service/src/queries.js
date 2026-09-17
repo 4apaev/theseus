@@ -42,18 +42,19 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
 
         async shipCreated({ payload: p }) {
             await sql`
-                INSERT INTO ships (sid, pid, stid, name, capacity, velocity, hull, rig, power, power_pool, status)
+                INSERT INTO ships (sid, pid, stid, name, capacity, velocity, acceleration, hull, rig, power, power_pool, status)
                 VALUES (
-                    ${ p.sid        },
-                    ${ p.pid        },
-                    ${ p.stid       },
-                    ${ p.name       },
-                    ${ p.capacity   },
-                    ${ p.velocity   },
-                    ${ p.hull       },
-                    ${ p.rig        },
-                    ${ p.power      },
-                    ${ p.power_pool },
+                    ${ p.sid          },
+                    ${ p.pid          },
+                    ${ p.stid         },
+                    ${ p.name         },
+                    ${ p.capacity     },
+                    ${ p.velocity     },
+                    ${ p.acceleration },
+                    ${ p.hull         },
+                    ${ p.rig          },
+                    ${ p.power        },
+                    ${ p.power_pool   },
                     'docked'
                 )
                 ON CONFLICT (sid)
@@ -75,13 +76,14 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
                 const tsql = Query(client)
                 const { rowCount } = await tsql`
                     UPDATE ships
-                       SET hull       = ${ p.hull },
-                           rig        = ${ p.rig },
-                           capacity   = ${ p.capacity },
-                           velocity   = ${ p.velocity },
-                           power      = ${ p.power },
-                           power_pool = ${ p.power_pool },
-                           updated    = now()
+                       SET hull         = ${ p.hull },
+                           rig          = ${ p.rig },
+                           capacity     = ${ p.capacity },
+                           velocity     = ${ p.velocity },
+                           acceleration = ${ p.acceleration },
+                           power        = ${ p.power },
+                           power_pool   = ${ p.power_pool },
+                           updated      = now()
                      WHERE sid = ${ p.sid }
                        AND rig < ${ p.rig }`
 

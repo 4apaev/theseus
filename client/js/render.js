@@ -1,5 +1,5 @@
 import { Api } from './api.js'
-import { $, esc, cr, fmtYears, fmtVel } from './dom.js'
+import { $, esc, cr, fmtYears, fmtVel, fmtAccel } from './dom.js'
 import { state, station, good, design, hull, fittedAt, volume, cargoLoad } from './state.js'
 import { dockedAt } from './traffic.js'
 import { rename, nameError, installModule, removeModule } from './commands.js'
@@ -290,6 +290,7 @@ export async function pickFit(pick) {
 function previewLine(ship, p) {
     return `cap ${ ship.capacity } → ${ p.capacity }`
         + ` · v ${ fmtVel(ship.velocity) } → ${ fmtVel(p.velocity) }c`
+        + ` · a ${ fmtAccel(ship.acceleration) } → ${ fmtAccel(p.acceleration) }m/s²`
         + ` · pwr ${ ship.power }/${ ship.power_pool } → ${ p.power }/${ p.power_pool }`
         + ` · hold ${ p.load }/${ p.capacity }`
 }

@@ -21,6 +21,7 @@ export interface Effect {
 export interface Stats {
     capacity: number
     velocity: number
+    acceleration: number
     power: {
         used: number,
         available: number,
@@ -63,10 +64,12 @@ export declare class Hull {
         power_base: number
         capacity_base: number
         velocity_base: number
+        acceleration_base: number
 
         power_max?: number
         capacity_max?: number
         velocity_max?: number
+        acceleration_max?: number
 
         rates?: Rate[]
         slots: Slot[]
@@ -77,10 +80,12 @@ export declare class Hull {
     power_base: number
     capacity_base: number
     velocity_base: number
+    acceleration_base: number
 
     power_max?: number
     capacity_max?: number
     velocity_max?: number
+    acceleration_max?: number
 
     rates: Rate[]
     slots: Slot[]

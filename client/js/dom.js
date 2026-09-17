@@ -67,6 +67,12 @@ export function fmtVel(n) {
     return Number(n).toFixed(3)
 }
 
+/*  a drive grade moves acceleration by thousandths of an m/s².
+    2 decimals hide the whole upgrade, so acceleration gets 4. */
+export function fmtAccel(n) {
+    return Number(n).toFixed(4)
+}
+
 /*  a route inside one system is far shorter than a light year.
     "0.0000052ly" tells the player nothing, so show AU there. */
 export function fmtDist(ly) {
