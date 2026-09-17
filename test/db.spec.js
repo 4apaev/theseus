@@ -1,6 +1,8 @@
 import pg     from 'pg'
 import assert from 'node:assert/strict'
 import test   from 'node:test'
+import { readFile }   from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { setTimeout }   from 'node:timers/promises'
 
 import inbox, {
@@ -184,6 +186,59 @@ test('migrate skips already-applied files', async () => {
         .map(q => q.params[ 0 ])
     assert.ok(!applied.includes('001_inbox.sql'))
     assert.ok(applied.includes('002_outbox.sql'))
+})
+
+async function sumOf(name) {
+    return readFile(new URL('../packages/db/migrations/' + name, import.meta.url), 'utf8')
+        .then(x => createHash('sha256')
+            .update(x)
+            .digest('hex'))
+}
+function doPool(checksum) {
+    return fakePool([
+        () => ({ rows: []}),                                    // bootstrap
+        () => ({ rows: [{ name: '001_inbox.sql', checksum }]}), // appliedMigrations
+    ])
+}
+
+test('migrate records a checksum with every applied file', async () => {
+    const pool = fakePool()
+    await migrate(pool)
+    const rows = pool.client.log.filter(q => q.sql.includes('INSERT INTO schema_migrations'))
+
+    assert.equal(rows.length, 2)
+
+    for (const q of rows)
+        assert.match(q.params[ 1 ], /^[a-f0-9]{64}$/)
+})
+
+test('migrate keeps an applied file whose checksum still matches', async () => {
+    const checksum = await sumOf('001_inbox.sql')
+    const pool = doPool(checksum)
+    await migrate(pool)
+
+    const { log } = pool.client
+    assert.ok(!log.some(q => q.sql.includes('UPDATE schema_migrations')))
+
+    const inserted = log
+        .filter(q => q.sql.includes('INSERT INTO schema_migrations'))
+        .map(q => q.params[ 0 ])
+    assert.deepEqual(inserted, [ '002_outbox.sql' ])
+})
+
+test('migrate rejects an applied file that changed on disk', async () => {
+    const pool = doPool('nope')
+    await assert.rejects(() => migrate(pool), /"001_inbox\.sql" changed after it was applied/)
+})
+
+test('migrate backfills a checksum on a row applied before the column', async () => {
+    const pool = doPool(null)
+    await migrate(pool)
+
+    const [ update ] = pool.client.log.filter(q => q.sql.includes('UPDATE schema_migrations'))
+    assert.ok(update)
+    assert.equal(update.params[ 0 ], await sumOf('001_inbox.sql'))
+    assert.equal(update.params[ 1 ], '001_inbox.sql')
 })
 
 test('migrate rolls back on sql error', async () => {

@@ -40,6 +40,16 @@
 
 ------------------------------------------------
 
+### migration checksums
+- `schema_migrations` holds a sha256 of every applied file
+- migrate hashes each `.sql` on every run and compares it to the stored one
+- a file that changed after it ran raises `Fail`, so the service stops at boot
+- to change applied sql, add a new migration. never edit an applied one
+- a row written before the column has `checksum NULL` - migrate takes the
+  file on disk as its baseline and backfills it
+
+------------------------------------------------
+
 ### outbox pattern
 - domain write + `Outbox.write` in the same transaction - atomic
 - polling loop reads unpublished rows, publishes to kafka, marks `published`
