@@ -13,7 +13,7 @@ import {
         node --env-file=./.env scripts/ws-probe.js <token>
 
     grab a token first:
-        curl -s localhost:3000/login -d '{"handle":"…","password":"…"}'
+        curl -s localhost:3000/api/auth/login -d '{"handle":"…","password":"…"}'
 */
 
 const token = process.argv[ 2 ]
@@ -26,7 +26,7 @@ const port = readEnv('GATEWAY_PORT', 3000)
 
 const rq = Http.request({
     port,
-    path   : `/?token=${ token }`,
+    path   : `/api/feed?token=${ token }`,
     headers: {
         connection         : 'Upgrade',
         upgrade            : 'websocket',

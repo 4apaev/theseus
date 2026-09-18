@@ -31,70 +31,16 @@ to reduce scaffolds & for general readability.
 
 better checking mechanism `isAdmin(handle)`
 
-### protobuf (priority)
-
-research protobuf transport
-
 
 ### gateway
 
-#### correct methods
+#### next api version
 
-use correct method for routes, like `put`, `del` etc.
-rn routes utilize only `get` or `post` methods.
+`/api` is v0 - the routes as they stand. a breaking change gets
+`/api/v1` beside it, and the 2 live together until the client moves.
 
-
-#### api version prefix
-
-0. `/api`
-1. `/api/v1`
-2. `/api/v2`
-...
-
-
-#### service prefix
-
-design clear convention / heirarchy.
-
-should it be:
-  `/operation/service/details`
-  or
-  `/service/operation/details`
-
---------------------------------
-**player**
-
-- me             → `/player/me`
-
---------------------------------
-**universe**
-
-- universe       → `/universe`
-- station        → `/universe/station`
-
---------------------------------
-**ships**
-
-- ships          → `/ship/`
-- travel         → `/ship/travel`
-- rename         → `/ship/rename`
-- traffic        → `/ship/traffic`
-- cargo          → `/ship/cargo`
-- modules        → `/ship/modules` || `/ship/:sid/modules`
-
---------------------------------
-**market**
-
-- buy            → `/market/buy`
-- sell           → `/market/sell`
-- trades         → `/market/trades`
-                 → `/market/:stid/trades`
-
---------------------------------
-**coms**
-- ? messages ?   → `/comms/messages`
-- ? messages ?   → `/ship/modules/ansible/messages`
-- ? messages ?   → `/universe/station/ansible/messages`
+see [progress](progress.md)'s "gateway routes - /api, resources, real
+methods" for the convention the current paths follow.
 
 
 ### db
@@ -256,7 +202,20 @@ need some research: today de facto standard?, alternatives?, configs & costs?
 
 
 - #### load tests
-    see how theseus behaves under load
+
+see how theseus behaves under load
+
+tasks:
+
+1. give app.js its own client/qa.html
+
+2. create 10-20 players and run a simulation.
+  buy, sell, refit modules, send messges, etc.
+  full game capabilities.
+
+3. then collect analytics from db and kafka.
+  see wich is more common than the others.
+  maybe expose a bottleneck or a bug god forbid.
 
 
 

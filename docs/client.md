@@ -23,7 +23,7 @@ decisions:
 - scope: the full loop + flavor + retro terminal theme (dark, monospace,
   phosphor green + amber, css scanlines). no framework, no external assets,
   no build step, no bundler
-- new public `GET /universe` - client needs stations/routes/goods/constants,
+- new public `GET /api/universe` - client needs stations/routes/goods/constants,
   nothing exposes them yet
 
 
@@ -81,9 +81,9 @@ const UNIVERSE = {
 }
 ```
 
-- register after `gw.post(json)`, before `POST /register`:
+- register after `gw.post(json)`, before `POST /api/auth/register`:
   `gw.get('/', (rq, rs) => rs.file(clientPath))` and
-  `gw.get('/universe', (rq, rs) => rs.json(200, UNIVERSE))`
+  `gw.get('/api/universe', (rq, rs) => rs.json(200, UNIVERSE))`
 - `types/routes.d.ts` doc comment mentions both; `RoutesInput` gains `clientPath: string`
 - `.env.example`: add `GATEWAY_CLIENT_PATH=`
 - `.env`: add `GATEWAY_CLIENT_PATH=./client/index.html` (spelled out
@@ -93,7 +93,7 @@ const UNIVERSE = {
 specs in `test/gateway.spec.js` (no bearer - that IS the public assertion):
 - `GET /` → 200, `text/html`, body matches `/theseus/i`
 - `GET /style.css` `/app.js` → 200, `text/css` / `javascript` content-type
-- `GET /universe` → 200, counts read from the domain and never hardcoded -
+- `GET /api/universe` → 200, counts read from the domain and never hardcoded -
   a station added to the universe must not fail a gateway test, `goods.ore.name`,
   `starter.stid === 'sol.outpost'`, `constants.time_scale === 20`
 
@@ -132,7 +132,7 @@ outside the grid, opened from a market row's buy/sell button ·
 
 ```js
 { token, me, universe, ship, cargo: [], market: [], trades: [],
-  traffic: new Map,   // sid → another player's ship, from GET /traffic
+  traffic: new Map,   // sid → another player's ship, from GET /api/ship/traffic
   pending: new Map,   // correlation_id → { label, el }
   ws, wsTries, alive }
 ```
@@ -187,7 +187,7 @@ departed feed flavor: `you age ${years_rel}yr, the galaxy ages ${years_abs}yr`
 
 ### ship name
 
-`POST /rename` → `ship.rename.requested`. the ship name in the SHIP panel
+`PUT /api/ship/:sid/name` → `ship.rename.requested`. the ship name in the SHIP panel
 is the control: click it to open `#nameDialog`. it carries a dashed
 underline, a `rename` tooltip, and an inverting hover - it is the only
 clickable text in the client, so it must look clickable. `commands.js`

@@ -45,13 +45,14 @@ test.after(async () => {
 
 // sync rejects with the parsed payload on non-2xx - .then(echo, echo) settles either way
 const post = (path, body, headers) => Sync.post(path, body).set(headers ?? {}).then(echo, echo)
+const put  = (path, body, headers) => Sync.put(path, body).set(headers ?? {}).then(echo, echo)
 const get  = (path, headers)       => Sync.get(path).set(headers ?? {}).then(echo, echo)
 
 async function registerAndLogin(handle) {
-    const reg = await post('/register', { handle, password: 'secret' })
+    const reg = await post('/api/auth/register', { handle, password: 'secret' })
     assert.equal(reg.status, 201)
 
-    const login = await post('/login', { handle, password: 'secret' })
+    const login = await post('/api/auth/login', { handle, password: 'secret' })
     assert.equal(login.status, 200)
     return login.body
 }
@@ -67,7 +68,7 @@ test('register → login → authenticated read of /me through the projection', 
     assert.ok(pid)
 
     const me = await waitFor(async () => {
-        const rs = await get('/me', bear)
+        const rs = await get('/api/player/me', bear)
         return rs.status === 200 && rs.body
     })
 
@@ -78,18 +79,18 @@ test('register → login → authenticated read of /me through the projection', 
 test('register replies 409 on a taken handle', async () => {
     const handle = guid(PRFX)
 
-    assert.equal((await post('/register', { handle, password: 'x' })).status, 201)
+    assert.equal((await post('/api/auth/register', { handle, password: 'x' })).status, 201)
 
-    const dup = await post('/register', { handle, password: 'x' })
+    const dup = await post('/api/auth/register', { handle, password: 'x' })
     assert.equal(dup.status, 409)
     assert.deepEqual(dup.body, { error: 'handle taken' })
 })
 
 test('login replies 401 on wrong password', async () => {
     const handle = guid(PRFX)
-    assert.equal((await post('/register', { handle, password: 'right' })).status, 201)
+    assert.equal((await post('/api/auth/register', { handle, password: 'right' })).status, 201)
 
-    const rs = await post('/login', { handle, password: 'wrong' })
+    const rs = await post('/api/auth/login', { handle, password: 'wrong' })
     assert.equal(rs.status, 401)
     assert.deepEqual(rs.body, { error: 'invalid credentials' })
 })
@@ -98,8 +99,8 @@ test('travel command lands in kafka with the pid from the token', async () => {
     const handle = guid(PRFX)
     const { token, pid } = await registerAndLogin(handle)
 
-    const rs = await post('/travel',
-        { sid: 's1', from: 'sol.outpost', to: 'barnards.port', pid: 'someone-else' },
+    const rs = await post('/api/ship/s1/travel',
+        { from: 'sol.outpost', to: 'barnards.port', pid: 'someone-else' },
         { authorization: `Bearer ${ token }` })
 
     assert.equal(rs.status, 202)
@@ -114,7 +115,7 @@ test('travel command lands in kafka with the pid from the token', async () => {
 })
 
 test('command routes without a token reply 401', async () => {
-    const rs = await post('/travel', { sid: 's1', from: 'a', to: 'b' })
+    const rs = await post('/api/ship/s1/travel', { from: 'a', to: 'b' })
     assert.equal(rs.status, 401)
 })
 
@@ -127,7 +128,7 @@ test('ws feed pushes this player\'s events and only theirs', async () => {
     const me    = await registerAndLogin(mine)
     const other = await registerAndLogin(theirs)
 
-    const { rs, socket } = await wsConnect(gateway.port, `?token=${ me.token }`)
+    const { rs, socket } = await wsConnect(gateway.port, `api/feed?token=${ me.token }`)
     assert.equal(rs.statusCode, 101)
     assert.equal(rs.headers[ 'sec-websocket-accept' ], acceptKey('dGhlIHNhbXBsZSBub25jZQ=='))
 
@@ -170,7 +171,7 @@ test('ws feed pushes this player\'s events and only theirs', async () => {
 })
 
 test('ws upgrade with a bad token replies 401', async () => {
-    const { rs } = await wsConnect(gateway.port, '?token=garbage')
+    const { rs } = await wsConnect(gateway.port, 'api/feed?token=garbage')
     assert.equal(rs.statusCode, 401)
 })
 
@@ -186,24 +187,24 @@ test('a player renames their own ship, and every other player sees it', async ()
     const rows = (path, who) => get(path, { authorization: `Bearer ${ who.token }` }).then(r => r.body)
 
     const [ hers ] = await waitFor(async () => {
-        const mine = await rows('/ships', a)
+        const mine = await rows('/api/ship', a)
         return mine.length && mine
     }, '15s')
     assert.ok(hers.name, 'the ship starts with a name')
 
-    const rs = await post('/rename', { sid: hers.sid, name: 'Argo' },
+    const rs = await put(`/api/ship/${ hers.sid }/name`, { name: 'Argo' },
         { authorization: `Bearer ${ a.token }` })
     assert.equal(rs.status, 202)
 
     // the projection applies ship.renamed
     await waitFor(async () => {
-        const [ mine ] = await rows('/ships', a)
+        const [ mine ] = await rows('/api/ship', a)
         return mine.name === 'Argo'
     }, '15s')
 
     // and the new name is public - player B reads it from /traffic
     const seen = await waitFor(async () => {
-        const traffic = await rows('/traffic', b)
+        const traffic = await rows('/api/ship/traffic', b)
         const it = traffic.find(t => t.sid === hers.sid)
         return it?.name === 'Argo' && it
     }, '15s')
@@ -214,7 +215,7 @@ test('a player cannot rename another player\'s ship', async () => {
     const a = await registerAndLogin(guid(PRFX))
     const b = await registerAndLogin(guid(PRFX))
 
-    const mine = who => get('/ships', { authorization: `Bearer ${ who.token }` }).then(r => r.body)
+    const mine = who => get('/api/ship', { authorization: `Bearer ${ who.token }` }).then(r => r.body)
 
     const [ hers ] = await waitFor(async () => {
         const rows = await mine(a)
@@ -222,7 +223,7 @@ test('a player cannot rename another player\'s ship', async () => {
     }, '15s')
 
     // B aims at A's ship. the pid comes from B's token, so no row matches.
-    const rs = await post('/rename', { sid: hers.sid, name: 'Stolen' },
+    const rs = await put(`/api/ship/${ hers.sid }/name`, { name: 'Stolen' },
         { authorization: `Bearer ${ b.token }` })
     assert.equal(rs.status, 202, 'the command is accepted, then rejected by ship-service')
 
@@ -246,7 +247,7 @@ test('two players see each other, by handle, and a departure empties the port', 
 
     // ship-service seeds a starter ship for each new player
     const both = await waitFor(async () => {
-        const mine = ours(await rows('/traffic', a))
+        const mine = ours(await rows('/api/ship/traffic', a))
         return mine.length === 2 && mine
     }, '15s')
 
@@ -254,18 +255,18 @@ test('two players see each other, by handle, and a departure empties the port', 
     assert.ok(both.every(t => t.handle), 'a player sees a handle')
     assert.ok(both.every(t => t.stid === 'sol.outpost'), 'both start docked at sol.outpost')
 
-    const port = ours(await rows('/station/sol.outpost/ships', b))
+    const port = ours(await rows('/api/station/sol.outpost/ships', b))
     assert.equal(port.length, 2, 'both ships are in port')
 
     // player A leaves. sol.outpost → barnards.port is about 1s at TIME_SCALE=0.1
     const mine = both.find(t => t.handle === aHandle)
-    const rs   = await post('/travel',
-        { sid: mine.sid, from: 'sol.outpost', to: 'barnards.port' },
+    const rs   = await post(`/api/ship/${ mine.sid }/travel`,
+        { from: 'sol.outpost', to: 'barnards.port' },
         { authorization: `Bearer ${ a.token }` })
     assert.equal(rs.status, 202)
 
     const gone = await waitFor(async () => {
-        const traffic = ours(await rows('/traffic', b))
+        const traffic = ours(await rows('/api/ship/traffic', b))
         const it      = traffic.find(t => t.handle === aHandle)
         return it?.status === 'transit' && it
     }, '15s')
@@ -275,6 +276,6 @@ test('two players see each other, by handle, and a departure empties the port', 
     assert.equal(gone.to, 'barnards.port')
 
     // this fails if `AND status = 'docked'` is missing
-    const left = ours(await rows('/station/sol.outpost/ships', b))
+    const left = ours(await rows('/api/station/sol.outpost/ships', b))
     assert.deepEqual(left.map(t => t.handle), [ bHandle ], 'only B stays in port')
 })

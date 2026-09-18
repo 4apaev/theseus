@@ -9,6 +9,56 @@ full step list
 - roles design: [permissions.md](permissions.md)
 
 ------------------------------------------------
+gateway routes - /api, resources, real methods ✔
+------------------------------------------------
+
+closed 3 of `docs/tech.debt.md`'s gateway items at once: the missing api
+prefix, the flat path tree, and routes that only ever used `get` or
+`post`. all 27 routes moved in one pass.
+
+**the convention**:
+1. `/api` prefixes every json route. the 3 static routes - `/`, `/pub`,
+   `/garage` - stay at the root. `/api` is v0. a breaking change gets
+   `/api/v1` beside it.
+2. the first segment after `/api` names the **resource**, not the service
+   that owns it. a station answers from 3 services today - traffic from
+   the projection, prices from the market quotes, stock from
+   `market.station_inventory`. a path that names the owner breaks when an
+   owner moves. `/api/station/:stid/market` and
+   `/api/station/:stid/ships` both survive that.
+3. the method states the action. `PUT /api/ship/:sid/name` replaces a
+   name. `DELETE /api/ship/:sid/modules/:slot` removes a module.
+
+**what this fixed on the way**: `GET /market/:stid` and `GET /trades`
+would have collided as `/api/market/trades` and `/api/market/:stid` - a
+request for the trade list matching the station route with
+`stid = "trades"`. moving station prices under `/api/station` removed the
+collision instead of relying on registration order, which breaks the day
+someone sorts the routes.
+
+**2 real changes behind the strings**:
+- `cmd.route` now merges `rq.params` into the command payload, so `sid`
+  and `slot` reach the command from the path. the pid is applied last, so
+  a body can never override the token's claim - the invariant the routes
+  always documented, now enforced by the helper.
+- the json middleware moved from `POST, DELETE` to `POST, PUT`. after the
+  move `DELETE /api/ship/:sid/modules/:slot` carries no body at all, and
+  the middleware refuses a request whose body is not a json object. it
+  would have answered 400 on every module removal.
+
+**the websocket** answers on `/api/feed?token=` (`FEED_PATH` in
+`apps/gateway/src/feed.js`). the upgrade used to accept any path. any
+refusal before the 101 is a plain `401`, so a wrong path and a bad token
+look the same to the client.
+
+**the new client cost nothing**. `~/Work/theseus/frontend` calls no
+gateway route yet, so the whole bill fell on the tests, the old
+`client/`, and the readme. that bill only grows, which is why this ran
+before the client rewrite, not after.
+
+`npm test` (361/361), `npm run test int` (41/41), lint and tsc all pass.
+
+------------------------------------------------
 tech debt: migrations keyed by name, no checksum - fixed ✔
 ------------------------------------------------
 

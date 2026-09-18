@@ -322,7 +322,7 @@ header mockup already sketches the target:
 the manifest doesn't reach the client today - `ship.departed.v1`/
 `ship.arrived.v1` payloads don't carry it, a deliberate call made
 building 2.4 to keep the event shape unchanged. **open call at step
-start**: expose `manifest` on `GET /ships` only (cheap, hydrate-time,
+start**: expose `manifest` on `GET /api/ship` only (cheap, hydrate-time,
 matches how the rest of `state.ship` already works) vs also putting it
 on the ws events (live-updates as hops advance, more wire surface).
 recommend REST-only - a manifest shortens once every few seconds at

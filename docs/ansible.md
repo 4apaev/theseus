@@ -187,12 +187,12 @@ the gateway
 
 **reads**, owner-scoped:
 
-- `GET /messages` - every message the caller sent or received, and
+- `GET /api/comms/messages` - every message the caller sent or received, and
   every station-chat line from a station the caller currently occupies
 
 **a write**:
 
-- `POST /messages` - publishes `message.send.requested`, `from` taken
+- `POST /api/comms/messages` - publishes `message.send.requested`, `from` taken
   only from the token, exactly like every other authenticated command.
   a message's target is a sid, the same public id traffic and port
   already show - the gateway resolves it to a pid before it fires the

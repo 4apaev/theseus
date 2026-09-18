@@ -275,7 +275,7 @@ export async function pickFit(pick) {
 
     const { slot, gid } = dialog.dataset
     try {
-        const { body: p } = await Api.post('/modules/preview', { sid: state.ship.sid, slot, gid })
+        const { body: p } = await Api.post(`/api/ship/${ state.ship.sid }/modules/preview`, { slot, gid })
         $.id('fitPreview').textContent = previewLine(state.ship, p)
         $.id('fitMsg').textContent     = p.errors.join(' · ')
         $.id('fitConfirmBtn').disabled = p.errors.length > 0

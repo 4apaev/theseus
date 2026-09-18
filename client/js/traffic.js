@@ -16,7 +16,7 @@ export function who(sid) {
 }
 
 export async function refreshTraffic() {
-    const { body: rows } = await Api.get('/traffic')
+    const { body: rows } = await Api.get('/api/ship/traffic')
     state.traffic = new Map(rows
         .filter(t => t.sid !== state.ship?.sid)
         .map(t => [ t.sid, t ]))

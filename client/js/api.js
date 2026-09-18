@@ -74,10 +74,10 @@ export const logout = Api.logout
     the events carry enough to patch, but a reload keeps the client out
     of the business of replaying a distributed saga. */
 export async function refreshRig() {
-    const [ ship ] = (await Api.get('/ships')).body
+    const [ ship ] = (await Api.get('/api/ship')).body
     state.ship   = ship
-    state.cargo  = ship ? (await Api.get(`/cargo/${ ship.sid }`)).body : []
-    state.fitted = ship ? (await Api.get(`/ships/${ ship.sid }/modules`)).body : []
+    state.cargo  = ship ? (await Api.get(`/api/ship/${ ship.sid }/cargo`)).body : []
+    state.fitted = ship ? (await Api.get(`/api/ship/${ ship.sid }/modules`)).body : []
 }
 
 export async function refreshMarket() {
@@ -88,7 +88,7 @@ export async function refreshMarket() {
     // manifest waypoint departs again right after it arrives. a stale
     // reply must not overwrite whatever docked/departed there next.
     const stid = state.ship.stid
-    const { body: rows } = await Api.get(`/market/${ stid }`)
+    const { body: rows } = await Api.get(`/api/station/${ stid }/market`)
     if (state.ship.stid === stid && state.ship.status === 'docked')
         state.market = rows
 }

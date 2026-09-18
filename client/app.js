@@ -300,7 +300,7 @@ async function register() {
         return $('#authMsg').textContent = 'handle and password required'
 
     try {
-        const rs = await Sync.post('/register', { handle, password })
+        const rs = await Sync.post('/api/auth/register', { handle, password })
         if (rs.status === 202) {
             $('#authMsg').textContent = 'registration queued - retrying login…'
             await sleep(1500)
@@ -321,7 +321,7 @@ async function login() {
     // const password = $('#password').value
 
     try {
-        const { body } = await Sync.post('/login', { handle, password })
+        const { body } = await Sync.post('/api/auth/login', { handle, password })
 
         localStorage.setItem(KEY, state.token = body.token)
         $('#authMsg').textContent = ''
@@ -346,13 +346,13 @@ async function enterGame() {
 
 async function refreshMarket() {
     state.market = state.ship && state.ship.status === 'docked'
-        ? await api(`/market/${ state.ship.stid }`)
+        ? await api(`/api/station/${ state.ship.stid }/market`)
         : []
 }
 
 async function hydrate() {
     for (let i = 0; state.alive && i < 20 && !state.me; i++) {
-        try { state.me = await api('/me') }
+        try { state.me = await api('/api/player/me') }
         catch (e) {
             if (!state.alive) return          // api() already logged out on 401
             feedLine('dim', 'syncing…')
@@ -362,14 +362,14 @@ async function hydrate() {
     if (!state.alive) return
 
     $('#who').textContent = state.me?.handle ?? ''
-    state.universe ??= await api('/universe')
+    state.universe ??= await api('/api/universe')
 
-    const ships = await api('/ships')
+    const ships = await api('/api/ship')
     state.ship  = ships[ 0 ] ?? null
 
-    state.cargo = state.ship ? await api(`/cargo/${ state.ship.sid }`) : []
+    state.cargo = state.ship ? await api(`/api/ship/${ state.ship.sid }/cargo`) : []
     await refreshMarket()
-    state.trades = await api('/trades')
+    state.trades = await api('/api/market/trades')
 
     renderAll()
 }
@@ -380,7 +380,7 @@ function connect() {
     if (!state.alive) return
 
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws    = state.ws = new WebSocket(`${ proto }://${ location.host }/?token=${ state.token }`)
+    const ws    = state.ws = new WebSocket(`${ proto }://${ location.host }/api/feed?token=${ state.token }`)
 
     ws.onopen    = () => { state.wsTries = 0; setConn('ONLINE') }
     ws.onmessage = m  => dispatch(JSON.parse(m.data))
@@ -429,7 +429,7 @@ function mutateCargo(gid, delta) {
 
 const mutate = {
     async 'ship.created.v1'() {
-        const rows = await api('/ships')
+        const rows = await api('/api/ship')
         state.ship = rows[ 0 ]
         await refreshMarket()
     },
@@ -490,7 +490,7 @@ async function send(path, body, label) {
 function travel(to) {
     const s = state.ship
     if (!s || s.status !== 'docked') return
-    send('/travel', { sid: s.sid, from: s.stid, to }, `travel → ${ station(to) }`)
+    send(`/api/ship/${ s.sid }/travel`, { from: s.stid, to }, `travel → ${ station(to) }`)
 }
 
 function buy() {
@@ -501,7 +501,7 @@ function buy() {
     if (!row) return
     const quantity = Math.max(1, Number($('#tradeQty').value) || 1)
     const price_unit_max = +(Number(row.price_buy) * 1.1).toFixed(4)
-    send('/buy', { gid, sid: s.sid, stid: s.stid, quantity, price_unit_max }, `buy ${ quantity } ${ good(gid) }`)
+    send('/api/market/buy', { gid, sid: s.sid, stid: s.stid, quantity, price_unit_max }, `buy ${ quantity } ${ good(gid) }`)
 }
 
 function sell() {
@@ -512,7 +512,7 @@ function sell() {
     if (!row) return
     const quantity = Math.max(1, Number($('#tradeQty').value) || 1)
     const price_unit_min = +(Number(row.price_sell) * 0.9).toFixed(4)
-    send('/sell', { gid, sid: s.sid, stid: s.stid, quantity, price_unit_min }, `sell ${ quantity } ${ good(gid) }`)
+    send('/api/market/sell', { gid, sid: s.sid, stid: s.stid, quantity, price_unit_min }, `sell ${ quantity } ${ good(gid) }`)
 }
 
 // ── 10. wiring + boot ─────────────────────────────────────────────────────

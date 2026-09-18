@@ -8,6 +8,7 @@ import { Api } from './api.js'
 const PENDING_TIMEOUT = 15000
 
 const send    = (path, body, ...a) => request('post', path, body, a)
+const sendPut = (path, body, ...a) => request('put' , path, body, a)
 const sendDel = (path, body, ...a) => request('del' , path, body, a)
 
 async function request(method, path, body, a) {
@@ -35,9 +36,8 @@ function timedOut(coid) {
 
 function travel(to) {
     state.ship?.status === 'docked'
-    && send('/travel', {
+    && send(`/api/ship/${ state.ship.sid }/travel`, {
         to,
-        sid: state.ship.sid,
         from: state.ship.stid,
     }, 'travel', station(to))
 }
@@ -63,19 +63,19 @@ export function nameError(name) {
 
 export function rename(name) {
     state.ship
-    && send('/rename', { name, sid: state.ship.sid }, 'rename', name)
+    && sendPut(`/api/ship/${ state.ship.sid }/name`, { name }, 'rename', name)
 }
 
 /*  install into an occupied slot replaces what is there. there is no
     3rd command - ship-service reads the slot and works out the swap. */
 export function installModule(slot, gid) {
     state.ship
-    && send('/modules/install', { slot, gid, sid: state.ship.sid }, 'fit', good(gid), slot)
+    && sendPut(`/api/ship/${ state.ship.sid }/modules/${ slot }`, { gid }, 'fit', good(gid), slot)
 }
 
 export function removeModule(slot) {
     state.ship
-    && sendDel('/modules/remove', { slot, sid: state.ship.sid }, 'remove', good(fittedAt(slot)), slot)
+    && sendDel(`/api/ship/${ state.ship.sid }/modules/${ slot }`, void 0, 'remove', good(fittedAt(slot)), slot)
 }
 
 const RATE = { buy: 1.1, sell: 0.9 }
@@ -101,7 +101,7 @@ function trade(side, gid, quantity) {
 
     const price = +row[ 'price_' + side ] * RATE[ side ]
 
-    send(`/${ side }`, {
+    send(`/api/market/${ side }`, {
         gid,
         sid: ship.sid,
         stid: ship.stid,

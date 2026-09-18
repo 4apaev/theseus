@@ -2,10 +2,13 @@ import { EVT } from '@theseus/contracts'
 import Wss, { encodeFrame } from 'garage/mw/ws'
 import {
     O,
+    Fail,
     echo,
     Codec,
     formatTime,
 }   from '@theseus/util'
+
+export const FEED_PATH = '/api/feed'
 
 /*  the game-specific half of the websocket feed: garage/mw/ws does the
     protocol (handshake, frames, keepalive), decides who gets what.
@@ -103,8 +106,11 @@ export function createFeed({ jwt, ping } = {}) {
     const wss = Wss({
         ping: formatTime(ping),
         authenticate(rq) {
-            const token = new URL(rq.url, 'http://gateway').searchParams.get('token')
-            return jwt.verify(token)   // throws Fail(401) on bad/expired token
+            const { pathname, searchParams } = new URL(rq.url, 'http://gateway')
+
+            // any throw here refuses the upgrade with 401, before the 101
+            pathname === FEED_PATH || Fail.raise(404, 'unknown feed path')
+            return jwt.verify(searchParams.get('token'))
         },
     })
 
