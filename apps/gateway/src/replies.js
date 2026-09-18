@@ -10,6 +10,9 @@ import { formatTime } from '@theseus/util'
  *     timeout resolves undefined - the route picks its own fallback (202 / 504).
  *     register the wait BEFORE publishing:
  *         the memory broker delivers inline.
+ *
+ * @param {string | number} ttl
+ * @return {import('../types/replies.js').Replies}
  */
 export function createReplies(ttl = '5s') {
     const pending = new Map
@@ -43,40 +46,5 @@ export function createReplies(ttl = '5s') {
             waiter.resolve(e)
             return true
         },
-
-        ////////////////////////////////////////////////////////////////////////////////////////
-
-        // async wait(cid, types, ms = ttl) {
-        //     let ok
-        //     const ac    = new AbortController
-        //     const reply = new Promise(rs => ok = rs)
-
-        //     pending.set(cid, {
-        //         ok,
-        //         ac,
-        //         types,
-        //     })
-
-        //     try {
-        //         await setTimeout(formatTime(ms), void 0, { signal: ac.signal })
-        //         pending.delete(cid)
-        //     }
-        //     catch /* aborted by settle - the reply is already resolved */ {
-        //         return reply
-        //     }
-        // },
-
-        // settle(e) {
-        //     const waiter = pending.get(e?.correlation_id)
-        //     if (!waiter || !waiter.types.includes(e.event_type))
-        //         return false
-
-        //     pending.delete(e.correlation_id)
-
-        //     waiter.ok(e)
-        //     waiter.ac.abort()
-        //     return true
-        // },
-
     }
 }
