@@ -225,15 +225,15 @@ test('loginPlayer never writes to the outbox', async () => {
 })
 
 // ── debitWallet ───────────────────────────────────────────────────────────────
-// debitWallet's real order: claimRfid, then select balance, then update
-// wallets (only on the accepted path) - each queue matches that.
+// debitWallet's real order: select balance, then claimRfid, then update
+// wallets (both only on the accepted path) - each queue matches that.
 
 const claimedRfid = () => ({ rows: [{ rfid: 'r1' }]})
 
 test('debitWallet emits wallet.debited with updated balance', async () => {
     const client = fakeClient([
-        claimedRfid,
         () => ({ rows: [{ balance: 500, version: 2 }]}),
+        claimedRfid,
         () => ({ rows: [{ balance: 400, version: 3 }]}),
     ])
     const handlers = createHandlers({}, fakeTransact(client))
@@ -251,7 +251,6 @@ test('debitWallet emits wallet.debited with updated balance', async () => {
 
 test('debitWallet emits transaction.rejected on insufficient funds', async () => {
     const client = fakeClient([
-        claimedRfid,
         () => ({ rows: [{ balance: 50, version: 1 }]}),
     ])
     const handlers = createHandlers({}, fakeTransact(client))
@@ -268,7 +267,6 @@ test('debitWallet emits transaction.rejected on insufficient funds', async () =>
 
 test('debitWallet emits transaction.rejected when wallet not found', async () => {
     const client = fakeClient([
-        claimedRfid,
         () => ({ rows: []}),
     ])
     const handlers = createHandlers({}, fakeTransact(client))
@@ -283,7 +281,10 @@ test('debitWallet emits transaction.rejected when wallet not found', async () =>
 })
 
 test('debitWallet skips silently on duplicate rfid', async () => {
-    const client   = fakeClient([ () => ({ rows: []}) ])
+    const client = fakeClient([
+        () => ({ rows: [{ balance: 500, version: 2 }]}),
+        () => ({ rows: []}),                              // the rfid is claimed already
+    ])
     const handlers = createHandlers({}, fakeTransact(client))
 
     await handlers[ 'wallet.debit.requested.v1' ](
@@ -291,7 +292,23 @@ test('debitWallet skips silently on duplicate rfid', async () => {
     )
 
     assert.equal(outboxEvents(client).length, 0)
-    assert.ok(!client.log.find(({ sql }) => sql.includes('SELECT balance')))
+    assert.ok(!client.log.find(({ sql }) => sql.includes('UPDATE wallets')))
+})
+
+/*  wallet_transactions doubles as the rfid claim. a row for a refused
+    debit makes the ledger disagree with the balance - sim.invariants.js
+    checks the same thing against a real database  */
+test('debitWallet writes no transaction row when it refuses', async () => {
+    const client = fakeClient([
+        () => ({ rows: [{ balance: 50, version: 1 }]}),
+    ])
+    const handlers = createHandlers({}, fakeTransact(client))
+
+    await handlers[ 'wallet.debit.requested.v1' ](
+        makeCmd({ pid: 'p1', rfid: 'r1', amount: 100, reason: 'purchase' }),
+    )
+
+    assert.ok(!client.log.find(({ sql }) => sql.includes('INSERT INTO wallet_transactions')))
 })
 
 // ── creditWallet ──────────────────────────────────────────────────────────────
