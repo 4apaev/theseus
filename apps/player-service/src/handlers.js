@@ -166,11 +166,11 @@ export function createHandlers(pool, transact, producer) {
 
     async function debitWallet(cmd) {
         await transact(pool, async client => {
-            if (!await claimRfid(client, cmd.payload, 'debit')) return
-
             const wallet = await lockWallet(client, cmd.payload.pid)
             if (!wallet || wallet.balance < cmd.payload.amount)
                 return rejectWallet(client, wallet, cmd)
+
+            if (!await claimRfid(client, cmd.payload, 'debit')) return
             await walletTx(client, EVT.wallet.debited, cmd)
         })
     }
