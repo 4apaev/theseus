@@ -49,30 +49,36 @@ reply waiter and the websocket fanout.
 |--------------------|-------|---------------------------------------------------------------------|
 | `GET /`            |  -    | the html client, `rs.file(clientPath)`                              |
 | `GET /pub/:file(.*)` | -   | `clientPath`'s directory, served generically - css/js/img siblings, incl. the client's module graph |
-| `GET /universe`    |  -    | stations / routes / goods / starter ship / constants, serialized once |
 | `GET /garage/:file(.*)` | - | browser-safe `garage` source (util/sync/mime/constants/use), backs the client's import map |
-| `POST /register`   |  -    | `player.register.requested` → waits for reply: 201 created, 409 taken, 202 `{cmd, correlation_id}` on timeout |
-| `POST /login`      |  -    | `player.login.requested` → 200 `{token, pid, handle, role}`, 401 bad creds, 504 timeout |
-| `POST /travel`     |  ✓    | `ship.travel.requested` → 202 `{cmd, correlation_id}`               |
-| `POST /rename`     |  ✓    | `ship.rename.requested` → 202. the name rule lives in the contract, so a bad name is 400 |
-| `POST /buy`        |  ✓    | `market.buy.requested` → 202                                        |
-| `POST /sell`       |  ✓    | `market.sell.requested` → 202                                       |
-| `POST /modules/preview` | ✓ | no command - runs `previewRig`/`previewExchange` against the projection's own hull/fitted/cargo. advisory, can be stale |
-| `POST /modules/install` | ✓ | `ship.module.install.requested` → 202. install into an occupied slot replaces it |
-| `POST /modules/remove`  | ✓ | `ship.module.remove.requested` → 202                                |
-| `GET /me`          |  ✓    | player + wallet (404 until projection catches up)                   |
-| `GET /ships`       |  ✓    | player's ships with status / eta / hull / rig / power                |
-| `GET /ships/:sid/modules` | ✓ | fitted slots (joins ships - own ships only)                    |
-| `GET /cargo/:sid`  |  ✓    | ship cargo (joins ships - own ships only)                           |
-| `GET /market/:stid`|  ✓    | prices at station                                                   |
-| `GET /trades`      |  ✓    | trade history, latest 100                                           |
-| `GET /traffic`     |  ✓    | every ship, docked and in transit - by handle, never by pid         |
-| `GET /station/:stid/ships` | ✓ | the ships docked at one station - the same query as `/traffic` |
-| `GET /admin/players` | admin | all players + wallets                                             |
-| `GET /admin/events`  | admin | projection `event_log`, latest 200                                |
-| `GET /admin/inventory/:stid` | admin | station stock, from `market.station_inventory` directly - the source of truth, not the projection's quote mirror |
-| `POST /admin/rebuild` | admin | truncate + replay projections (`scripts/rebuild.js`), 200 `{ replayed }` |
+| `GET /api/universe` |  -    | stations / routes / goods / starter ship / constants, serialized once |
+| `POST /api/auth/register` | - | `player.register.requested` → waits for reply: 201 created, 409 taken, 202 `{cmd, correlation_id}` on timeout |
+| `POST /api/auth/login`    | - | `player.login.requested` → 200 `{token, pid, handle, role}`, 401 bad creds, 504 timeout |
+| `POST /api/ship/:sid/travel` | ✓ | `ship.travel.requested` → 202 `{cmd, correlation_id}`            |
+| `PUT /api/ship/:sid/name` |  ✓ | `ship.rename.requested` → 202. the name rule lives in the contract, so a bad name is 400 |
+| `PUT /api/ship/:sid/modules/:slot` | ✓ | `ship.module.install.requested` → 202. install into an occupied slot replaces it |
+| `DELETE /api/ship/:sid/modules/:slot` | ✓ | `ship.module.remove.requested` → 202. no body - the slot is in the path |
+| `POST /api/ship/:sid/modules/preview` | ✓ | no command - runs `previewRig`/`previewExchange` against the projection's own hull/fitted/cargo. advisory, can be stale |
+| `POST /api/market/buy`    |  ✓ | `market.buy.requested` → 202                                        |
+| `POST /api/market/sell`   |  ✓ | `market.sell.requested` → 202                                       |
+| `POST /api/comms/messages`|  ✓ | `comms.send.requested` → 202. `to` is a sid, resolved to a pid first - an unknown sid answers 404 |
+| `GET /api/player/me`      |  ✓ | player + wallet (404 until projection catches up)                   |
+| `GET /api/ship`           |  ✓ | player's ships with status / eta / hull / rig / power                |
+| `GET /api/ship/traffic`   |  ✓ | every ship, docked and in transit - by handle, never by pid         |
+| `GET /api/ship/:sid/cargo`   | ✓ | ship cargo (joins ships - own ships only)                        |
+| `GET /api/ship/:sid/modules` | ✓ | fitted slots (joins ships - own ships only)                      |
+| `GET /api/station/:stid/market` | ✓ | prices at station                                             |
+| `GET /api/station/:stid/ships`  | ✓ | the ships docked at one station - the same query as `/api/ship/traffic` |
+| `GET /api/market/trades`  |  ✓ | trade history, latest 100                                           |
+| `GET /api/comms/messages` |  ✓ | the caller's messages                                               |
+| `GET /api/admin/players`  | admin | all players + wallets                                             |
+| `GET /api/admin/events`   | admin | projection `event_log`, latest 200                                |
+| `GET /api/admin/inventory/:stid` | admin | station stock, from `market.station_inventory` directly - the source of truth, not the projection's quote mirror |
+| `POST /api/admin/rebuild` | admin | truncate + replay projections (`scripts/rebuild.js`), 200 `{ replayed }` |
 
+- `/api` prefixes every json route. the 3 static routes stay at the root.
+- the first segment after `/api` names the resource, not the service that
+  owns it - a station answers from 3 different services, and the path
+  outlives any of them
 - auth = `authorization: Bearer <jwt>`; `pid` always comes from the token
   claims, never from the body
 - admin = auth, plus `requireRole('admin')` - `claims.role !== 'admin'` → 403
@@ -83,7 +89,9 @@ reply waiter and the websocket fanout.
 
 ### websocket
 
-- connect: `ws://host:3000/?token=<jwt>` - token checked before the 101
+- connect: `ws://host:3000/api/feed?token=<jwt>` - path and token both
+  checked before the 101. any other path refuses with 401, the same as a
+  bad token (the upgrade answers one status for every refusal)
   (browsers cannot set headers on `WebSocket`; token-in-url is logged by
   proxies - acceptable here, `Sec-WebSocket-Protocol` smuggling is the alternative)
 - push-only: one json text frame per event `{ event_type, correlation_id, occurred, payload }`

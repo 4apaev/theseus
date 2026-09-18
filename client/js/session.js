@@ -18,7 +18,7 @@ export async function register() {
         return authMsg.textContent = 'handle and password required'
 
     try {
-        const rs = await Api.post('/register', { handle, password })
+        const rs = await Api.post('/api/auth/register', { handle, password })
         if (rs.status === 202) {
             authMsg.textContent = 'registration queued - retrying login…'
             await sleep(1500)
@@ -35,7 +35,7 @@ export async function register() {
 export async function login() {
     const [ handle, password ] = $('.auth input', x => x.value.trim())
     try {
-        const { body } = await Api.post('/login', { handle, password })
+        const { body } = await Api.post('/api/auth/login', { handle, password })
 
         localStorage.setItem(KEY, state.token = body.token)
         Api.head.set('authorization', 'Bearer ' + state.token)
@@ -61,7 +61,7 @@ export async function enterGame() {
 export async function hydrate() {
     for (let i = 0; state.alive && i < 20 && !state.me; i++) {
         try {
-            state.me = (await Api.get('/me')).body
+            state.me = (await Api.get('/api/player/me')).body
         }
         catch (e) {
             if (!state.alive) return          // Api already logged out on 401
@@ -72,12 +72,12 @@ export async function hydrate() {
     if (!state.alive) return
 
     $('#who').textContent = state.me?.handle ?? ''
-    state.universe ??= (await Api.get('/universe')).body
+    state.universe ??= (await Api.get('/api/universe')).body
 
     await refreshRig()
     await refreshMarket()
     await refreshTraffic()   // reconnect calls hydrate, so traffic re-syncs too
-    state.trades = (await Api.get('/trades')).body
+    state.trades = (await Api.get('/api/market/trades')).body
 
     renderAll()
 }
@@ -93,7 +93,7 @@ export function connect() {
 
     const ws = state.ws = new WebSocket(`${
         location.protocol.replace(/http/, 'ws') }//${
-        location.host }/?token=${
+        location.host }/api/feed?token=${
         state.token }`)
 
     ws.onopen = () => setConn('ONLINE', state.wsTries = 0)

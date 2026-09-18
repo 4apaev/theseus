@@ -58,7 +58,7 @@ we don't want yet.
 - `GET  /admin/players` - all players + wallets
 - `GET  /admin/events`  - projection `event_log`, currently written and never read
 - `GET  /admin/inventory/:stid` - station stock (market schema source of truth)
-- `POST /admin/rebuild` - truncate + replay projections - **this is step 10**,
+- `POST /api/admin/rebuild` - truncate + replay projections - **this is step 10**,
   it gets a natural home here
 
 mutating admin ops (credit a wallet, restock a station) go through the

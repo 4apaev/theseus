@@ -13,39 +13,11 @@ export interface RoutesInput {
     jwt: Auth
     waiter: Replies
     queries: Queries
-    rebuild: () => Promise<number>  // truncate + replay projections, POST /admin/rebuild
-    producer: RoutesProducer  /*
-        requested_by on outgoing commands,
-        garage app name - default 'gateway' */
-    service?: string
-    /** absolute or cwd-relative path to the served client html - css/js/img are siblings of it */
-    clientPath: string
-    /** 'test' skips the per-request log line. default 'dev'. */
-    nodeEnv?: string
+    rebuild: () => Promise<number>  // truncate + replay projections, POST /api/admin/rebuild
+    producer: RoutesProducer
+    service?: string   // requested_by on outgoing commands, garage app name - default 'gateway'
+    clientPath: string // absolute or cwd-relative path to the client assets
+    nodeEnv?: string   // default 'dev', 'test' skips logger
 }
 
-/**
- * builds the gateway's garage app:
- * - `GET /` `/universe` - the html client, and stations/routes/goods/constants (public)
- * - `GET /pub/:file(.*)` - clientPath's directory served generically -
- *   css/js/img siblings, incl. the client's module graph (public)
- * - `GET /garage/:file(.*)` - browser-safe subset of the `garage` package's
- *   source (util/sync/mime/constants/use), for the client's import map (public)
- * - `POST /register` `/login` - correlated reply over events.player
- * - `POST /travel` `/buy` `/sell` `/modules/install` `/modules/remove` -
- *   command → 202 `{ cmd, correlation_id }`, pid from token claims
- * - `POST /messages` - same, plus one lookup: `to` is a sid, resolved
- *   to comms-service's pid first. an unknown sid answers 404
- * - `POST /modules/preview` - no command published; loads the
- *   projection's own hull/fitted/cargo and runs the same resolver
- *   ship-service does. advisory - the real command is the final judge
- * - `GET /me` `/ships` `/ships/:sid/modules` `/cargo/:sid` `/market/:stid`
- *   `/trades` `/messages` - projection reads
- * - `GET /traffic` `/station/:stid/ships` - public ship traffic, one shared
- *   query, handle instead of pid
- * - `GET /admin/players` `/admin/events` `/admin/inventory/:stid`
- *   `POST /admin/rebuild` - admin-role reads + rebuild trigger
- * - bearer-jwt auth middleware, `Fail.code` → http status (417 → 400)
- * - `requireRole('admin')` guards every `/admin/*` route
- */
 export function createRoutes(input: RoutesInput): Garage

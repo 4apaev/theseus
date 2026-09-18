@@ -128,23 +128,23 @@ test.after(() => gw.stop())
 
 // ── register / login ────────────────────────────────────────────────────────
 
-test('POST/register replies 201 with the created player', async () => {
-    const rs = await Sync.post('/register', { handle: 'alice', password: 'secret' })
+test('POST /api/auth/register replies 201 with the created player', async () => {
+    const rs = await Sync.post('/api/auth/register', { handle: 'alice', password: 'secret' })
     assert.equal(rs.status, 201)
     assert.deepEqual(rs.body, { pid: 'p1', handle: 'alice' })
 })
 
-test('POST/register replies 409 when the handle is taken', async () => {
-    const rs = await Sync.post('/register', { handle: 'taken', password: 'secret' }).then(echo, echo)
+test('POST /api/auth/register replies 409 when the handle is taken', async () => {
+    const rs = await Sync.post('/api/auth/register', { handle: 'taken', password: 'secret' }).then(echo, echo)
     assert.equal(rs.status, 409)
     assert.deepEqual(rs.body, { error: 'handle taken' })
 })
 
-test('POST/register falls back to 202 when no reply arrives', async () => {
+test('POST /api/auth/register falls back to 202 when no reply arrives', async () => {
     const lonely = Kafka.createMemoryKafka()          // no player service listening
     const alone  = await start(lonely, { pool: fakeTablePool(), secret: SECRET, port: 0, timeout: 50 })
 
-    const url = `http://127.0.0.1:${ alone.port }/register`
+    const url = `http://127.0.0.1:${ alone.port }/api/auth/register`
     const body = { handle: 'alice', password: 'x' }
     try {
         const rs = await Sync.post(url, body)
@@ -157,8 +157,8 @@ test('POST/register falls back to 202 when no reply arrives', async () => {
     }
 })
 
-test('POST/login returns a verifiable token', async () => {
-    const rs = await Sync.post('/login', { handle: 'alice', password: 'secret' })
+test('POST /api/auth/login returns a verifiable token', async () => {
+    const rs = await Sync.post('/api/auth/login', { handle: 'alice', password: 'secret' })
 
     assert.equal(rs.status, 200)
     assert.equal(rs.body.pid, 'p1')
@@ -170,16 +170,16 @@ test('POST/login returns a verifiable token', async () => {
     assert.equal(claims.role, 'player')
 })
 
-test('POST/login replies 401 on bad credentials', async () => {
-    const rs = await Sync.post('/login', { handle: 'alice', password: 'wrong' }).then(echo, echo)
+test('POST /api/auth/login replies 401 on bad credentials', async () => {
+    const rs = await Sync.post('/api/auth/login', { handle: 'alice', password: 'wrong' }).then(echo, echo)
     assert.equal(rs.status, 401)
     assert.deepEqual(rs.body, { error: 'invalid credentials' })
 })
 
 // ── command routes ──────────────────────────────────────────────────────────
 
-test('POST/travel publishes the command with pid from the token, not the body', async () => {
-    const rs = await Sync.post('/travel', { sid: 's1', from: 'a', to: 'b', pid: 'evil' }).set(bear)
+test('POST /api/ship/:sid/travel publishes the command with pid from the token, not the body', async () => {
+    const rs = await Sync.post('/api/ship/s1/travel', { from: 'a', to: 'b', pid: 'evil' }).set(bear)
     assert.equal(rs.status, 202)
 
     const record = kafka.messages(commandTopics.ship).at(-1)
@@ -190,8 +190,8 @@ test('POST/travel publishes the command with pid from the token, not the body', 
     assert.equal(cmd.payload.pid, 'p1')
 })
 
-test('POST/messages resolves the recipient sid to a pid, pid from the token', async () => {
-    const rs = await Sync.post('/messages', { to: 's2', body: 'hi', pid: 'evil' }).set(bear)
+test('POST /api/comms/messages resolves the recipient sid to a pid, pid from the token', async () => {
+    const rs = await Sync.post('/api/comms/messages', { to: 's2', body: 'hi', pid: 'evil' }).set(bear)
     assert.equal(rs.status, 202)
 
     const record = kafka.messages(commandTopics.comms).at(-1)
@@ -204,13 +204,13 @@ test('POST/messages resolves the recipient sid to a pid, pid from the token', as
     assert.equal(cmd.payload.body, 'hi')
 })
 
-test('POST/messages replies 404 for a recipient sid nobody owns', async () => {
-    const rs = await Sync.post('/messages', { to: 'nope', body: 'hi' }).set(bear).then(echo, echo)
+test('POST /api/comms/messages replies 404 for a recipient sid nobody owns', async () => {
+    const rs = await Sync.post('/api/comms/messages', { to: 'nope', body: 'hi' }).set(bear).then(echo, echo)
     assert.equal(rs.status, 404)
 })
 
-test('POST/messages with no to publishes a station-chat command', async () => {
-    const rs = await Sync.post('/messages', { body: 'hi all' }).set(bear)
+test('POST /api/comms/messages with no to publishes a station-chat command', async () => {
+    const rs = await Sync.post('/api/comms/messages', { body: 'hi all' }).set(bear)
     assert.equal(rs.status, 202)
 
     const record = kafka.messages(commandTopics.comms).at(-1)
@@ -221,8 +221,8 @@ test('POST/messages with no to publishes a station-chat command', async () => {
 
 test('POST/buy/sell publish market commands', async () => {
     const data = { gid: 'ore', sid: 's1', stid: 'st1', quantity: 5 }
-    const buy  = await Sync.post('/buy',  { ...data, price_unit_max: 30 }).set(bear)
-    const sell = await Sync.post('/sell', { ...data, price_unit_min: 20 }).set(bear)
+    const buy  = await Sync.post('/api/market/buy',  { ...data, price_unit_max: 30 }).set(bear)
+    const sell = await Sync.post('/api/market/sell', { ...data, price_unit_min: 20 }).set(bear)
 
     assert.equal(buy.status, 202)
     assert.equal(sell.status, 202)
@@ -234,8 +234,8 @@ test('POST/buy/sell publish market commands', async () => {
     assert.ok(types.includes(CMD.market.sell.requested))
 })
 
-test('POST/rename publishes the command with the pid from the token', async () => {
-    const rs = await Sync.post('/rename', { sid: 's1', name: 'Argo', pid: 'evil' }).set(bear)
+test('PUT /api/ship/:sid/name publishes the command with the pid from the token', async () => {
+    const rs = await Sync.put('/api/ship/s1/name', { name: 'Argo', pid: 'evil' }).set(bear)
     assert.equal(rs.status, 202)
 
     const cmd = kafka.messages(commandTopics.ship)
@@ -247,14 +247,14 @@ test('POST/rename publishes the command with the pid from the token', async () =
     assert.equal(cmd.payload.pid, 'p1', 'the body pid is ignored')
 })
 
-test('POST/rename replies 400 on a name the contract refuses', async () => {
-    const rs = await Sync.post('/rename', { sid: 's1', name: 'a'.repeat(25) }).set(bear).then(echo, echo)
+test('PUT /api/ship/:sid/name replies 400 on a name the contract refuses', async () => {
+    const rs = await Sync.put('/api/ship/s1/name', { name: 'a'.repeat(25) }).set(bear).then(echo, echo)
     assert.equal(rs.status, 400)
     assert.match(rs.body.error, /name/)
 })
 
-test('POST/modules/install publishes the install command, pid from the token', async () => {
-    const rs = await Sync.post('/modules/install', { sid: 's1', slot: 'power1', gid: 'reactor.mk2', pid: 'evil' }).set(bear)
+test('PUT /api/ship/:sid/modules/:slot publishes the install command, pid from the token', async () => {
+    const rs = await Sync.put('/api/ship/s1/modules/power1', { gid: 'reactor.mk2', pid: 'evil' }).set(bear)
     assert.equal(rs.status, 202)
 
     const cmd = kafka.messages(commandTopics.ship)
@@ -266,8 +266,8 @@ test('POST/modules/install publishes the install command, pid from the token', a
     assert.equal(cmd.payload.gid, 'reactor.mk2')
 })
 
-test('POST/modules/remove publishes the remove command', async () => {
-    const rs = await Sync.del('/modules/remove', { sid: 's1', slot: 'power1' }).set(bear)
+test('DELETE /api/ship/:sid/modules/:slot publishes the remove command', async () => {
+    const rs = await Sync.del('/api/ship/s1/modules/power1').set(bear)
     assert.equal(rs.status, 202)
 
     const cmd = kafka.messages(commandTopics.ship)
@@ -280,15 +280,15 @@ test('POST/modules/remove publishes the remove command', async () => {
 
 // preview publishes no command - it runs the real resolver against the
 // projection's own hull/fitted/cargo, same as ship-service's own check
-test('POST/modules/preview replies 404 for a ship the caller does not own', async () => {
-    const rs = await Sync.post('/modules/preview', { sid: 'not-mine', slot: 'power1', gid: 'reactor.mk2' }).set(bear).then(echo, echo)
+test('POST /api/ship/:sid/modules/preview replies 404 for a ship the caller does not own', async () => {
+    const rs = await Sync.post('/api/ship/not-mine/modules/preview', { slot: 'power1', gid: 'reactor.mk2' }).set(bear).then(echo, echo)
     assert.equal(rs.status, 404)
 })
 
-test('POST/modules/preview install: proposed rig and stats, no command published', async () => {
+test('POST /api/ship/:sid/modules/preview install: proposed rig and stats, no command published', async () => {
     const before = kafka.messages(commandTopics.ship).length
 
-    const rs = await Sync.post('/modules/preview', { sid: 's1', slot: 'power1', gid: 'reactor.mk2' }).set(bear)
+    const rs = await Sync.post('/api/ship/s1/modules/preview', { slot: 'power1', gid: 'reactor.mk2' }).set(bear)
 
     assert.equal(rs.status, 200)
     assert.deepEqual(rs.body.errors, [])
@@ -298,37 +298,37 @@ test('POST/modules/preview install: proposed rig and stats, no command published
     assert.equal(kafka.messages(commandTopics.ship).length, before, 'preview publishes nothing')
 })
 
-test('POST/modules/preview reports a resolver error - wrong slot family', async () => {
-    const rs = await Sync.post('/modules/preview', { sid: 's1', slot: 'power1', gid: 'cargo.mk1' }).set(bear)
+test('POST /api/ship/:sid/modules/preview reports a resolver error - wrong slot family', async () => {
+    const rs = await Sync.post('/api/ship/s1/modules/preview', { slot: 'power1', gid: 'cargo.mk1' }).set(bear)
     assert.equal(rs.status, 200)
     assert.ok(rs.body.errors.some(e => e.includes('does not fit')), rs.body.errors)
 })
 
-test('POST/modules/preview remove: proposed rig loses the slot', async () => {
-    const rs = await Sync.post('/modules/preview', { sid: 's1', slot: 'power1' }).set(bear)
+test('POST /api/ship/:sid/modules/preview remove: proposed rig loses the slot', async () => {
+    const rs = await Sync.post('/api/ship/s1/modules/preview', { slot: 'power1' }).set(bear)
     assert.equal(rs.status, 200)
     assert.deepEqual(rs.body.proposed, [])
     assert.deepEqual(rs.body.errors, [])
 })
 
-test('POST/travel without token replies 401 and publishes nothing', async () => {
+test('POST /api/ship/:sid/travel without token replies 401 and publishes nothing', async () => {
     const before = kafka.messages(commandTopics.ship).length
-    const rs = await Sync.post('/travel', { sid: 's1', from: 'a', to: 'b' }).then(echo, echo)
+    const rs = await Sync.post('/api/ship/s1/travel', { from: 'a', to: 'b' }).then(echo, echo)
 
     assert.equal(rs.status, 401)
     assert.equal(kafka.messages(commandTopics.ship).length, before)
 })
 
-test('POST/travel with invalid payload replies 400 and publishes nothing', async () => {
+test('POST /api/ship/:sid/travel with invalid payload replies 400 and publishes nothing', async () => {
     const before = kafka.messages(commandTopics.ship).length
-    const rs = await Sync.post('/travel', { /* missing sid */ from: 'a', to: 'b' }).set(bear).then(echo, echo)
+    const rs = await Sync.post('/api/ship/s1/travel', { from: 'a' /* missing to */ }).set(bear).then(echo, echo)
 
     assert.equal(rs.status, 400)
     assert.equal(kafka.messages(commandTopics.ship).length, before)
 })
 
 test('POST with a broken json body replies 400', async () => {
-    const rs = await Sync.post('/travel', 'not json').set(bear).then(echo, echo)
+    const rs = await Sync.post('/api/ship/s1/travel', 'not json').set(bear).then(echo, echo)
     assert.equal(rs.status, 400)
 })
 
@@ -374,7 +374,7 @@ test('GET/pub/:file rejects path traversal outside the client dir', async () => 
 })
 
 test('GET/universe returns the serialized graph without a token', async () => {
-    const rs = await Sync.get('/universe')
+    const rs = await Sync.get('/api/universe')
 
     assert.equal(rs.status, 200)
     assert.equal(rs.body.systems.length, universe.systems.size)
@@ -402,7 +402,7 @@ test('GET/garage/:file rejects path traversal outside garage\'s src dir', async 
 // ── query routes ────────────────────────────────────────────────────────────
 
 test('GET/me returns player + wallet', async () => {
-    const rs = await Sync.get('/me').set(bear)
+    const rs = await Sync.get('/api/player/me').set(bear)
 
     assert.equal(rs.status, 200)
     assert.equal(rs.body.handle, 'alice')
@@ -411,16 +411,16 @@ test('GET/me returns player + wallet', async () => {
 
 test('GET/me replies 404 when the projection has not caught up', async () => {
     const ghost = { authorization: `Bearer ${ jwt.sign({ pid: 'p2', handle: 'ghost' }) }` }
-    const rs = await Sync.get('/me').set(ghost).then(echo, echo)
+    const rs = await Sync.get('/api/player/me').set(ghost).then(echo, echo)
 
     assert.equal(rs.status, 404)
 })
 
 test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async () => {
-    const { body: [ ships  ] } = await Sync.get('/ships').set(bear)
-    const { body: [ cargo  ] } = await Sync.get('/cargo/s1').set(bear)
-    const { body: [ market ] } = await Sync.get('/market/st1').set(bear)
-    const { body: [ trades ] } = await Sync.get('/trades').set(bear)
+    const { body: [ ships  ] } = await Sync.get('/api/ship').set(bear)
+    const { body: [ cargo  ] } = await Sync.get('/api/ship/s1/cargo').set(bear)
+    const { body: [ market ] } = await Sync.get('/api/station/st1/market').set(bear)
+    const { body: [ trades ] } = await Sync.get('/api/market/trades').set(bear)
 
     assert.equal(ships.sid, 's1')
     assert.equal(ships.hull, 'starter')
@@ -430,17 +430,17 @@ test('GET/ships /cargo/:sid /market/:stid /trades return projection rows', async
 })
 
 test('GET/messages returns projection rows, owner-scoped', async () => {
-    const { body: [ mssg ] } = await Sync.get('/messages').set(bear)
+    const { body: [ mssg ] } = await Sync.get('/api/comms/messages').set(bear)
     assert.equal(mssg.mid, 'm1')
     assert.equal(mssg.from, 'p1')
 
     const stranger = { authorization: `Bearer ${ jwt.sign({ pid: 'p9', handle: 'ghost' }) }` }
-    const rs = await Sync.get('/messages').set(stranger)
+    const rs = await Sync.get('/api/comms/messages').set(stranger)
     assert.deepEqual(rs.body, [])
 })
 
 test('GET/ships/:sid/modules returns the fitted slots, owner-scoped', async () => {
-    const rs = await Sync.get('/ships/s1/modules').set(bear)
+    const rs = await Sync.get('/api/ship/s1/modules').set(bear)
     assert.equal(rs.status, 200)
     assert.deepEqual(rs.body, [{ slot: 'power1', gid: 'reactor.mk1' }])
 })
@@ -449,7 +449,7 @@ test('GET/ships/:sid/modules returns the fitted slots, owner-scoped', async () =
 // query must filter it out itself, hydrate can't rely on the live
 // socket path (mutateCargo() in events.js) to hide it for a fresh load
 test('GET /cargo/:sid excludes zero-quantity rows at the query level', async () => {
-    await Sync.get('/cargo/s1').set(bear)
+    await Sync.get('/api/ship/s1/cargo').set(bear)
     const cargo = pool.client.log.find(({ sql }) => sql.includes('FROM cargo'))
     assert.match(cargo.sql, /quantity > 0/)
 })
@@ -457,12 +457,12 @@ test('GET /cargo/:sid excludes zero-quantity rows at the query level', async () 
 // ── public ship traffic ──────────────────────────────────────────────────────
 
 test('GET/traffic needs a token - public means signed in, not anonymous', async () => {
-    const rs = await Sync.get('/traffic').then(echo, echo)
+    const rs = await Sync.get('/api/ship/traffic').then(echo, echo)
     assert.equal(rs.status, 401)
 })
 
 test('GET/traffic returns every ship, by handle, never by pid', async () => {
-    const { body } = await Sync.get('/traffic').set(bear)
+    const { body } = await Sync.get('/api/ship/traffic').set(bear)
 
     assert.equal(body.length, 2)
     assert.deepEqual(body.map(t => t.handle), [ 'alice', 'bob' ])
@@ -474,7 +474,7 @@ test('GET/traffic returns every ship, by handle, never by pid', async () => {
 })
 
 test('GET/station/:stid/ships filters by station', async () => {
-    const { body } = await Sync.get('/station/st1/ships').set(bear)
+    const { body } = await Sync.get('/api/station/st1/ships').set(bear)
 
     assert.equal(body.length, 1)
     assert.equal(body[ 0 ].handle, 'alice')
@@ -482,8 +482,8 @@ test('GET/station/:stid/ships filters by station', async () => {
 })
 
 test('both traffic routes run the same sql', async () => {
-    await Sync.get('/traffic').set(bear)
-    await Sync.get('/station/st1/ships').set(bear)
+    await Sync.get('/api/ship/traffic').set(bear)
+    await Sync.get('/api/station/st1/ships').set(bear)
 
     const [ fleet, station ] = pool.client.log
         .filter(q => q.sql.includes('JOIN players p'))
@@ -496,7 +496,7 @@ test('both traffic routes run the same sql', async () => {
 // ── admin routes ─────────────────────────────────────────────────────────────
 
 test('GET/admin/players without the admin role replies 403', async () => {
-    const rs = await Sync.get('/admin/players').set(bear).then(echo, echo)
+    const rs = await Sync.get('/api/admin/players').set(bear).then(echo, echo)
     assert.equal(rs.status, 403)
 })
 
@@ -511,10 +511,10 @@ test('admin routes: players, events, inventory, rebuild', async () => {
     const base    = `http://127.0.0.1:${ admin.port }`
 
     try {
-        const players   = await Sync.get(`${ base }/admin/players`).set(adminBear)
-        const events    = await Sync.get(`${ base }/admin/events`).set(adminBear)
-        const inventory = await Sync.get(`${ base }/admin/inventory/sol.outpost`).set(adminBear)
-        const rebuilt   = await Sync.post(`${ base }/admin/rebuild`, {}).set(adminBear)
+        const players   = await Sync.get(`${ base }/api/admin/players`).set(adminBear)
+        const events    = await Sync.get(`${ base }/api/admin/events`).set(adminBear)
+        const inventory = await Sync.get(`${ base }/api/admin/inventory/sol.outpost`).set(adminBear)
+        const rebuilt   = await Sync.post(`${ base }/api/admin/rebuild`, {}).set(adminBear)
 
         assert.deepEqual(players.body, [{ pid: 'p1', handle: 'alice', created: 'now', balance: 1000 }])
         assert.equal(events.body[ 0 ].event_type, 'player.created.v1')
@@ -558,7 +558,7 @@ test('waiter resolves undefined on timeout and cleans up', async () => {
 // keepalive) are garage/mw/ws's job - tested in its own repo, not here
 
 test('ws upgrade handshakes with a valid token', async () => {
-    const { rs, socket } = await wsConnect(gw.port, `?token=${ token }`)
+    const { rs, socket } = await wsConnect(gw.port, `api/feed?token=${ token }`)
 
     assert.equal(rs.statusCode, 101)
     assert.equal(rs.headers[ 'sec-websocket-accept' ], acceptKey('dGhlIHNhbXBsZSBub25jZQ=='))
@@ -566,13 +566,13 @@ test('ws upgrade handshakes with a valid token', async () => {
 })
 
 test('ws upgrade rejects a bad token with 401', async () => {
-    const { rs, socket } = await wsConnect(gw.port, '?token=nope')
+    const { rs, socket } = await wsConnect(gw.port, 'api/feed?token=nope')
     assert.equal(rs.statusCode, 401)
     socket?.destroy()
 })
 
 test('ws pushes events for the socket pid and filters others out', async () => {
-    const { socket } = await wsConnect(gw.port, `?token=${ token }`)
+    const { socket } = await wsConnect(gw.port, `api/feed?token=${ token }`)
     const received   = []
     const parser     = createFrameParser(f => received.push(Codec.decode(f.payload)))
     socket.on('data', chunk => parser.push(chunk))
@@ -595,7 +595,7 @@ test('ws pushes events for the socket pid and filters others out', async () => {
 })
 
 test('ws broadcasts market price changes to everyone', async () => {
-    const { socket } = await wsConnect(gw.port, `?token=${ token }`)
+    const { socket } = await wsConnect(gw.port, `api/feed?token=${ token }`)
     const received   = []
     const parser     = createFrameParser(f => received.push(Codec.decode(f.payload)))
     socket.on('data', chunk => parser.push(chunk))
@@ -612,7 +612,7 @@ test('ws broadcasts market price changes to everyone', async () => {
 })
 
 test('ws admin socket skips the pid filter - full firehose', async () => {
-    const { socket } = await wsConnect(gw.port, `?token=${ adminToken }`)
+    const { socket } = await wsConnect(gw.port, `api/feed?token=${ adminToken }`)
     const received   = []
     const parser     = createFrameParser(f => received.push(Codec.decode(f.payload)))
     socket.on('data', chunk => parser.push(chunk))
@@ -646,7 +646,7 @@ test('seesAll: admin and the owner see all, a stranger does not', () => {
 
 // one socket, decoding every frame it receives
 async function listenOn(t) {
-    const { socket } = await wsConnect(gw.port, `?token=${ t }`)
+    const { socket } = await wsConnect(gw.port, `api/feed?token=${ t }`)
     const got = []
     const parser = createFrameParser(f => got.push(Codec.decode(f.payload)))
     socket.on('data', chunk => parser.push(chunk))

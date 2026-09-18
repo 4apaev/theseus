@@ -31,7 +31,7 @@
           because the client map groups by it
         - `toJSON()` → `{ systems, stations, routes }` - plain wire shape,
           both directions of every link as its own row (gateway's
-          `GET /universe`)
+          `GET /api/universe`)
         - `path(from, to, velocity, acceleration)` → ordered stids, `from`
           and `to` both included, or `undefined` when nothing connects them -
           dijkstra, weighted by `legTime()`, not by `ly` alone, so the
@@ -55,7 +55,7 @@
       truth; ship-service and player-service import these instead of each
       reading their own env var with its own (driftable) default
     - `universeData` - `{ systems, stations, routes, goods, hulls, modules, starter, constants }`
-      - the full `GET /universe` wire payload, composed once at import time
+      - the full `GET /api/universe` wire payload, composed once at import time
 - `src/economy.js` - supply & demand, no state prices here
     - `price(base, stock, target, elasticity)` - scarcity ↑, glut ↓
     - `spread(price, margin)` → `{ price_buy, price_sell }` - station ask above bid

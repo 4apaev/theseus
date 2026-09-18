@@ -1,8 +1,11 @@
-/* eslint-disable camelcase */
-import Pt from 'node:path'
 import { fileURLToPath } from 'node:url'
-import Garage from 'garage'
-import { O, Is, Fail, guid, pick } from '@theseus/util'
+import Pt                from 'node:path'
+
+import Garage            from 'garage'
+
+import { O, Fail       } from '@theseus/util'
+import { CMD, EVT      } from '@theseus/contracts'
+
 import {
     hulls,
     goods,
@@ -12,31 +15,30 @@ import {
     universeData,
 } from '@theseus/domain'
 
-import { createCommandRecord } from '@theseus/kafka'
 import {
-    CMD, EVT,
-    createCommandEnvelope,
-} from '@theseus/contracts'
+    log,
+    auth,
+    json,
+    frontend,
+    requireRole,
+} from './mware/index.js'
+
+import { createCommands } from './commands.js'
+
+const GARAGE_DIR = Pt.dirname(fileURLToPath(import.meta.resolve('garage'))) // browser-safe subset of garage's source
 
 /**
- * @typedef { import('garage').MWare } MWare
- * @typedef { import('garage').GarageOptions } GarageOpt
+ * @param {RoutesInput} input
+ * @return {Garage}
  */
-
-const BODY_LIMIT = 0x10000
-
-// browser-safe subset of garage's source
-// served so the client can `import ... from 'garage/x'`
-const GARAGE_DIR = Pt.dirname(fileURLToPath(import.meta.resolve('garage')))
-
 export function createRoutes({
     jwt,
     waiter,
     queries,
     rebuild,
     producer,
-    service = 'gateway',
     clientPath,
+    service = 'gateway',
     nodeEnv = 'dev',
 }) {
 
@@ -47,164 +49,34 @@ export function createRoutes({
     }
 
     /** @type  { Garage } */
-    const gw = new Garage({ name: service, onerror })
+    const gw = new Garage({
+        name: service,
+        onerror,
+    })
 
-    // ── middleware ───────────────────────────────────────────
-
+    const cmd = createCommands(service, producer, waiter)
     const PUB_DIR = Pt.resolve(Pt.dirname(clientPath))
 
-    /** @type { MWare } */
-    async function log(rq, rs, next) {
-        const start = performance.now()
-        await next()
-        console.log(
-            // (new Date).toLocaleString('en-gb', { hour12: false }),
-            rs.status,
-            rq.method,
-            rq.url,
-            (performance.now() - start).toFixed(1).padEnd(4),
-        )
-    }
-
-    /** @type { MWare } */
-    function auth(rq, rs, next) {
-        const [ scheme, token ] = rq.get('authorization').split(/ +/)
-        scheme == 'Bearer' && token || Fail.raise(401, 'missing bearer token')
-
-        rq.claims = jwt.verify(token)
-        return next()
-    }
-
-    /**
-     * @param  { string } role
-     * @return { MWare  }
-     */
-    function requireRole(role) {
-        return (rq, rs, next) => {
-            rq.claims.role === role || Fail.raise(403, 'forbidden')
-            return next()
-        }
-    }
-
-    /** @type { MWare } */
-    async function json(rq, rs, next) {
-        rq.size > BODY_LIMIT && Fail.raise(413, 'body too large')
-
-        await rq.reader()
-        if (rq.error)
-            throw rq.error
-
-        Is.o(rq.body) || Fail.raise(400, 'invalid json body')
-        return next()
-    }
-    /**
-     * @param  { string  }  base
-     * @param  { Record<string, string> } [dict]
-     * @return { MWare }
-     */
-    function frontend(base, dict) {
-        O.setPrototypeOf(dict ??= {}, null)
-
-        return (rq, rs) => {
-            const path = Pt.join(base, dict[ rq.params.file ] ?? rq.params.file)
-            return path.startsWith(base + Pt.sep)
-                ? rs.file(path)
-                : rs.send(404, 'not found')
-        }
-    }
-
-    // ── commands ─────────────────────────────────────────────
-
-    function command(command_type, payload) {
-        return createCommandEnvelope({
-            cmd         : guid(),
-            requested_by: service,
-            command_type,             // validation failure → Fail 417 → http 400
-            payload,
-        })
-    }
-
-    /*
-        register the waiter, then publish - the memory broker in tests
-        delivers the reply before publish() resolves  */
-    async function publishAndWait(cmd, types) {
-        const reply = waiter.wait(cmd.correlation_id, types)
-        await producer.publish(createCommandRecord(cmd))
-        return reply
-    }
-
-    /**
-     * fires a command. with reply types, it waits for one and returns
-     * it too. with none, it does not wait.
-     *
-     * @param  { string    } ct  - the command type
-     * @param  { object    } pay - the command payload
-     * @param  { ...string } et  - reply event types to wait for
-     * @return { Promise<[ object, object | undefined ]> }
-     */
-    async function fire(ct, pay, ...et) {
-        const cmd = command(ct, pay)
-        const rs = et.length
-            ? await publishAndWait(cmd, et)
-            : await producer.publish(createCommandRecord(cmd))
-
-        return [ cmd, rs ]
-    }
-
-    /**
-     * builds a route handler for one command. the pid always comes
-     * from the token. keys names the body fields to copy, space
-     * separated. it never waits for a reply.
-     *
-     * @param  { { requested: string } } cmmd - the command's tree entry
-     * @param  { number } [code] - the http status to reply with
-     * @param  { string } [keys] - body fields to copy
-     * @return { MWare }
-     */
-    function postCmd(cmmd, code, keys) {
-        return async (rq, rs) => {
-            const payload = {
-                pid: rq.claims.pid,
-                ...(keys
-                    ? pick(rq.body, ...keys.match(/\w+/g))
-                    : rq.body),
-            }
-            const cmd = command(cmmd.requested, payload)
-            await producer.publish(createCommandRecord(cmd))
-
-            rs.json(code ?? 202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
-        }
-    }
-
-    // TODO: add service prefix for routes. see docs/tech.debt.md#gateway
     // ── routes ───────────────────────────────────────────────
 
     // ── public: client + universe ───────────────────────────
 
-    // per-request log line, off in test - tests fire many requests fast,
-    // console spam for each one buys nothing there
-    nodeEnv === 'test' || gw.use(log)
+    nodeEnv === 'test' || gw.use(log) // per-request log line, off in test
 
-    gw.get('/universe' , (rq, rs) => rs.json(200, universeData))
+    gw.get('/api/universe', (rq, rs) => rs.json(200, universeData))
 
     // ── static ───────────────────────────────────────────────
 
     gw.get('/', (rq, rs) => rs.file(clientPath))
-    gw.get('/pub/:file(.*)', frontend(PUB_DIR))
-    gw.get('/garage/:file(.*)', frontend(GARAGE_DIR, {
-        constants : '/constants.js',
-        mime      : '/mime.js',
-        sync      : '/sync.js',
-        use       : '/use.js',
-        util      : '/util.js',
-    }))
+    gw.get('/pub/:file(.*)'    , frontend(PUB_DIR))
+    gw.get('/garage/:file(.*)' , frontend(GARAGE_DIR))
 
     // ── json  ────────────────────────────────────────────────
 
-    gw.use('POST', 'DELETE', json)
+    gw.use('POST', 'PUT', json)
 
-    gw.post('/register', async (rq, rs) => {
-        const [ cmd, e ] = await fire(
+    gw.post('/api/auth/register', async (rq, rs) => {
+        const [ c, e ] = await cmd.fire(
             CMD.player.register.requested, {
                 handle: rq.body.handle,
                 password: rq.body.password,
@@ -213,18 +85,18 @@ export function createRoutes({
             EVT.player.registration.rejected,
         )
 
-        if (!e) return rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
+        if (!e) return rs.json(202, { cmd: c.cmd, correlation_id: c.correlation_id })
 
         e.event_type === EVT.player.created || Fail.raise(409, e.payload.reason)
 
         return rs.json(201, e.payload)
     })
 
-    gw.post('/login', async (rq, rs) => {
+    gw.post('/api/auth/login', async (rq, rs) => {
 
         const { login } = EVT.player
 
-        const [ , e ] = await fire(
+        const [ , e ] = await cmd.fire(
             CMD.player.login.requested,
             rq.body,
             login.succeeded,
@@ -242,16 +114,14 @@ export function createRoutes({
 
     // ── auth  ────────────────────────────────────────────────
 
-    gw.use(auth)
+    gw.use(auth(jwt))
 
-    // pid always comes from the token, never from the body
-
-    gw.post('/travel'         , postCmd(CMD.ship.travel        , 202, 'sid from to'))
-    gw.post('/rename'         , postCmd(CMD.ship.rename        , 202, 'sid name'))
-    gw.post('/buy'            , postCmd(CMD.market.buy         , 202, 'gid sid stid quantity price_unit_max'))
-    gw.post('/sell'           , postCmd(CMD.market.sell        , 202, 'gid sid stid quantity price_unit_min'))
-    gw.post('/modules/install', postCmd(CMD.ship.module.install, 202, 'sid slot gid'))
-    gw.del('/modules/remove'  , postCmd(CMD.ship.module.remove , 202, 'sid slot'))
+    gw.post('/api/ship/:sid/travel'      , cmd.route(CMD.ship.travel        , 202, 'from to'))
+    gw.put('/api/ship/:sid/name'         , cmd.route(CMD.ship.rename        , 202, 'name'))
+    gw.put('/api/ship/:sid/modules/:slot', cmd.route(CMD.ship.module.install, 202, 'gid'))
+    gw.del('/api/ship/:sid/modules/:slot', cmd.route(CMD.ship.module.remove , 202))
+    gw.post('/api/market/buy'            , cmd.route(CMD.market.buy         , 202, 'gid sid stid quantity price_unit_max'))
+    gw.post('/api/market/sell'           , cmd.route(CMD.market.sell        , 202, 'gid sid stid quantity price_unit_min'))
 
     /*
         to is the recipient's sid, the same public id traffic and
@@ -259,14 +129,13 @@ export function createRoutes({
         before the command fires. an unknown sid answers 404, the
         same as a ship route on a foreign or missing sid.
     */
-    gw.post('/messages', async (rq, rs) => {
+    gw.post('/api/comms/messages', async (rq, rs) => {
         const { to, body } = rq.body
         const pid = to ? await queries.shipOwner(to) : void 0
         to && !pid && Fail.raise(404, 'ship not found')
 
-        const cmd = command(CMD.comms.send.requested, { pid: rq.claims.pid, to: pid, body })
-        await producer.publish(createCommandRecord(cmd))
-        rs.json(202, { cmd: cmd.cmd, correlation_id: cmd.correlation_id })
+        const [ c ] = await cmd.fire(CMD.comms.send.requested, { pid: rq.claims.pid, to: pid, body })
+        rs.json(202, { cmd: c.cmd, correlation_id: c.correlation_id })
     })
 
     // ── modules ──────────────────────────────────────────────
@@ -277,14 +146,15 @@ export function createRoutes({
         it can be stale.
         the real command remains the authoritative check.
     */
-    gw.post('/modules/preview', async (rq, rs) => {
+    gw.post('/api/ship/:sid/modules/preview', async (rq, rs) => {
         const { pid } = rq.claims
-        const { gid, sid, slot } = rq.body
+        const { sid } = rq.params
+        const { gid, slot } = rq.body
         const ship = (await queries.ships(rq.claims.pid)).find(s => s.sid === sid)
+
         ship || Fail.raise(404, 'ship not found')
 
         const fitted = O.from((await queries.modules(sid, pid)).map(r => [ r.slot, r.gid ]))
-
         const { proposed, stats, errors } = previewRig(
             hulls[ ship.hull ],
             fitted,
@@ -313,33 +183,33 @@ export function createRoutes({
 
     // ── queries ──────────────────────────────────────────────
 
-    gw.get('/me', async (rq, rs) => {
+    gw.get('/api/player/me', async (rq, rs) => {
         const row = await queries.me(rq.claims.pid)
         row || Fail.raise(404, 'player not found')
         rs.json(200, row)
     })
 
-    gw.get('/ships'             , async (rq, rs) => rs.json(200, await queries.ships(rq.claims.pid)))
-    gw.get('/cargo/:sid'        , async (rq, rs) => rs.json(200, await queries.cargo(rq.params.sid, rq.claims.pid)))
-    gw.get('/ships/:sid/modules', async (rq, rs) => rs.json(200, await queries.modules(rq.params.sid, rq.claims.pid)))
-    gw.get('/market/:stid'      , async (rq, rs) => rs.json(200, await queries.market(rq.params.stid)))
-    gw.get('/trades'            , async (rq, rs) => rs.json(200, await queries.trades(rq.claims.pid)))
-    gw.get('/messages'          , async (rq, rs) => rs.json(200, await queries.messages(rq.claims.pid)))
+    gw.get('/api/ship'                 , async (rq, rs) => rs.json(200, await queries.ships(rq.claims.pid)))
+    gw.get('/api/ship/:sid/cargo'      , async (rq, rs) => rs.json(200, await queries.cargo(rq.params.sid, rq.claims.pid)))
+    gw.get('/api/ship/:sid/modules'    , async (rq, rs) => rs.json(200, await queries.modules(rq.params.sid, rq.claims.pid)))
+    gw.get('/api/station/:stid/market' , async (rq, rs) => rs.json(200, await queries.market(rq.params.stid)))
+    gw.get('/api/market/trades'        , async (rq, rs) => rs.json(200, await queries.trades(rq.claims.pid)))
+    gw.get('/api/comms/messages'       , async (rq, rs) => rs.json(200, await queries.messages(rq.claims.pid)))
 
     // ── public tier - any authenticated player ───────────────
 
     // one query serves both routes, so they cannot disagree
-    gw.get('/traffic'            , async (rq, rs) => rs.json(200, await queries.traffic()))
-    gw.get('/station/:stid/ships', async (rq, rs) => rs.json(200, await queries.traffic(rq.params.stid)))
+    gw.get('/api/ship/traffic'        , async (rq, rs) => rs.json(200, await queries.traffic()))
+    gw.get('/api/station/:stid/ships' , async (rq, rs) => rs.json(200, await queries.traffic(rq.params.stid)))
 
     // ── admin ────────────────────────────────────────────────
 
     const admin = requireRole('admin')
 
-    gw.get('/admin/players'        , admin, async (rq, rs) => rs.json(200, await queries.allPlayers()))
-    gw.get('/admin/events'         , admin, async (rq, rs) => rs.json(200, await queries.eventLog()))
-    gw.get('/admin/inventory/:stid', admin, async (rq, rs) => rs.json(200, await queries.inventory(rq.params.stid)))
-    gw.post('/admin/rebuild'       , admin, async (rq, rs) => rs.json(200, { replayed: await rebuild() }))
+    gw.get('/api/admin/players'        , admin, async (rq, rs) => rs.json(200, await queries.allPlayers()))
+    gw.get('/api/admin/events'         , admin, async (rq, rs) => rs.json(200, await queries.eventLog()))
+    gw.get('/api/admin/inventory/:stid', admin, async (rq, rs) => rs.json(200, await queries.inventory(rq.params.stid)))
+    gw.post('/api/admin/rebuild'       , admin, async (rq, rs) => rs.json(200, { replayed: await rebuild() }))
 
     gw.use((rq, rs) => rs.json(404, { error: 'not found' }))
 
@@ -347,3 +217,9 @@ export function createRoutes({
 
     return gw
 }
+
+/**
+ * @typedef { import('garage').MWare                   } MWare
+ * @typedef { import('garage').GarageOptions           } GarageOpt
+ * @typedef { import('../types/routes.js').RoutesInput } RoutesInput
+ */
