@@ -24,6 +24,7 @@
         "#projection/*" : "./apps/projection-service/src/*",
         "#player/*"     : "./apps/player-service/src/*",
         "#ship/*"       : "./apps/ship-service/src/*",
+        "#sim/*"        : "./packages/sim/src/*",
 
         "#db/*"         : "./packages/db/src/*",
         "#kafka/*"      : "./packages/kafka/src/*",
@@ -55,6 +56,9 @@
 
         "services:check": "node scripts/services-check.js",
 
+        "sim"                 : "node --env-file=./.env scripts/sim.js",
+        "sim:check"           : "node --env-file=./.env scripts/sim-check.js",
+        "sim:clean"           : "node --env-file=./.env scripts/sim-clean.js",
         "smoke"               : "node --env-file=./.env --env-file=./.env.dev scripts/smoke.js",
         "test:db:reset"       : "node --env-file=./.env --env-file=./.env.dev scripts/reset-test-db.js",
         "rebuild"             : "node --env-file=./.env scripts/rebuild.js",

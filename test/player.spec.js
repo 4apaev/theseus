@@ -296,7 +296,7 @@ test('debitWallet skips silently on duplicate rfid', async () => {
 })
 
 /*  wallet_transactions doubles as the rfid claim. a row for a refused
-    debit makes the ledger disagree with the balance - sim.invariants.js
+    debit makes the ledger disagree with the balance - packages/sim's invariants
     checks the same thing against a real database  */
 test('debitWallet writes no transaction row when it refuses', async () => {
     const client = fakeClient([
