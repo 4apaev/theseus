@@ -20,6 +20,7 @@ export default {
         ignoreStrings         : !1,
     }],
 
+    'camelcase'      :    [ 0, { properties: 'never' }],
     'comma-spacing'  :    [ 0, { after: true, before: false }],
     'no-multi-spaces':    [ 0, {
         ignoreEOLComments: !0,
@@ -76,7 +77,6 @@ export default {
     'semi'                           : [ 2, 'never'     ],
     'curly'                          : [ 2, 'multi-or-nest', 'consistent' ],
     'quotes'                         : [ 2, 'single', { allowTemplateLiterals: !0            }],
-    'camelcase'                      : [ 2, { properties         : 'never'                   }],
     'space-infix-ops'                : [ 2, { int32Hint          : !0                        }],
     'getter-return'                  : [ 2, { allowImplicit      : !0                        }],
     'require-atomic-updates'         : [ 2, { allowProperties    : !0                        }],
