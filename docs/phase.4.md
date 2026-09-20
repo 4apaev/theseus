@@ -2,43 +2,25 @@ phase 4
 ================
 
 
-protobuf!
-----------------
-
-research protobuf transport
-
-
-redesign
-----------------
-
-complete redesign.
-2d isometric pixel art kawaii.
-
-
-admin board ui
-----------------
+## 4.1 protobuf!
+## 4.2 research protobuf transport
+## 4.3 google / apple login for easy onboarding
+## 4.4 admin board ui
 
 - add/config system nodes
 - add/config goods nodes
 - debug options - tweak TIME_SCALE, STARTER_CREDITS, INTEREST_RATE
 
-
-client rewrite
-----------------
-
+## 4.5 client rewrite
 
 - frontend lib [lit](https://github.com/lit/lit/) + [jade](https://github.com/pugjs/pug/tree/master) style
 - client rewrite
 - the stickable/draggable/resizable panel layout
+- 3d eve style
+- 2d isometric (pixel art kawaii) [pixel art pack](https://kipperfalcon.itch.io/2d-isometric-pixel-space-pack)
 
-### re design (decision needed)
+## 4.6 add fun
 
-1. 3d eve style
-2. 2d isometric (old starcraft) [pixel art pack](https://kipperfalcon.itch.io/2d-isometric-pixel-space-pack)
-
-
-add fun
-----------------
 
 - port operation animations
 - random encaunters
@@ -49,8 +31,7 @@ add fun
 - space reaserch exploration
 
 
-player
-----------------
+## 4.7 player
 
 - p2p trading
 - public trade feed
@@ -58,8 +39,7 @@ player
 - ? transponder switch
 
 
-physics
-----------------
+## 4.8 physics
 
 - full hull catalogue, ship classes and buying ships
 - orbital mechanics
@@ -67,8 +47,7 @@ physics
 - KSP style piloting
 
 
-more economy
-----------------
+## 4.9 more economy
 
 - planets / station produce gdp
 - multi good station
@@ -76,8 +55,7 @@ more economy
 - station types beyond visibility labs / military / prison / gov / agriculture / ...
 
 
-tech debt
-----------------
+## 4.10 tech debt
 - dockerized deploy
 - `using`/`Symbol.dispose` for db client acquisition, `packages/db/src/query.js`'s
   `withClient` - deferred from phase 3 step 3.2, see [tech.debt.md](tech.debt.md)

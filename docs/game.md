@@ -369,10 +369,19 @@ form alliances and fractions
 - fire upon the deep
 - keng ho
 
+
+### ship's personal traits / characteristic
+
+slightly randomize ship's traits
+velocity, acceleration, etc
+
+
 ### repairs
 
 wear comes from use, the ship wears with time.
 player should invest in repairs, and care.
+
+ships's characteristics decay with `wear`.
 
 ship gains new trait - `wear`
 degraids with time + combat damage
