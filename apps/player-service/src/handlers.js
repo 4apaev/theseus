@@ -1,5 +1,3 @@
-/* eslint-disable camelcase */
-
 import { Outbox          } from '@theseus/db'
 import { guid, trim      } from '@theseus/util'
 import { readEnv         } from '@theseus/config'

@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { guid, pick } from '@theseus/util'
 import { createCommandRecord   } from '@theseus/kafka'
 import { createCommandEnvelope } from '@theseus/contracts'
