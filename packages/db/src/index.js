@@ -26,3 +26,5 @@ export {
     selectWhere,
     insert,
 } from './query.js'
+
+export { prune } from './prune.js'
