@@ -61,6 +61,7 @@
         "sim:clean"           : "node --env-file=./.env scripts/sim-clean.js",
         "smoke"               : "node --env-file=./.env --env-file=./.env.dev scripts/smoke.js",
         "test:db:reset"       : "node --env-file=./.env --env-file=./.env.dev scripts/reset-test-db.js",
+        "db:prune"            : "node --env-file=./.env scripts/db-prune.js",
         "rebuild"             : "node --env-file=./.env scripts/rebuild.js",
         "rebuild:market-ships": "node --env-file=./.env scripts/rebuild-market-ships.js"
     },
