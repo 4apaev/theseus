@@ -12,6 +12,21 @@ dangerous maneuver then load game from safe checkpoint.
 how does one implement such a thing?
 
 
+### no station sells an ansible
+
+`ansible.mk1` is the only module in the catalogue that no station
+stocks. `sol.outpost` sells the mk1 line, `sol.ganymede` the mk2 line,
+and neither lists it.
+
+every starter ship carries one in `utility1` (`starterRig` in
+`packages/domain/src/universe.js`), so the ansible works - once. remove
+it and it drops into the hold. sell it and it is gone for good, because
+there is nowhere to buy another.
+
+a one way door on a phase 3 feature. the fix is one entry in a station's
+`stocks`.
+
+
 ### ship's traits
 
 ship's personal traits / characteristic
@@ -53,6 +68,13 @@ methods" for the convention the current paths follow.
 
 
 ### db
+
+#### inbox and outbox never pruned - fixed ✔
+
+`npm run db:prune` clears published outbox rows and old inbox rows across
+every schema. 7 days by default, `PRUNE_DAYS` to change it. the 2 tables
+were 59% of the database's growth. cron it.
+
 
 #### db backups
 
@@ -191,6 +213,9 @@ create a branch specific dbs.
 see `ship-upgrades` vs `ship-modules` branch conflicts
 
 #### deploy
+
+see [deploy.md](deploy.md) - what has to run, the gaps that block it,
+how much data each player base makes, and what the cloud charges.
 
 dockerize the game. need a real plan for this.
 uptime check is a dev tool, not a production health check,
