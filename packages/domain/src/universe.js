@@ -365,7 +365,7 @@ universe.node('sol.titan',      { system: 'sol', name: 'Titan Ring',     produce
 universe.node('alpha.exchange', { system: 'alpha.centauri', name: 'Alpha Exchange', produces: { grain: 8 }, consumes: { spice: 5 }})
 universe.node('barnards.port',  { system: 'barnards.star',  name: 'Barnards Port',  produces: { spice: 8 }, consumes: { ore  : 5 }})
 universe.node('wolf.reach',     { system: 'wolf.359',       name: 'Wolf Reach',     produces: { grain: 9 }, consumes: { ore  : 6 }})
-universe.node('sirius.gate',    { system: 'sirius',         name: 'Sirius Gate',    produces: { ore  : 9 }, consumes: { spice: 6 }})
+universe.node('sirius.gate',    { system: 'sirius',         name: 'Sirius Gate',    produces: { ore  : 9 }, consumes: { spice: 6 }, stocks: [ 'ansible.mk1' ]})
 
 /*  ── sol system ───────────────────────────────────────────────
     in-system routes, in AU. a route's length is the gap between the
