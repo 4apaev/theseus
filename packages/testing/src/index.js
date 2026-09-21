@@ -55,8 +55,9 @@ const dict = {
     'ship.integration'               : '🚦 🛸 ∫∫ SHIP    ',
     'player.integration'             : '🚦 🎮 ∫∫ PLAYER  ',
     'market.integration'             : '🚦 🎰 ∫∫ MARKET  ',
-    'market.rebuild.integration'     : '🚦 🎰 ∫∫ REBUILD MARKET     ',
+    'market.rebuild.integration'     : '🚦 🎰 ∫∫ REBUILD MARKET ',
     'projection.rebuild.integration' : '🚦 📺 ∫∫ REBUILD PROJECTION ',
+    'projection.order.integration'   : '🚥 📺 ∫∫ ORDER ',
 }
 // comms 📻
 const name = process.argv[ 1 ]

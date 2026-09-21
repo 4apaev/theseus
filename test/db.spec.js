@@ -1,7 +1,7 @@
 import pg     from 'pg'
 import assert from 'node:assert/strict'
 import test   from 'node:test'
-import { readFile }   from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { setTimeout }   from 'node:timers/promises'
 
@@ -113,6 +113,20 @@ test('writeOutbox coerces missing key to null', async () => {
 
 // ── pollOutbox ────────────────────────────────────────────────────────────────
 
+/*  created holds the transaction start time, and 2 rows written in the
+    same instant share it. ordering the batch by created then leaves the
+    order to postgres, and a stale event overtakes a newer one - the
+    "ship not docked" fault of 2026-09-20. seq never ties.  */
+test('pollOutbox reads the batch in sequence order, not by timestamp', async () => {
+    const pool = fakePool([ () => ({ rows: []}) ])
+    await pollOutbox(pool, () => {}, { interval: 0 }).stop()
+
+    const [ fetch ] = pool.client.log.filter(q => q.sql.includes('FROM outbox'))
+    assert.ok(fetch, 'the poll reads the outbox')
+    assert.match(fetch.sql, /ORDER BY seq/)
+    assert.ok(!/ORDER BY created/.test(fetch.sql), 'created is not a total order')
+})
+
 test('pollOutbox publishes pending rows then marks them', async () => {
     const pending = [{ id: 'r1', topic: 'events.player', key: 'p1', payload: { eid: 'e1' }}]
     const published = []
@@ -188,6 +202,12 @@ test('migrate skips already-applied files', async () => {
     assert.ok(applied.includes('002_outbox.sql'))
 })
 
+// the count follows the folder, so a new migration never breaks a test
+function migrationFiles() {
+    return readdir(new URL('../packages/db/migrations', import.meta.url))
+        .then(files => files.filter(f => f.endsWith('.sql')).sort())
+}
+
 async function sumOf(name) {
     return readFile(new URL('../packages/db/migrations/' + name, import.meta.url), 'utf8')
         .then(x => createHash('sha256')
@@ -206,7 +226,7 @@ test('migrate records a checksum with every applied file', async () => {
     await migrate(pool)
     const rows = pool.client.log.filter(q => q.sql.includes('INSERT INTO schema_migrations'))
 
-    assert.equal(rows.length, 2)
+    assert.equal(rows.length, (await migrationFiles()).length)
 
     for (const q of rows)
         assert.match(q.params[ 1 ], /^[a-f0-9]{64}$/)
@@ -223,7 +243,8 @@ test('migrate keeps an applied file whose checksum still matches', async () => {
     const inserted = log
         .filter(q => q.sql.includes('INSERT INTO schema_migrations'))
         .map(q => q.params[ 0 ])
-    assert.deepEqual(inserted, [ '002_outbox.sql' ])
+    const rest = (await migrationFiles()).filter(f => f !== '001_inbox.sql')
+    assert.deepEqual(inserted, rest)
 })
 
 test('migrate rejects an applied file that changed on disk', async () => {

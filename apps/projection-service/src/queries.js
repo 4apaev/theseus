@@ -115,6 +115,11 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
             })
         },
 
+        /*  both guards compare the event's own clock with the clock
+            already on the row. an event that reaches the projection
+            late then changes nothing, and the newer state stands.
+            the outbox publishes in order, so this is the second lock
+            on the same door - kafka orders one partition only.  */
         shipDeparted({ payload }) {
             return sql`
                 UPDATE ships
@@ -126,7 +131,9 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
                        years_abs = ${ payload.years_abs },
                        years_rel = ${ payload.years_rel },
                        updated   = now()
-                 WHERE sid = ${ payload.sid }`
+                 WHERE sid = ${ payload.sid }
+                   AND (arrived IS NULL OR arrived <= ${ payload.departed }::timestamp)
+                   AND (departs IS NULL OR departs <  ${ payload.departed }::timestamp)`
         },
 
         shipArrived({ payload: { sid, stid, arrived }}) {
@@ -136,7 +143,9 @@ export function createQueries(pool, transact = (p, fn) => fn(p)) {
                        status  = 'docked',
                        arrived = ${ arrived },
                        updated = now()
-                 WHERE sid = ${ sid }`
+                 WHERE sid = ${ sid }
+                   AND (departs IS NULL OR departs <= ${ arrived }::timestamp)
+                   AND (arrived IS NULL OR arrived <  ${ arrived }::timestamp)`
         },
 
         shipRenamed({ payload: { sid, name }}) {

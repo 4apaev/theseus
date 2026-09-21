@@ -40,12 +40,16 @@ function insertOutboxRow(client, topic, key, value) {
     )
 }
 
+/*  seq, not created. created holds the transaction start time, and 2
+    rows written in the same instant carry the same value. a tie there
+    leaves the publish order to postgres, and a stale event then
+    overtakes a newer one.  */
 function fetchPending(client, batch) {
     return client.query(`
         SELECT id, topic, key, payload
           FROM outbox
          WHERE published IS NULL
-         ORDER BY created
+         ORDER BY seq
          LIMIT $1
     `, [ batch ]).then(r => r.rows)
 }
