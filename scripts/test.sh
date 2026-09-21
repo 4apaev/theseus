@@ -20,13 +20,12 @@ else
     SPECS="test/!(*.int*).spec.js"
 fi
 
-echo "┌──────────────┬─────────────────────────"
-echo "| SPECS        │ $SPECS                  "
-echo "│ COVERAGE     │ $COVERAGE               "
-echo "│ CONCURRENCY  │ $CONCURRENCY            "
-echo "│ GLOBAL_SETUP │ $GLOBAL_SETUP           "
-echo "└──────────────┴─────────────────────────"
-
+echo
+echo "| SPECS        │ $SPECS"
+echo "│ COVERAGE     │ $COVERAGE"
+echo "│ CONCURRENCY  │ $CONCURRENCY"
+echo "│ GLOBAL_SETUP │ $GLOBAL_SETUP"
+echo
 
 node                             \
     --env-file=./.env            \
