@@ -82,3 +82,17 @@ and they are the services' own bookkeeping.
 
 both keep working with no sim in sight, which is why they are a package
 and not a script.
+
+
+
+## TODO
+
+### 1. memorable names
+
+generate random names for game bots.
+si-fi classics & other pop-culture references
+
+### 1. reuse existing bots
+
+we talking about ~same amount of bots, ~ 10 - 20 bots per run
+instead of creating each time a new ones, reuse existing.

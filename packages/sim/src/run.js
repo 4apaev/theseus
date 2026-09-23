@@ -64,16 +64,15 @@ export function parseArgs(argv = process.argv.slice(2)) {
 
 // only the flags the caller gave - the rest keep whatever .env holds
 function defined(x) {
-    const out = {}
-    each(x, (k, v) => v === void 0 || (out[ k ] = v))
-    return out
+    const out = O.o
+    return each(x, (k, v) => v === void 0 || (out[ k ] = v), out)
 }
 
 /*  the world's tempo. drift runs on the wall clock and travel does not,
     so the 2 only keep their ratio when they move together. a run at one
     tempo does not compare to a run at another - the report carries it.  */
 export function tempo(tune = {}) {
-    const scale = +(tune.TIME_SCALE ?? readEnv('TIME_SCALE', 20))
+    const scale = +(tune.TIME_SCALE            ?? readEnv('TIME_SCALE', 20))
     const drift = +(tune.MARKET_DRIFT_INTERVAL ?? readEnv('MARKET_DRIFT_INTERVAL', 1000))
     return {
         time_scale     : scale,
@@ -86,16 +85,19 @@ export function tempo(tune = {}) {
 /*  services read the env at boot, so a new tempo needs a restart.
     a shell variable beats --env-file, so the children see these.  */
 async function retune(tune) {
-    const run = promisify(execFile)
     const env = { ...process.env, ...tune }
+    const exe = promisify(execFile)
 
     console.log('sim ⋮ retune %o - restarting services', tune)
-    await run('bash', [ 'scripts/stop.sh' ], { env })
-    await run('bash', [ 'scripts/start.sh' ], { env })
+    await exe('bash', [ 'scripts/stop.sh'  ], { env })
+    await exe('bash', [ 'scripts/start.sh' ], { env })
 }
 
-// mulberry32 - a seeded run repeats, so a failure repeats with it
-export function rng(seed) {
+/*
+    mulberry32 - 32-bit seedable pseudo-random number generator
+    a seeded run repeats, so a failure repeats with it.
+*/
+export function prng(seed) {
     let a = seed >>> 0
     return () => {
         a = a + 0x6D2B79F5 | 0
@@ -107,7 +109,7 @@ export function rng(seed) {
 
 export async function run(opt = parseArgs(), brain = dice) {
     const stats = new Stats
-    const rand  = rng(opt.seed)
+    const rand  = prng(opt.seed)
 
     O.keys(opt.tune ?? {}).length && await retune(opt.tune)
 
@@ -120,7 +122,7 @@ export async function run(opt = parseArgs(), brain = dice) {
     Sync.head = new Headers({ 'content-type': 'application/json' })
 
     const peers = A.fill(opt.players, i =>
-        new Player(`sim_${ opt.seed }_${ i }`, opt.base, stats, rng(opt.seed + i + 1)))
+        new Player(`sim_${ opt.seed }_${ i }`, opt.base, stats, prng(opt.seed + i + 1)))
 
     console.log('sim ⋮ %d players, %d min, seed %d', opt.players, opt.minutes, opt.seed)
 
