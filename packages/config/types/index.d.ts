@@ -11,3 +11,7 @@ export {
 export type {
     ServiceDescription,
 } from './service.js'
+
+export type {
+    EnvValue,
+} from './env.js'
