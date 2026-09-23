@@ -1,3 +1,5 @@
+import { Good, GoodSeed } from './model.js'
+
 export type Weight = 'light' | 'medium' | 'heavy'
 export type Context = 'field' | 'port' | 'dockyard'
 
@@ -50,30 +52,26 @@ export interface CargoLine {
     quantity: number
 }
 
-/** slot id -> gid, the starter ship's day-1 rig */
-export declare const starterRig  : Readonly<Record<string, string>>
-export declare const hulls       : Readonly<Record<'starter', Hull>>
-export declare const modules     : Readonly<Record<string, Design>>
-export declare const slotFamilies: readonly string[]
-export declare const mounts      : readonly [ 'light', 'medium', 'heavy' ]
+/** one row of the hulls seed */
+export interface HullSeed {
+    id: string
+
+    power_base: number
+    capacity_base: number
+    velocity_base: number
+    acceleration_base: number
+
+    power_max?: number
+    capacity_max?: number
+    velocity_max?: number
+    acceleration_max?: number
+
+    rates?: Rate[]
+    slots: Slot[]
+}
 
 export declare class Hull {
-    constructor(hull: {
-        id: string
-
-        power_base: number
-        capacity_base: number
-        velocity_base: number
-        acceleration_base: number
-
-        power_max?: number
-        capacity_max?: number
-        velocity_max?: number
-        acceleration_max?: number
-
-        rates?: Rate[]
-        slots: Slot[]
-    })
+    constructor(hull: HullSeed)
 
     id: string
 
@@ -87,21 +85,28 @@ export declare class Hull {
     velocity_max?: number
     acceleration_max?: number
 
-    rates: Rate[]
-    slots: Slot[]
+    rates: readonly Rate[]
+    slots: readonly Slot[]
 }
 
-export declare class Design {
-    constructor(design: {
-        family: string
-        mount: Weight
-        power: number
-        context?: Context
-        requires?: Rate[]
-        conflicts?: Rate[]
-        provides?: Rate[]
-        effects?: Effect[]
-    })
+/** one row of the modules seed - the trade half and the fitting half */
+export interface DesignSeed extends Omit<GoodSeed, 'kind'> {
+    /** one of `slotFamilies` */
+    family: string
+    mount: Weight
+    /** draw, 0 for none */
+    power: number
+    /** where it may be installed or removed */
+    context?: Context
+    requires?: Rate[]
+    conflicts?: Rate[]
+    provides?: Rate[]
+    effects?: Effect[]
+}
+
+/** a module is a good with a fitting */
+export declare class Design extends Good {
+    constructor(gid: string, design: DesignSeed)
 
     family: string
     power: number
@@ -127,6 +132,13 @@ export declare class Fitting {
     ): RigPreview
 }
 
+
+/** slot id -> gid, the starter ship's day-1 rig */
+export declare const starterRig  : Readonly<Record<string, string>>
+export declare const hulls       : Readonly<Record<'starter', Hull>>
+export declare const modules     : Readonly<Record<string, Design>>
+export declare const slotFamilies: readonly string[]
+export declare const mounts      : readonly [ 'light', 'medium', 'heavy' ]
 
 export declare const fitting: Fitting
 export declare const deriveStats: Fitting[ 'deriveStats' ]

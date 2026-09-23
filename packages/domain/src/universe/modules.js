@@ -5,11 +5,15 @@ import {
     Fail,
 } from '@theseus/util'
 
+import { Good } from './model.js'
+
 /**
  * @see {@link docs/modules.md}
  * @description ship modules - pure catalogue + resolver, no io.
  *
- * a module design is not a `good` (universe.js's `goods`).
+ * a module design IS a `good` - Design extends it. one seed row
+ * carries both halves, so the trade facts and the fitting facts
+ * cannot drift apart.
  * the design holds family/mount/power/requirements/effects.
  * the good holds name/price/kind/volume. they join on a shared gid.
  * this file imports nothing from universe.js, so universe.js
@@ -23,9 +27,18 @@ import {
  * one module design - immutable once constructed.
  * a bad or missing field throws here, not on first use.
  */
-export class Design {
+export class Design extends Good {
     /**
+     * a module is a good with a fitting. Good carries what a station
+     * sells - name, price, volume. Design adds what a slot does with
+     * it. one seed row, so the 2 halves cannot drift apart.
+     *
+     * @param {string} gid
      * @param {object} design
+     * @param {string} design.name        - what a station sells it as
+     * @param {number} design.price_base
+     * @param {number} design.elasticity
+     * @param {number} design.volume      - hold space for one unit
      * @param {string} design.family  - one of {@link slotFamilies}
      * @param {Weight} design.mount
      * @param {number} design.power   - draw, 0 for none
@@ -35,19 +48,23 @@ export class Design {
      * @param {Rate[]} [design.provides]
      * @param {Effect[]} [design.effects]
      */
-    constructor({
-        family,
-        mount,
-        power,
-        context = 'port',
-        requires = [],
-        conflicts = [],
-        provides = [],
-        effects = [],
-    }) {
-        family        || Fail.raise('module design needs a family')
-        mount         || Fail.raise('module design needs a mount size')
-        power == null && Fail.raise('module design needs a power draw')
+    constructor(gid, design) {
+        super(gid, { ...design, kind: 'module' })
+
+        const {
+            family,
+            mount,
+            power,
+            context = 'port',
+            requires = [],
+            conflicts = [],
+            provides = [],
+            effects = [],
+        } = design
+
+        family        || Fail.raise(`module ${ gid } needs a family`)
+        mount         || Fail.raise(`module ${ gid } needs a mount size`)
+        power == null && Fail.raise(`module ${ gid } needs a power draw`)
 
         this.family    = family
         this.mount     = mount
@@ -274,25 +291,25 @@ export const slotFamilies = O.freeze(A.of(
 
 /** @type {Record<string, Design>} */
 export const modules = O.freeze(O.setPrototypeOf({
-    'reactor.mk1': new Design({ family: 'power', mount: 'light', power: 1, provides: [{ rate: 'power', rank: 1 }], effects: [{ stat: 'power', kind: 'flat', value: 5 }]}),
-    'reactor.mk2': new Design({ family: 'power', mount: 'light', power: 2, provides: [{ rate: 'power', rank: 2 }], effects: [{ stat: 'power', kind: 'flat', value: 9 }]}),
+    'reactor.mk1': new Design('reactor.mk1', { name: 'reactor mk1', price_base: 200, elasticity: 1.0, volume: 4, family: 'power', mount: 'light', power: 1, provides: [{ rate: 'power', rank: 1 }], effects: [{ stat: 'power', kind: 'flat', value: 5 }]}),
+    'reactor.mk2': new Design('reactor.mk2', { name: 'reactor mk2', price_base: 900, elasticity: 1.0, volume: 4, family: 'power', mount: 'light', power: 2, provides: [{ rate: 'power', rank: 2 }], effects: [{ stat: 'power', kind: 'flat', value: 9 }]}),
 
     // needs reactor.mk2's power rank - a real dependency, not history
-    'cruise.mk1': new Design({ family: 'cruise', mount: 'light', power: 1 }),
-    'cruise.mk2': new Design({ family: 'cruise', mount: 'light', power: 2, requires: [{ rate: 'power', rank: 2 }], effects: [{ stat: 'velocity', kind: 'percent', value: 0.08 }]}),
+    'cruise.mk1': new Design('cruise.mk1', { name: 'cruise drive mk1', price_base: 150, elasticity: 1.0, volume: 6, family: 'cruise', mount: 'light', power: 1 }),
+    'cruise.mk2': new Design('cruise.mk2', { name: 'cruise drive mk2', price_base: 1200, elasticity: 1.0, volume: 6, family: 'cruise', mount: 'light', power: 2, requires: [{ rate: 'power', rank: 2 }], effects: [{ stat: 'velocity', kind: 'percent', value: 0.08 }]}),
 
     // a maneuver drive sets in-system acceleration.
     // a cruise drive sets interstellar velocity - see docs/modules.md.
-    'maneuver.mk1': new Design({ family: 'maneuver', mount: 'light', power: 1 }),
-    'maneuver.mk2': new Design({ family: 'maneuver', mount: 'light', power: 2, requires: [{ rate: 'power', rank: 2 }], effects: [{ stat: 'acceleration', kind: 'flat', value: 0.004 }]}),
+    'maneuver.mk1': new Design('maneuver.mk1', { name: 'maneuver drive mk1', price_base: 120, elasticity: 1.0, volume: 6, family: 'maneuver', mount: 'light', power: 1 }),
+    'maneuver.mk2': new Design('maneuver.mk2', { name: 'maneuver drive mk2', price_base: 900, elasticity: 1.0, volume: 6, family: 'maneuver', mount: 'light', power: 2, requires: [{ rate: 'power', rank: 2 }], effects: [{ stat: 'acceleration', kind: 'flat', value: 0.004 }]}),
 
-    'cargo.mk1': new Design({ family: 'cargo', mount: 'light', power: 0 }),
-    'cargo.mk2': new Design({ family: 'cargo', mount: 'light', power: 1, effects: [{ stat: 'capacity', kind: 'flat', value: 10 }]}),
+    'cargo.mk1': new Design('cargo.mk1', { name: 'cargo module mk1', price_base: 100, elasticity: 1.0, volume: 8, family: 'cargo', mount: 'light', power: 0 }),
+    'cargo.mk2': new Design('cargo.mk2', { name: 'cargo module mk2', price_base: 500, elasticity: 1.0, volume: 8, family: 'cargo', mount: 'light', power: 1, effects: [{ stat: 'capacity', kind: 'flat', value: 10 }]}),
 
     // a transceiver is small, general-purpose gear. it fits the
     // doc's own 'utility' family. the field context lets a player
     // fit it docked or in transit.
-    'ansible.mk1': new Design({ family: 'utility', mount: 'light', power: 1, context: 'field' }),
+    'ansible.mk1': new Design('ansible.mk1', { name: 'ansible transceiver', price_base: 80, elasticity: 1.0, volume: 2, family: 'utility', mount: 'light', power: 1, context: 'field' }),
 }, null))
 
 /** @type {Record<'starter', Hull>} */
@@ -335,9 +352,14 @@ export const starterRig = O.freeze({
     the real, live catalogue - every service imports these 3, bound to
     the module-level `modules` above
 */
-export const fitting     = new Fitting
+/** the live catalogue, bound once */
+export const fitting = new Fitting
+
+/** {@link Fitting.deriveStats}, on the live catalogue */
 export const deriveStats = fitting.deriveStats.bind(fitting)
-export const previewRig  = fitting.previewRig.bind(fitting)
+
+/** {@link Fitting.previewRig}, on the live catalogue */
+export const previewRig = fitting.previewRig.bind(fitting)
 
 // ── functions ──────────────────────────────────────────────────
 
@@ -443,13 +465,13 @@ export function previewExchange(load, goods, { incoming, outgoing }) {
 
 /**
  *
- * @typedef { import('../types/modules.d.ts').Weight     } Weight
- * @typedef { import('../types/modules.d.ts').Context    } Context
- * @typedef { import('../types/modules.d.ts').Slot       } Slot
- * @typedef { import('../types/modules.d.ts').Rate       } Rate
- * @typedef { import('../types/modules.d.ts').Effect     } Effect
- * @typedef { import('../types/modules.d.ts').Stats      } Stats
- * @typedef { import('../types/modules.d.ts').Operation  } Operation
- * @typedef { import('../types/modules.d.ts').RigContext } RigContext
- * @typedef { import('../types/modules.d.ts').RigPreview } RigPreview
+ * @typedef { import('../../types/universe/modules.js').Weight     } Weight
+ * @typedef { import('../../types/universe/modules.js').Context    } Context
+ * @typedef { import('../../types/universe/modules.js').Slot       } Slot
+ * @typedef { import('../../types/universe/modules.js').Rate       } Rate
+ * @typedef { import('../../types/universe/modules.js').Effect     } Effect
+ * @typedef { import('../../types/universe/modules.js').Stats      } Stats
+ * @typedef { import('../../types/universe/modules.js').Operation  } Operation
+ * @typedef { import('../../types/universe/modules.js').RigContext } RigContext
+ * @typedef { import('../../types/universe/modules.js').RigPreview } RigPreview
  */

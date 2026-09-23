@@ -2,7 +2,7 @@ import { random } from 'garage/util'
 
 // curated, from Iain M. Banks' Culture novels
 const CULTURE = split`
-far treasure		nostromo
+far treasure                        		nostromo
 a momentary lapse of sanity           		a series of unlikely explanations                   	a ship with a view
 ablation                              		added value                                         	advanced case of chronic patheticism
 all the same, i saw it first          		all through with this niceness and negotiation stuff	another fine product from the nonsense factory

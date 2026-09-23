@@ -1,11 +1,13 @@
-export function price(
+/** the price of one unit against its stock */
+export declare function price(
     base: number,
     stock: number,
     target: number,
     elasticity?: number
 ): number
 
-export function spread(
+/** the 2 sides of the spot price */
+export declare function spread(
     px: number,
     margin?: number
 ): {
