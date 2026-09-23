@@ -295,6 +295,129 @@ claim in `packages/domain/readme.md` became wrong. the weight now calls
 
 ### step 3.6 - universe growth, more stations
 
+**split universe.js first.** the file runs 491 lines, and it holds 4
+jobs. only one of them grows with content:
+
+| lines | what | grows? |
+|-------|------|--------|
+| 9-245 | `class Universe` - the graph, `path()`, `distance` | no |
+| 254-343 | `closest`, `trace`, `au()`, `legTime()`, constants | no |
+| **345-420** | **the systems, the stations, the links** | **yes** |
+| 422-480 | goods, starter ship, constants, `universeData` | slowly |
+
+```
+packages/domain/src/universe/
+  graph.js    the engine
+  space.js    AU, SUBLIGHT, LY, au(), legTime()
+  systems.js  the map data - the only file content touches
+  goods.js    the goods table
+  index.js    composes them, exports universeData
+```
+
+`packages/domain/src/index.js` is the only importer, so the move costs
+one line.
+
+**a system declares orbits, and the links fall out of the radii.** the
+comment above Sol's links spends 20 lines to derive `au(0.613)` and
+`au(8.537)` by hand, and to argue which direct link beats the long way
+round. that derivation belongs in code:
+
+```js
+system('sol', {
+    name: 'Sol', star: 'G2V yellow dwarf',
+    gateway: 'sol.outpost',
+    orbits: {
+        'sol.mercury': { name: 'Mercury Deep', au: 0.387, produces: { ore: 10 }, consumes: { grain: 6 }},
+        ...
+    },
+})
+```
+
+`link(a, b) = |au(a) - au(b)|` at `SUBLIGHT`. 3 rules build the set:
+every station links to its orbit neighbours, every station links to the
+gateway, and a link drops when a 3rd station sits between the ends and
+the detour costs no more time. `legTime()` is subadditive, so the direct
+link always wins - the comment's prose becomes an assertion.
+
+**an inner well is `orbits` with more than one entry.** a bare gateway
+declares one. that is the whole distinction, and it needs no new idea.
+
+**goods gain one validation pass at build**: every `produces`,
+`consumes` and `stocks` gid must name a good or a module that exists. a
+typo fails silently today.
+
+#### the candidates
+
+distances come from `docs/hygdata_v42.csv`. names come from
+[game.md](game.md)'s "notable sifi refs".
+
+| system | distance | type | inner well |
+|--------|----------|------|------------|
+| Ran, ε Eridani | 10.49 ly | K2V | yes, 3 stations |
+| Procyon | 11.46 ly | F5IV-V | yes, 3 stations |
+| Lalande 21185 | 8.31 ly | M2V | yes, 2 stations |
+| Ross 154 | 9.69 ly | M3.5Ve | no, gateway only |
+| Lacaille 9352 | 10.68 ly | M2/M3V | no, gateway only |
+
+the existing stars gain inner systems, except Alpha Centauri:
+Barnards Star, Wolf 359 and Sirius take 2 each, and Alpha stays a bare
+exchange. the map then runs about 27 stations against 10 today, which
+is where the O(V²) scan starts to cost - so the heap lands with
+something to measure.
+
+#### classes at the boundary
+
+`Good`, `Sys` and `Station` take a raw object and validate it in the
+constructor, the way `Hull` and `Design` already do in `modules.js`.
+the types then live on the class, so every consumer reads the same
+shape whatever the raw data came from. reuse the predicates in
+`packages/contracts/src/field.js` - `nonEmptyString`, `positiveNumber`.
+
+a constructor sees one row, so it cannot catch a cross reference. a
+typo in `produces: { gráin: 7 }` builds a valid object. the composer
+catches it, in 2 passes:
+
+1. construct every `Good` - the registry
+2. construct every `Sys` and `Station`
+3. resolve: every `produces`, `consumes` and `stocks` gid must name a
+   good or a module that exists
+4. derive the links from the orbit radii
+5. freeze
+
+pass 3 is pure - no pool, no env, no disk. so it runs in the fast ci
+job, and a typo fails the pull request before the integration job
+starts.
+
+#### seed data is code
+
+the raw data stays in the repository, and it ships inside the image.
+
+an event only means something against the map that computed it.
+`ship.departed { from: 'sol.mars', years_abs: 8.6 }` reads as 8.6
+because of one set of orbit radii. change a radius after players fly
+there, and a projection rebuild answers differently from the events on
+record. **the seed is part of the event log's meaning.**
+
+so the admin board of [phase.4.md](phase.4.md) step 4.4 holds 2 powers,
+and they are not alike:
+
+| | changes | how it changes |
+|-|---------|----------------|
+| the universe - systems, stations, goods, modules | the meaning of past events | a commit, a review, a deploy |
+| the tunables - TIME_SCALE, STARTER_CREDITS, spread, drift | only what happens next | live, at runtime |
+
+the classes make the file format a later question. `Station` converts
+plain AU in its constructor, so a `.js` literal, a `.json` file and a
+row from the admin board all produce the same validated object. build
+the classes first, and swap the source when the board needs it.
+
+see [deploy.md](deploy.md) for the seed hash that names which map ran.
+
+see [game.md](game.md)'s "the gravity well" for the term that makes an
+inner orbit expensive. it is not part of this step, and this step gives
+it somewhere to apply.
+
+
 only Sol is built out (`client.md` TODO, `packages/domain/readme.md`
 TODO). Alpha Centauri, Barnards Star, Wolf 359 and Sirius hold one
 station each. add 2-3 more per system, same pattern as Sol's build-out

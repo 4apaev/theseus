@@ -50,6 +50,30 @@ the gaps that block a deploy
 postgres is a lost game even with kafka intact. backups are not optional.
 
 
+the seed hash
+------------------------------------------------
+
+nothing records which map produced an event. an event only means
+something against the universe that computed it, so a changed orbit
+radius makes a rebuild disagree with the events on record, and no one
+can tell why.
+
+the fix is a sha256 of the raw seed data. 3 places carry it, and the
+first 2 cost nothing:
+
+1. **the boot log.** the service prints the hash at start. this alone
+   answers "which map ran on tuesday".
+2. **a `seed` row per boot** - hash, time, service. a rebuild then
+   compares against the map it replays.
+3. **the event envelope.** use 8 hex characters, not 64. a full hash
+   adds about 80 bytes to a 750 byte record, which is 11% more kafka -
+   near 11 GB a year at 3000 players. 8 characters cost 1.5%, and the
+   candidate set is only "maps this project shipped".
+
+take 1 and 2 now. take 3 when a rebuild first disagrees, and 8
+characters will be the reason it is affordable.
+
+
 the prune job
 ------------------------------------------------
 

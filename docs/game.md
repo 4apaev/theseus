@@ -150,6 +150,10 @@ theseus right now doesn't fell like a game, more like a simulation, (which is ok
 in order to feel like a real game it need a good balance.
 after most of the mechanics are implemented, the balance phase should be planed.
 
+**scheduled** - see [phase.4.md](phase.4.md) step 4.11. the sim measures
+it, and an agent player gates it: the dice never haul cargo on purpose,
+so every run today measures the dice and not the game.
+
 
 ideas
 ------------------------------------------------
@@ -206,6 +210,125 @@ let player decide about:
 [phase.3.md](phase.3.md) step 3.5, in-system travel only. the fuller
 vision here - player-controlled burns, fuel mass, cargo weight - stays
 an idea, not scheduled (see phase.3.md's "explicitly out").
+
+### the gravity well
+
+`legTime()` knows distance, speed and acceleration. it does not know
+that a star pulls. so the inner system is the cheapest place on the
+map today. Sol Outpost to a station at 0.05 AU is a 1.29 AU hop, which
+is shorter than Mars to Ganymede. physically it is the most expensive
+address in the game.
+
+one term repairs this. effective acceleration becomes `a - GM/r²`.
+
+solar gravity against the starter ship, which pushes 0.002 m/s²:
+
+| orbit | solar g | against the starter |
+|-------|---------|---------------------|
+| 0.05 AU | 2.37 m/s² | 1185x |
+| 0.2 AU | 0.148 | 74x |
+| 0.387 AU, Mercury | 0.0396 | 20x |
+| 1.336 AU, the Outpost | 0.0033 | 1.7x |
+| 5.2 AU, Ganymede | 0.00022 | 0.1x |
+
+the radius where the star pulls as hard as the ship pushes:
+
+| acceleration | holds station down to |
+|--------------|-----------------------|
+| 0.002, starter | 1.72 AU |
+| 0.006, with maneuver.mk2 | 0.99 AU |
+| 0.02 | 0.54 AU |
+| 0.10 | 0.24 AU |
+
+so the starter ship cannot reach Mercury under its own thrust. it gets
+there today only because the arithmetic ignores the well.
+
+**what the term buys**: the inner system gates on the drive, not on the
+wallet. a new maneuver tier opens a place, and not a number on a panel.
+an Icarus station at 0.05 AU asks for about 2.4 m/s², which is 3 tiers
+past anything the game ships. `path()` also gains a new answer - a leg
+that is impossible for this ship, rather than merely slow. the
+`no route to destination` rejection already carries it.
+
+**the caution**: every in-system leg changes, because Sol's own
+stations sit between 0.387 and 9.5 AU. Mercury and Venus turn hard for
+a starter ship, and the early game moves to the outer system. that is
+either the best part of the idea or a balance fault. the sim answers it
+first - run the dice players with the term on, and read the rejection
+mix.
+
+
+### fuel
+
+the fuller ΔV vision above wants fuel with mass. 4 shapes carry it, and
+they are not the same feature. pick the payload first:
+
+1. **range** - some places need a plan. only this one changes the map.
+2. **a hold tradeoff** - carry cargo, or carry fuel.
+3. **stranding** - a ship that cannot pay to leave. the most
+   interesting state in the list, and a rage quit with no rescue rule.
+
+| shape | what it costs to build |
+|-------|------------------------|
+| **a good** with `volume`, sold everywhere | almost nothing. cargo, trades, drift and capacity already carry it, and the market prices it by scarcity. it takes hold space, so payload 2 arrives free |
+| **a ship stat** with a refuel command | its own price rule, its own panel, and it reuses nothing |
+| **tiers** - reaction mass everywhere, antimatter from Icarus | this is the shape that makes Icarus matter. module tiers become a fuel unlock |
+| **none** - the well and the clock are the cost | zero new parts |
+
+**spend fuel per ΔV, not per distance.** an in-system leg is a
+brachistochrone burn, and `legTime()` already computes it, so the ΔV
+falls out. an interstellar leg holds one speed, so it costs one boost
+and one brake. a climb out of a well costs the extra above.
+
+the ships cruise at 0.6c. the true rocket equation at that speed asks
+for a mass ratio in the thousands, so full fidelity breaks the setting.
+**fuel as mass** - a full tank accelerates slower - closes the loop with
+the well, and it also makes every route recursive, because `path()`
+must then solve for the fuel it carries. leave it out of the first
+version.
+
+
+### fees and taxes
+
+the game already charges a tax, and nobody named it. `spread(px, 0.1)`
+sells to the player at +10% of spot, and buys from the player at -10%.
+a round trip costs **22.2% of spot** before anything else.
+
+so a trade pays only when the destination beats the origin by more than
+22%. the price curve reaches that easily - a stock ratio of 1.5 gives
+ore a 1.63x price. profitable arbitrage exists. the dice players never
+found it, because they buy and sell at the same station.
+
+**a flat fee is a number someone invents. a derived fee is a
+consequence of the map.**
+
+| fee | derived from | what it makes true |
+|-----|--------------|--------------------|
+| docking | orbit radius, `GM/r²` | a deep well port costs energy to hold. Icarus becomes the dearest dock, for a physical reason |
+| handling | cargo volume moved | bulk ore costs more to shift than spice. `volume` sits on every good, and nothing prices it |
+| sales tax | the station's produces or consumes map | a consumer station subsidises a good. a producer taxes the export |
+
+all 3 read data that exists. none asks for a new number per station.
+
+fees repair the Icarus price without a single change to `legTime()`.
+the gravity well stays the better idea, because it gates on the ship
+and not on the wallet. the 2 stack: hard to reach, and dear on arrival.
+
+**the caution**: every sim run so far ends with the players in the red
+and the stations ahead - station profit +1645 against players at -936.
+fees deepen a hole that is already too deep. the report's
+`player_profit` and `station_profit` are the same subtraction from both
+sides, so they are the gauge.
+
+
+### the order
+
+1. the gravity well. one term, no new subsystem, and it gates the map.
+2. an agent player that hauls cargo on purpose, so the real margin
+   becomes measurable. see [sim.md](sim.md).
+3. fees, set to what that margin carries.
+4. fuel, only if the map still needs a reason to plan.
+
 
 ### orbital mechanics
 

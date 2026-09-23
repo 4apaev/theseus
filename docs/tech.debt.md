@@ -196,6 +196,99 @@ add prestart phase when queries compiled
 ```
 
 
+#### assertations mess
+
+there is a banch of wild assertations accros the code base.
+
+move all of them to one place, under `@theseus/util`
+a `field` from contracts and others
+
+
+extend `Is` from utils:
+
+- `Is.n.positive`
+- `Is.N.positive`
+- `Is.not.s.empty`
+- etc...
+
+add `dig` function so Is.not can access deep methods:
+
+add a new `Proxy` as in `Is.not` - `Is.assrt`,
+so each `Is` method can be invoked with: `Is.assrt.{ method }(...)`
+
+```js
+
+function dig(ctx, path, flbck) {
+  return path.split('.').every(k => Is(ctx = ctx[ k ]))
+    ? ctx
+    : flbck
+}
+
+dig({ a: { b: { c: { d: 42 }}}}, 'a.b.c.d') // -> 42
+
+Is.assrt = new Proxy(Is, { get: (f, k) => (...a) => Fail.ok(f[ dig(f, k) ](...a)) })
+Is.not = new Proxy(Is, { get: (f, k)    => (...a) => !f[ dig(f, k) ](...a) })
+```
+
+add calc - so assertation can be invoked by
+
+```js
+
+calc.assrt(1, '<=', 2)
+calc.assrt(1, '|', 2)
+
+calc.eq(1, '1')
+calc.eql(1, '1')
+
+
+export function calc(...a) {
+
+  const [ opr, ...alias ] = String.raw(...a).match(/\S+/g)
+  const fn = new Function(`a, b`, `return a ${ opr } b`)
+
+  fn.all = (head, ...tail) =>
+    tail.reduce(fn, head)
+
+  calc.operators ??= O.o
+  calc.operators[ opr ] = fn
+
+  for (let k of alias)
+    calc.operators[ k ] = fn
+
+  return fn
+}
+
+calc`eq     == `
+calc`eql    ===`
+
+calc`noteq  != `
+calc`noteql !==`
+
+calc`gt     >  `
+calc`gte    >= `
+calc`lte    <= `
+calc`lt     <  `
+
+calc`sum    +  `
+calc`sub    -  `
+
+calc`mul    *  `
+calc`pow    ** `
+
+calc`div    /  `
+calc`mod    %  `
+
+calc`or  |`
+calc`and &`
+
+calc`OR  ||`
+calc`AND &&`
+
+calc`shft >>>`
+```
+
+
+
 
 ### infra
 
